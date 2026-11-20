@@ -332,6 +332,19 @@ describe("the patient app's Messages (SUP13)", async () => {
     expect((await app.inject({ method: 'POST', url: `/v1/patient/tickets/${ticketId}/messages`, headers: someoneElse, payload: { body: 'Hi' } })).statusCode).toBe(404);
     expect((await app.inject({ method: 'GET', url: '/v1/patient/tickets', headers: someoneElse })).json().tickets).toEqual([]);
   });
+
+  it("records the brand whose verified domain the app was opened on, and none for another tenant's", async () => {
+    const mine = await patient();
+    const own = await createBrand(t.tenantId, { status: 'live', host: `help-${randomUUID().slice(0, 8)}.example.test`, verifiedBy: t.owner.id });
+    const other = await setUp();
+    const theirs = await createBrand(other.tenantId, { status: 'live', host: `help-${randomUUID().slice(0, 8)}.example.test`, verifiedBy: other.owner.id });
+    const open = (host: string) =>
+      app.inject({ method: 'POST', url: '/v1/patient/tickets', headers: { ...mine, 'x-medora-brand-host': host }, payload: { topic: 'orders', body: 'Where is my parcel?' } });
+    const branded = (await open(own.host!)).json().ticketId;
+    const unbranded = (await open(theirs.host!)).json().ticketId;
+    const rows = await admin.query('select id, brand_id from operational.tickets where id = any($1)', [[branded, unbranded]]);
+    expect(Object.fromEntries(rows.rows.map((row) => [row.id, row.brand_id]))).toEqual({ [branded]: own.brandId, [unbranded]: null });
+  });
 });
 
 describe('logging a call (SUP7)', async () => {

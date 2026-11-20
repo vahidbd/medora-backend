@@ -100,6 +100,8 @@ export async function openPatientTicket(
     topic: PatientTopic;
     subject?: string | null | undefined;
     body: string;
+    /** The brand the app was opened under, when the host matched one (SUP13). */
+    brandId?: string | null | undefined;
   },
 ) {
   const received = await receiveMessage(tx, {
@@ -108,7 +110,7 @@ export async function openPatientTicket(
     to: null,
     subject: input.subject ?? null,
     body: input.body,
-    brandId: null,
+    brandId: input.brandId ?? null,
     patient: { patientId, topic: input.topic },
   });
   return getPatientTicket(tx, patientId, received.ticket.id);
