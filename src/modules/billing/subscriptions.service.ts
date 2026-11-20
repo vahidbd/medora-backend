@@ -1,18 +1,19 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { paymentAccounts, prices, subscriptions } from '../../db/schema/index.js';
-import type { CancelReason, IntervalUnit, SubscriptionStatus } from '../../db/schema/values.js';
+import type { CancelReason, HeldReason, IntervalUnit, SubscriptionStatus } from '../../db/schema/values.js';
 import type { TenantTx } from '../../db/tenant.js';
 import { audit } from '../../lib/audit.js';
 import { BadRequestError, BusinessRuleError, NotFoundError } from '../../lib/errors.js';
 import { emitEvent } from '../../lib/events.js';
 import { isTimeZone, localDate } from '../../lib/time.js';
+import { feesOf, issueInvoice } from './invoices.service.js';
 import { type Interval, addDays, dayOfMonth, latestDeferredStart, nextStart } from './periods.js';
 
 /**
  * Subscriptions (docs/decisions/billing.md BIL18 to BIL22). Every change
  * locks the subscription first. Dates are calendar dates in the
- * subscription's time zone. Invoices for each billing period, and voiding a
- * held one on pause or cancel, arrive with invoices.
+ * subscription's time zone. Invoices are issued by invoices.service.ts and
+ * the renewal job (renewals.ts), which start each period here.
  */
 
 export interface Subscription {
@@ -29,12 +30,14 @@ export interface Subscription {
   cancelsAtPeriodEnd: boolean;
   cancelReason: CancelReason | null;
   endedOn: string | null;
+  /** A due period with no invoice yet, and why, as the renewal job last heard (BIL24). */
+  renewalHeld: { reason: HeldReason; checkedAt: string } | null;
   createdAt: string;
 }
 
 const TABLE = 'operational.subscriptions';
 type Row = typeof subscriptions.$inferSelect;
-type Action = 'started' | 'activated' | 'paused' | 'resumed' | 'skipped' | 'cancellation_scheduled' | 'reinstated' | 'cancelled';
+type Action = 'started' | 'activated' | 'renewed' | 'renewal_held' | 'paused' | 'resumed' | 'skipped' | 'cancellation_scheduled' | 'reinstated' | 'cancelled';
 
 const columns = {
   row: subscriptions,
@@ -57,6 +60,7 @@ function view({ row, intervalUnit, intervalCount }: { row: Row; intervalUnit: st
     cancelsAtPeriodEnd: row.cancelsAtPeriodEnd,
     cancelReason: row.cancelReason as CancelReason | null,
     endedOn: row.endedOn,
+    renewalHeld: row.renewalHeldReason && row.renewalCheckedAt ? { reason: row.renewalHeldReason as HeldReason, checkedAt: row.renewalCheckedAt.toISOString() } : null,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -84,7 +88,9 @@ export async function getSubscription(tx: TenantTx, id: string): Promise<Subscri
   return view(found);
 }
 
-async function lock(tx: TenantTx, id: string): Promise<{ row: Row; interval: Interval }> {
+export type SubscriptionRow = Row;
+
+export async function lockSubscription(tx: TenantTx, id: string): Promise<{ row: Row; interval: Interval }> {
   const [row] = await tx.db.select().from(subscriptions).where(eq(subscriptions.id, id)).for('update');
   if (!row) throw new NotFoundError('Subscription');
   const [price] = await tx.db.select({ unit: prices.intervalUnit, count: prices.intervalCount }).from(prices).where(eq(prices.id, row.priceId));
@@ -97,7 +103,7 @@ async function update(tx: TenantTx, id: string, values: Changes): Promise<void> 
   await tx.db.update(subscriptions).set({ ...values, updatedAt: sql`now()` }).where(eq(subscriptions.id, id));
 }
 
-const today = (row: Pick<Row, 'timeZone'>) => localDate(new Date(), row.timeZone);
+export const today = (row: Pick<Row, 'timeZone'>) => localDate(new Date(), row.timeZone);
 /** Calendar dates in YYYY-MM-DD compare as strings. */
 const later = (a: string, b: string) => (a > b ? a : b);
 
@@ -131,28 +137,60 @@ export async function startSubscription(tx: TenantTx, input: { patientId: string
     .returning();
   if (!row) throw new BusinessRuleError('The patient already has a subscription to this program', 'already_subscribed');
   await record(tx, 'started', row, { priceId: price.id });
+  const consult = (await feesOf(tx, price.id)).filter((fee) => fee.feeKind === 'consult');
+  if (consult.length > 0) await issueInvoice(tx, { kind: 'consult', subscription: row, fees: consult });
   return getSubscription(tx, row.id);
 }
 
 /**
- * The first billing period starts on the day it is released, not at checkout
- * (BIL19). Called by invoices when the first period's invoice is released.
+ * The period that starts on `startsOn` (BIL19): on schedule it keeps the
+ * anchor day; the first period, or one that starts late or on a resume date,
+ * sets a new one from its start, as every period is a full one.
  */
-export async function activateSubscription(tx: TenantTx, id: string, startsOn: string): Promise<Subscription> {
-  const { row, interval } = await lock(tx, id);
-  if (row.status !== 'pending') throw new BusinessRuleError('This subscription has already started', 'subscription_not_pending');
-  const anchorDay = dayOfMonth(startsOn);
-  const endsOn = nextStart(startsOn, interval, anchorDay);
+export function periodStartingOn(row: Row, interval: Interval, startsOn: string): { anchorDay: number; endsOn: string } {
+  const onSchedule = row.status !== 'pending' && startsOn === row.nextPeriodStartsOn && row.anchorDay !== null;
+  const anchorDay = onSchedule ? row.anchorDay! : dayOfMonth(startsOn);
+  return { anchorDay, endsOn: nextStart(startsOn, interval, anchorDay) };
+}
+
+/**
+ * Start a billing period whose invoice has just been issued (BIL19, BIL24):
+ * the first one activates the subscription, later ones renew it.
+ */
+export async function beginPeriod(tx: TenantTx, id: string, startsOn: string): Promise<Subscription> {
+  const { row, interval } = await lockSubscription(tx, id);
+  if (row.status === 'cancelled') throw new BusinessRuleError('This subscription has already ended', 'subscription_ended');
+  if (row.cancelsAtPeriodEnd) throw new BusinessRuleError('This subscription ends with its current period', 'subscription_ending');
+  if (row.status !== 'pending' && startsOn < row.nextPeriodStartsOn!) throw new BusinessRuleError('The next period has not started yet', 'period_not_due');
+  const { anchorDay, endsOn } = periodStartingOn(row, interval, startsOn);
   await update(tx, id, {
     status: 'active',
     anchorDay,
     currentPeriodStartsOn: startsOn,
     currentPeriodEndsOn: endsOn,
     nextPeriodStartsOn: endsOn,
-    activatedAt: sql`now()`,
+    renewalHeldReason: null,
+    ...(row.status === 'pending' ? { activatedAt: sql`now()` } : {}),
   });
-  await record(tx, 'activated', row, { startsOn, endsOn });
+  await record(tx, row.status === 'pending' ? 'activated' : 'renewed', row, { startsOn, endsOn });
   return getSubscription(tx, id);
+}
+
+/** A due period can't be issued yet: keep why, telling staff only when the reason changes (BIL24). */
+export async function holdRenewal(tx: TenantTx, id: string, reason: HeldReason): Promise<void> {
+  const { row } = await lockSubscription(tx, id);
+  if (row.status === 'cancelled') return;
+  await update(tx, id, { renewalHeldReason: reason, renewalCheckedAt: sql`now()` });
+  if (row.renewalHeldReason !== reason) await record(tx, 'renewal_held', row, { reason });
+}
+
+/** The renewal job ends a scheduled cancellation once its period is over (BIL21). */
+export async function endAtPeriodEnd(tx: TenantTx, id: string): Promise<void> {
+  const { row } = await lockSubscription(tx, id);
+  if (!row.cancelsAtPeriodEnd || row.status === 'cancelled' || row.currentPeriodEndsOn! > today(row)) return;
+  const endedOn = row.currentPeriodEndsOn!;
+  await update(tx, id, { status: 'cancelled', endedOn, cancelledAt: sql`now()`, cancelsAtPeriodEnd: false, renewalHeldReason: null });
+  await record(tx, 'cancelled', row, { reason: row.cancelReason, endedOn });
 }
 
 function assertBetweenPeriods(row: Row): asserts row is Row & { currentPeriodEndsOn: string; nextPeriodStartsOn: string } {
@@ -166,7 +204,7 @@ function assertBetweenPeriods(row: Row): asserts row is Row & { currentPeriodEnd
  * current period's end, and at most three months after it.
  */
 export async function pauseSubscription(tx: TenantTx, id: string, resumesOn: string): Promise<Subscription> {
-  const { row } = await lock(tx, id);
+  const { row } = await lockSubscription(tx, id);
   assertBetweenPeriods(row);
   const earliest = later(row.currentPeriodEndsOn, addDays(today(row), 1));
   const last = latestDeferredStart(row.currentPeriodEndsOn);
@@ -183,7 +221,7 @@ export async function pauseSubscription(tx: TenantTx, id: string, resumesOn: str
  * has passed, it is due now, and starts on the day it is released (BIL19).
  */
 export async function resumeSubscription(tx: TenantTx, id: string): Promise<Subscription> {
-  const { row } = await lock(tx, id);
+  const { row } = await lockSubscription(tx, id);
   if (row.status !== 'paused') throw new BusinessRuleError('This subscription is not paused', 'subscription_not_paused');
   assertBetweenPeriods(row);
   await update(tx, id, { status: 'active', nextPeriodStartsOn: row.currentPeriodEndsOn });
@@ -196,7 +234,7 @@ export async function resumeSubscription(tx: TenantTx, id: string): Promise<Subs
  * the three months (BIL20). A paused subscription moves its resume date instead.
  */
 export async function skipNextPeriod(tx: TenantTx, id: string): Promise<Subscription> {
-  const { row, interval } = await lock(tx, id);
+  const { row, interval } = await lockSubscription(tx, id);
   assertBetweenPeriods(row);
   if (row.status === 'paused') throw new BusinessRuleError('This subscription is paused. Change its resume date instead', 'subscription_paused');
   const startsOn = nextStart(row.nextPeriodStartsOn, interval, row.anchorDay ?? dayOfMonth(row.nextPeriodStartsOn));
@@ -215,7 +253,7 @@ export async function skipNextPeriod(tx: TenantTx, id: string): Promise<Subscrip
  * already ended) it ends now either way.
  */
 export async function cancelSubscription(tx: TenantTx, id: string, input: { when: 'period_end' | 'now'; reason: CancelReason }): Promise<Subscription> {
-  const { row } = await lock(tx, id);
+  const { row } = await lockSubscription(tx, id);
   if (row.status === 'cancelled') throw new BusinessRuleError('This subscription has already ended', 'subscription_ended');
   const endedOn = today(row);
   if (input.when === 'period_end' && row.status !== 'pending') {
@@ -227,14 +265,14 @@ export async function cancelSubscription(tx: TenantTx, id: string, input: { when
       return getSubscription(tx, id);
     }
   }
-  await update(tx, id, { status: 'cancelled', cancelReason: input.reason, endedOn, cancelledAt: sql`now()`, cancelsAtPeriodEnd: false });
+  await update(tx, id, { status: 'cancelled', cancelReason: input.reason, endedOn, cancelledAt: sql`now()`, cancelsAtPeriodEnd: false, renewalHeldReason: null });
   await record(tx, 'cancelled', row, { reason: input.reason, endedOn });
   return getSubscription(tx, id);
 }
 
 /** Undo a cancellation that hasn't happened yet (BIL21). */
 export async function reinstateSubscription(tx: TenantTx, id: string): Promise<Subscription> {
-  const { row } = await lock(tx, id);
+  const { row } = await lockSubscription(tx, id);
   if (!row.cancelsAtPeriodEnd || row.status === 'cancelled') {
     throw new BusinessRuleError('Only a subscription due to end at its period end can be reinstated. Start a new one instead', 'nothing_to_reinstate');
   }

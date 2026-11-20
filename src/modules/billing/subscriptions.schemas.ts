@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { CANCEL_REASONS, type CancelReason, INTERVAL_UNITS, SUBSCRIPTION_STATUSES } from '../../db/schema/values.js';
+import { CANCEL_REASONS, type CancelReason, HELD_REASONS, INTERVAL_UNITS, SUBSCRIPTION_STATUSES } from '../../db/schema/values.js';
 
 /** A calendar date in the subscription's time zone. */
 const calendarDate = z.iso.date();
 
-/** The reasons staff give. `clinician_declined` is recorded only by the consult's outcome (BIL21). */
+/** The reasons staff give. `clinician_declined` is recorded only when the clinical record says so (BIL21, BIL24). */
 export const STAFF_CANCEL_REASONS = ['patient_request', 'staff_decision', 'other'] as const satisfies readonly CancelReason[];
 
 export const subscriptionParams = z.object({ subscriptionId: z.uuid() });
@@ -30,6 +30,8 @@ export const subscription = z.object({
   cancelsAtPeriodEnd: z.boolean(),
   cancelReason: z.enum(CANCEL_REASONS).nullable(),
   endedOn: calendarDate.nullable(),
+  /** A due period with no invoice yet, and why, as the renewal job last heard. */
+  renewalHeld: z.object({ reason: z.enum(HELD_REASONS), checkedAt: z.iso.datetime() }).nullable(),
   createdAt: z.iso.datetime(),
 });
 

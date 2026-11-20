@@ -102,6 +102,29 @@ export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
 export const CANCEL_REASONS = ['patient_request', 'clinician_declined', 'staff_decision', 'other'] as const;
 export type CancelReason = (typeof CANCEL_REASONS)[number];
 
+/**
+ * Why a due billing period has no invoice yet (BIL24): the last answer the
+ * renewal job got. Codes only, nothing clinical beyond them.
+ */
+export const HELD_REASONS = [
+  'awaiting_clinician',
+  'no_order',
+  'no_current_script',
+  'awaiting_pharmacist',
+  'cannot_dispense',
+  'no_medicine_fee',
+  'other',
+] as const;
+export type HeldReason = (typeof HELD_REASONS)[number];
+
+/** An invoice for the consult at checkout, or for a billing period (BIL23). */
+export const INVOICE_KINDS = ['consult', 'period'] as const;
+export type InvoiceKind = (typeof INVOICE_KINDS)[number];
+
+/** Issued invoices are open; paid, past due and void arrive with payments. */
+export const INVOICE_STATUSES = ['open'] as const;
+export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
+
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
   { table: 'platform.memberships', column: 'role', values: ROLES },
@@ -123,4 +146,9 @@ export const CHECKED_VALUES = [
   { table: 'operational.price_fees', column: 'gst_treatment', values: GST_TREATMENTS },
   { table: 'operational.subscriptions', column: 'status', values: SUBSCRIPTION_STATUSES },
   { table: 'operational.subscriptions', column: 'cancel_reason', values: CANCEL_REASONS },
+  { table: 'operational.subscriptions', column: 'renewal_held_reason', values: HELD_REASONS },
+  { table: 'operational.invoices', column: 'kind', values: INVOICE_KINDS },
+  { table: 'operational.invoices', column: 'status', values: INVOICE_STATUSES },
+  { table: 'operational.invoice_lines', column: 'fee_kind', values: FEE_KINDS },
+  { table: 'operational.invoice_lines', column: 'gst_treatment', values: GST_TREATMENTS },
 ] as const;

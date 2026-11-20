@@ -14,14 +14,15 @@ export const PERMISSIONS = [
   'prices:manage',
   'subscriptions:read',
   'subscriptions:manage',
+  'invoices:read',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
-  owner: ['staff:read', 'staff:manage', 'ledger:read', 'payment_accounts:manage', 'prices:manage', 'subscriptions:read', 'subscriptions:manage'],
+  owner: ['staff:read', 'staff:manage', 'ledger:read', 'payment_accounts:manage', 'prices:manage', 'subscriptions:read', 'subscriptions:manage', 'invoices:read'],
   clinician: ['staff:read'],
-  support: ['staff:read', 'subscriptions:read', 'subscriptions:manage'],
-  finance: ['staff:read', 'ledger:read', 'payment_accounts:manage', 'prices:manage', 'subscriptions:read', 'subscriptions:manage'],
+  support: ['staff:read', 'subscriptions:read', 'subscriptions:manage', 'invoices:read'],
+  finance: ['staff:read', 'ledger:read', 'payment_accounts:manage', 'prices:manage', 'subscriptions:read', 'subscriptions:manage', 'invoices:read'],
 };
 
 /** The role that holds every permission. Every tenant always has at least one active holder. */
