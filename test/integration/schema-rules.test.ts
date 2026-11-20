@@ -81,7 +81,10 @@ describe('allowed values (ADR 0028)', () => {
       `select pg_get_constraintdef(oid) as def from pg_constraint where conrelid = $1::regclass and contype = 'c'`,
       [table],
     );
-    const def = defs.map((d) => d.def).find((d) => new RegExp(`\\b${column}\\b`).test(d) && d.includes('ARRAY['));
+    // Postgres keeps a one-value list as `column = 'value'`, and a longer one as `= ANY (ARRAY[...])`.
+    const def = defs
+      .map((d) => d.def)
+      .find((d) => (new RegExp(`\\b${column}\\b`).test(d) && d.includes('ARRAY[')) || new RegExp(`^CHECK \\(\\(${column} = '[^']+'::text\\)\\)$`).test(d));
     expect(def, `a CHECK on ${column}`).toBeDefined();
     const inDatabase = [...(def ?? '').matchAll(/'([^']+)'::text/g)].map((m) => m[1]);
     expect(inDatabase.sort()).toEqual([...values].sort());
@@ -105,6 +108,31 @@ describe('foreign keys (ADR 0028)', () => {
   });
 });
 
+/**
+ * Columns that will reference a table another feature owns, held without a
+ * foreign key until that table merges (docs/decisions/billing.md BIL5). Once
+ * the table exists this test fails, so the foreign key is added in the next
+ * migration and the column comes off this list.
+ */
+const FOREIGN_KEYS_OWED: { column: string; references: string }[] = [
+  { column: 'operational.ledger_accounts.patient_id', references: 'clinical.patients' },
+  { column: 'operational.ledger_accounts.payment_account_id', references: 'operational.payment_accounts' },
+  { column: 'operational.ledger_accounts.partner_pharmacy_id', references: 'operational.partner_pharmacies' },
+];
+
+describe('foreign keys owed (ADR 0028)', () => {
+  it.each(FOREIGN_KEYS_OWED)('$column waits for $references', async ({ column, references }) => {
+    const [schema, table, name] = column.split('.');
+    const [found] = await rows<{ exists: boolean; target: boolean }>(
+      `select exists (select 1 from information_schema.columns where table_schema = $1 and table_name = $2 and column_name = $3) as exists,
+              to_regclass($4) is not null as target`,
+      [schema, table, name, references],
+    );
+    expect(found?.exists, `${column} exists`).toBe(true);
+    expect(found?.target, `${references} exists now: add the foreign key from ${column} and take it off this list`).toBe(false);
+  });
+});
+
 describe('data zones and the audit log (ADRs 0007, 0008)', () => {
   it('gives marketing no way into clinical', async () => {
     const [schema] = await rows<{ usage: boolean }>(`select has_schema_privilege('medora_marketing', 'clinical', 'USAGE') as usage`);
@@ -115,6 +143,15 @@ describe('data zones and the audit log (ADRs 0007, 0008)', () => {
           and (has_table_privilege('medora_marketing', c.oid, 'SELECT') or has_table_privilege('medora_marketing', c.oid, 'INSERT'))`,
     );
     expect(granted).toEqual([]);
+  });
+
+  it('lets no role change or remove ledger entries or lines', async () => {
+    const [grants] = await rows<{ any: boolean }>(
+      `select bool_or(has_table_privilege(r.rolname, t, p)) as any
+         from pg_roles r, unnest(array['operational.ledger_entries', 'operational.ledger_lines']) t, unnest(array['UPDATE', 'DELETE', 'TRUNCATE']) p
+        where r.rolname in ('medora_app', 'medora_marketing', 'medora_api')`,
+    );
+    expect(grants?.any).toBe(false);
   });
 
   it('lets no role change or remove audit entries', async () => {

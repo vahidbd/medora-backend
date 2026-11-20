@@ -18,6 +18,9 @@ const OWNERS: Record<string, string[]> = {
   'platform.outbox': ['src/lib/events.ts', 'src/lib/outbox-delivery.ts'],
   'platform.outbox_deliveries': ['src/lib/outbox-delivery.ts'],
   'platform.job_leases': ['src/lib/leases.ts'],
+  'operational.ledger_accounts': ['src/modules/ledger/'],
+  'operational.ledger_entries': ['src/modules/ledger/'],
+  'operational.ledger_lines': ['src/modules/ledger/'],
   'platform.rate_limit_counters': ['src/lib/rate-limit.ts'],
 };
 

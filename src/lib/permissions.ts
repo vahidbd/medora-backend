@@ -6,14 +6,14 @@ import { BusinessRuleError, ForbiddenError } from './errors.js';
  * (ADR 0030, docs/decisions/foundation.md FND3 and FND6). Roles are a
  * constant for now; a tenant editing its own roles is a later decision.
  */
-export const PERMISSIONS = ['staff:read', 'staff:manage'] as const;
+export const PERMISSIONS = ['staff:read', 'staff:manage', 'ledger:read'] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
-  owner: ['staff:read', 'staff:manage'],
+  owner: ['staff:read', 'staff:manage', 'ledger:read'],
   clinician: ['staff:read'],
   support: ['staff:read'],
-  finance: ['staff:read'],
+  finance: ['staff:read', 'ledger:read'],
 };
 
 /** The role that holds every permission. Every tenant always has at least one active holder. */
