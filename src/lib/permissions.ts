@@ -40,6 +40,10 @@ export const PERMISSIONS = [
   'catalogue:read',
   'catalogue:manage',
   'audit:read',
+  // The consult schedule: who sees whom, when, how and why, never what was said (docs/decisions/consults.md CNS11).
+  'consults:read',
+  // Book, move and cancel consults, and mark or reinstate a no-show (CNS11 to CNS16).
+  'consults:book',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -71,6 +75,9 @@ export const PERMISSION_ZONES: Record<Permission, DataZone> = {
   'catalogue:read': 'operational',
   'catalogue:manage': 'operational',
   'audit:read': 'platform',
+  // Support books consults without break-glass, so the schedule is operational; consult content will have its own clinical key.
+  'consults:read': 'operational',
+  'consults:book': 'operational',
 };
 
 const ALL: readonly Permission[] = PERMISSIONS;
@@ -94,6 +101,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'programs:manage',
     'clinicians:read',
     'clinicians:manage',
+    'consults:read',
+    'consults:book',
   ],
   medical_director: [
     'staff:read',
@@ -109,10 +118,12 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'intakes:read',
     'clinicians:read',
     'clinicians:manage',
+    'consults:read',
+    'consults:book',
   ],
-  prescriber: ['staff:read', 'catalogue:read', 'patients:read', 'protocols:read', 'intakes:read', 'clinicians:read'],
-  clinician: ['staff:read', 'catalogue:read', 'patients:read', 'protocols:read', 'intakes:read', 'clinicians:read'],
-  support: ['staff:read', 'catalogue:read', 'patients:read', 'patients:manage', 'clinicians:read'],
+  prescriber: ['staff:read', 'catalogue:read', 'patients:read', 'protocols:read', 'intakes:read', 'clinicians:read', 'consults:read', 'consults:book'],
+  clinician: ['staff:read', 'catalogue:read', 'patients:read', 'protocols:read', 'intakes:read', 'clinicians:read', 'consults:read', 'consults:book'],
+  support: ['staff:read', 'catalogue:read', 'patients:read', 'patients:manage', 'clinicians:read', 'consults:read', 'consults:book'],
   finance: ['staff:read', 'catalogue:read'],
   operations: ['staff:read', 'catalogue:read', 'catalogue:manage'],
   marketing: ['staff:read', 'catalogue:read'],

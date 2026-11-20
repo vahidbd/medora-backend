@@ -4,11 +4,13 @@
  */
 
 /** The Postgres error behind `error`; Drizzle wraps it in its own (`cause`). */
-export function postgresError(error: unknown): { code: string; message: string } | null {
+export function postgresError(error: unknown): { code: string; message: string; constraint?: string } | null {
   let current: unknown = error;
   for (let depth = 0; depth < 3 && current && typeof current === 'object'; depth += 1) {
-    const { code, message, cause } = current as { code?: unknown; message?: unknown; cause?: unknown };
-    if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) return { code, message: String(message ?? '') };
+    const { code, message, cause, constraint } = current as { code?: unknown; message?: unknown; cause?: unknown; constraint?: unknown };
+    if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) {
+      return { code, message: String(message ?? ''), ...(typeof constraint === 'string' ? { constraint } : {}) };
+    }
     current = cause;
   }
   return null;

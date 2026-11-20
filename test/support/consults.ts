@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { SignJWT } from 'jose';
 import type { App } from '../../src/app.js';
-import type { ConsultMode } from '../../src/db/schema/values.js';
+import type { ConsultMode, ConsultPurpose } from '../../src/db/schema/values.js';
 import { consultRoomName, participantIdentity, type Participant } from '../../src/modules/consults/index.js';
 import { addMember, admin, createUser } from './db.js';
 
@@ -13,26 +13,49 @@ import { addMember, admin, createUser } from './db.js';
  * Build the app (testApp) before calling these.
  */
 
-export async function createPatient(tenantId: string): Promise<string> {
+export async function createPatient(tenantId: string, options: { dateOfBirth?: string; mobile?: string } = {}): Promise<string> {
   const { rows } = await admin.query<{ id: string }>(
-    `insert into clinical.patients (tenant_id, given_name, family_name, date_of_birth, sex) values ($1, 'Sam', 'Example', '1988-03-14', 'not_stated') returning id`,
-    [tenantId],
+    `insert into clinical.patients (tenant_id, given_name, family_name, date_of_birth, sex) values ($1, 'Sam', 'Example', $2, 'not_stated') returning id`,
+    [tenantId, options.dateOfBirth ?? '1988-03-14'],
   );
-  return rows[0]!.id;
+  const patientId = rows[0]!.id;
+  if (options.mobile) {
+    await admin.query(`insert into clinical.patient_contacts (tenant_id, patient_id, kind, value) values ($1, $2, 'mobile', $3)`, [tenantId, patientId, options.mobile]);
+  }
+  return patientId;
+}
+
+/** The consents care needs (privacy and telehealth terms), published by the tenant and given by the patient on the web. */
+export async function giveCareConsents(tenantId: string, patientId: string): Promise<void> {
+  for (const kind of ['privacy', 'telehealth_terms']) {
+    await admin.query(
+      `insert into clinical.consent_documents (tenant_id, kind, version, title, body) values ($1, $2, 1, 'Made-up terms', 'Made-up text.') on conflict do nothing`,
+      [tenantId, kind],
+    );
+    await admin.query(
+      `insert into clinical.patient_consents (tenant_id, patient_id, document_id, kind, decision, channel)
+       select $1, $2, id, kind, 'given', 'web' from clinical.consent_documents where tenant_id = $1 and kind = $3 and version = 1`,
+      [tenantId, patientId, kind],
+    );
+  }
 }
 
 /**
- * A doctor who may consult and prescribe: a prescriber membership, a clinician
- * profile, and a registration and indemnity someone else has checked.
+ * A clinician in standing: a membership, a clinician profile, and a
+ * registration and indemnity someone else has checked. A medical practitioner
+ * (the default) may also prescribe; a registered nurse may not.
  */
-export async function createPrescriber(tenantId: string): Promise<{ userId: string; email: string; clinicianId: string }> {
+export async function createPrescriber(
+  tenantId: string,
+  options: { profession?: 'medical_practitioner' | 'registered_nurse'; timeZone?: string } = {},
+): Promise<{ userId: string; email: string; clinicianId: string }> {
   const person = await createUser();
   const checker = await createUser();
-  const membershipId = await addMember(tenantId, person.id, 'prescriber');
+  const membershipId = await addMember(tenantId, person.id, options.profession === 'registered_nurse' ? 'clinician' : 'prescriber');
   await addMember(tenantId, checker.id, 'medical_director');
   const { rows } = await admin.query<{ id: string }>(
-    `insert into operational.clinicians (tenant_id, membership_id, profession, time_zone) values ($1, $2, 'medical_practitioner', 'Australia/Sydney') returning id`,
-    [tenantId, membershipId],
+    `insert into operational.clinicians (tenant_id, membership_id, profession, time_zone) values ($1, $2, $3, $4) returning id`,
+    [tenantId, membershipId, options.profession ?? 'medical_practitioner', options.timeZone ?? 'Australia/Sydney'],
   );
   const clinicianId = rows[0]!.id;
   await admin.query(
@@ -50,11 +73,35 @@ export async function createPrescriber(tenantId: string): Promise<{ userId: stri
   return { userId: person.id, email: person.email, clinicianId };
 }
 
-/** A scheduled consult. Booking writes these through its service once it lands. */
-export async function bookConsult(tenantId: string, input: { patientId: string; clinicianUserId: string; mode?: ConsultMode }): Promise<string> {
+/** Weekly hours: every day of the week, in the clinician's own zone, unless the days are given. */
+export async function giveHours(tenantId: string, clinicianId: string, block: { startsAt: string; endsAt: string; slotMinutes?: number; weekdays?: number[] }): Promise<void> {
+  for (const weekday of block.weekdays ?? [1, 2, 3, 4, 5, 6, 7]) {
+    await admin.query(
+      `insert into operational.clinician_hours (tenant_id, clinician_id, weekday, starts_at, ends_at, slot_minutes) values ($1, $2, $3, $4, $5, $6)`,
+      [tenantId, clinicianId, weekday, block.startsAt, block.endsAt, block.slotMinutes ?? 15],
+    );
+  }
+}
+
+/** Distinct slots for consults a test sets up directly, so they never collide in the overlap constraints. */
+const SLOT_BASE = Math.floor((Date.now() - 300 * 86_400_000) / 60_000) * 60_000;
+let nextSlot = 0;
+
+/**
+ * A scheduled consult written as fixture data, at a time of the test's
+ * choosing (even the past, which booking refuses). Tests of booking itself
+ * go through the routes.
+ */
+export async function bookConsult(
+  tenantId: string,
+  input: { patientId: string; clinicianUserId: string; mode?: ConsultMode; purpose?: ConsultPurpose; startsAt?: Date; minutes?: number },
+): Promise<string> {
+  const startsAt = input.startsAt ?? new Date(SLOT_BASE + nextSlot++ * 15 * 60_000);
+  const endsAt = new Date(startsAt.getTime() + (input.minutes ?? 15) * 60_000);
   const { rows } = await admin.query<{ id: string }>(
-    `insert into clinical.consults (tenant_id, patient_id, clinician_user_id, mode) values ($1, $2, $3, $4) returning id`,
-    [tenantId, input.patientId, input.clinicianUserId, input.mode ?? 'video'],
+    `insert into clinical.consults (tenant_id, patient_id, clinician_user_id, mode, purpose, scheduled_start, scheduled_end)
+     values ($1, $2, $3, $4, $5, $6, $7) returning id`,
+    [tenantId, input.patientId, input.clinicianUserId, input.mode ?? 'video', input.purpose ?? 'initial', startsAt, endsAt],
   );
   return rows[0]!.id;
 }

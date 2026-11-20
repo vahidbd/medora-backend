@@ -3,14 +3,16 @@ import { bigint, check, foreignKey, index, text, timestamp, unique, uniqueIndex,
 import { oneOf } from './checks.js';
 import { patients } from './clinical-patients.js';
 import { memberships, tenants } from './platform.js';
-import { CONSULT_MODES, CONSULT_STATUSES, EVIDENCE_EVENTS, EVIDENCE_PARTIES } from './values.js';
+import { CANCELLATION_REASONS, CONSULT_MODES, CONSULT_PURPOSES, CONSULT_STATUSES, EVIDENCE_EVENTS, EVIDENCE_PARTIES } from './values.js';
 import { webhookInbox } from './webhooks.js';
 import { clinical } from './zones.js';
 
 /**
  * Consults: real-time phone or video appointments between a patient and a
- * clinician (docs/decisions/consults.md). Booking adds its columns later; the
- * status here is a convenience the consult gate never trusts (CNS3).
+ * clinician (docs/decisions/consults.md). The status is a convenience the
+ * consult gate never trusts (CNS3). The migration adds what Drizzle can't
+ * say: no two consults that aren't cancelled may overlap for one clinician or
+ * one patient (CNS12).
  */
 export const consults = clinical.table(
   'consults',
@@ -23,7 +25,14 @@ export const consults = clinical.table(
     /** The clinician the consult is with: a member of the same tenant. */
     clinicianUserId: uuid('clinician_user_id').notNull(),
     mode: text('mode').notNull(),
+    purpose: text('purpose').notNull(),
+    /** The booked slot (CNS12). */
+    scheduledStart: timestamp('scheduled_start', { withTimezone: true }).notNull(),
+    scheduledEnd: timestamp('scheduled_end', { withTimezone: true }).notNull(),
     status: text('status').notNull().default('scheduled'),
+    cancellationReason: text('cancellation_reason'),
+    /** The consult this one replaced, when it was moved (CNS15). */
+    rescheduledFrom: uuid('rescheduled_from'),
     /** The first moment the patient and clinician were connected together, from the evidence. */
     startedAt: timestamp('started_at', { withTimezone: true }),
     endedAt: timestamp('ended_at', { withTimezone: true }),
@@ -35,9 +44,16 @@ export const consults = clinical.table(
     foreignKey({ columns: [table.tenantId, table.patientId], foreignColumns: [patients.tenantId, patients.id], name: 'consults_patient_fk' }),
     foreignKey({ columns: [table.tenantId, table.clinicianUserId], foreignColumns: [memberships.tenantId, memberships.userId], name: 'consults_clinician_fk' }),
     index('consults_patient_idx').on(table.tenantId, table.patientId, table.clinicianUserId),
-    index('consults_clinician_idx').on(table.tenantId, table.clinicianUserId),
+    index('consults_clinician_idx').on(table.tenantId, table.clinicianUserId, table.scheduledStart),
+    foreignKey({ columns: [table.tenantId, table.rescheduledFrom], foreignColumns: [table.tenantId, table.id], name: 'consults_rescheduled_from_fk' }),
+    uniqueIndex('consults_rescheduled_from_key').on(table.tenantId, table.rescheduledFrom),
+    index('consults_schedule_idx').on(table.tenantId, table.scheduledStart),
     check('consults_mode_check', oneOf(table.mode, CONSULT_MODES)),
+    check('consults_purpose_check', oneOf(table.purpose, CONSULT_PURPOSES)),
     check('consults_status_check', oneOf(table.status, CONSULT_STATUSES)),
+    check('consults_cancellation_reason_check', oneOf(table.cancellationReason, CANCELLATION_REASONS)),
+    check('consults_cancelled_check', sql`(${table.status} = 'cancelled') = (${table.cancellationReason} is not null)`),
+    check('consults_slot_check', sql`${table.scheduledEnd} > ${table.scheduledStart}`),
     check('consults_started_check', sql`${table.status} not in ('in_progress', 'completed') or ${table.startedAt} is not null`),
     check('consults_ended_check', sql`(${table.status} = 'completed') = (${table.endedAt} is not null)`),
     check('consults_times_check', sql`${table.endedAt} is null or ${table.endedAt} >= ${table.startedAt}`),

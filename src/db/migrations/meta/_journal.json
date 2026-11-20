@@ -64,6 +64,13 @@
       "when": 1795192416083,
       "tag": "0008_consult_evidence",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795192468052,
+      "tag": "0009_consult_booking",
+      "breakpoints": true
     }
   ]
 }

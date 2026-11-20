@@ -224,6 +224,14 @@ export type ConsultMode = (typeof CONSULT_MODES)[number];
 export const CONSULT_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled', 'no_show'] as const;
 export type ConsultStatus = (typeof CONSULT_STATUSES)[number];
 
+/** Why a consult is booked (CNS11). Initial and review consults need a prescriber. */
+export const CONSULT_PURPOSES = ['initial', 'review', 'follow_up'] as const;
+export type ConsultPurpose = (typeof CONSULT_PURPOSES)[number];
+
+/** Why a consult was cancelled (CNS14). `rescheduled` is set only by a move. No free text. */
+export const CANCELLATION_REASONS = ['patient_request', 'clinician_unavailable', 'rescheduled', 'booked_in_error', 'other'] as const;
+export type CancellationReason = (typeof CANCELLATION_REASONS)[number];
+
 /** Who connected, in consult evidence (CNS2). */
 export const EVIDENCE_PARTIES = ['patient', 'clinician'] as const;
 export type EvidenceParty = (typeof EVIDENCE_PARTIES)[number];
@@ -278,6 +286,8 @@ export const CHECKED_VALUES = [
   { table: 'platform.block_rules', column: 'match', values: BLOCK_RULE_MATCHES },
   { table: 'clinical.consults', column: 'mode', values: CONSULT_MODES },
   { table: 'clinical.consults', column: 'status', values: CONSULT_STATUSES },
+  { table: 'clinical.consults', column: 'purpose', values: CONSULT_PURPOSES },
+  { table: 'clinical.consults', column: 'cancellation_reason', values: CANCELLATION_REASONS },
   { table: 'clinical.consult_evidence', column: 'party', values: EVIDENCE_PARTIES },
   { table: 'clinical.consult_evidence', column: 'event', values: EVIDENCE_EVENTS },
   { table: 'clinical.consult_evidence', column: 'channel', values: CONSULT_MODES },

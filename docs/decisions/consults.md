@@ -1,6 +1,6 @@
 # Consults
 
-Rulings for consults, their evidence and the consult gate (ADRs 0005, 0006, 0008, 0009, 0020, 0029, 0120). `src/modules/consults/`, tables in the `clinical` schema. Booking, the phone flow and the video room service add their rulings here as they land.
+Rulings for consults, booking, their evidence and the consult gate (ADRs 0005, 0006, 0008, 0009, 0017, 0020, 0029, 0120). `src/modules/consults/`, tables in the `clinical` schema. The on-demand queue, the phone flow and the video room service add their rulings here as they land.
 
 Rulings marked "Decided by: stand-in" were made while the product owner was away and are to be confirmed with Vahid.
 
@@ -64,4 +64,46 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid; amended after prescribi
 
 Decision: a "recorded real-time consult" (ADR 0009) is one with consult evidence. Nothing here captures audio or video; recording needs the patient's consent for that consult (ADR 0020) and its own ruling.
 Why: the word appears in both senses, and only one needs consent.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### CNS11. Booking needs consults:book, and the schedule is operational
+
+Decision: `consults:read` shows the schedule and `consults:book` books, moves and cancels consults and marks or reinstates a no-show. Both open the operational zone, so support can use them without break-glass; admin, medical director, prescriber, clinician and support hold both, and the owner holds everything. The schedule is exactly these fields: the consult, the patient's id and name, the clinician, start, end, mode, purpose, status, cancellation reason and the consult it replaced. Nothing from the evidence or a consult's content ever comes back under these keys; notes will have their own clinical key. Every read of the schedule is audited, because the rows are clinical even when the fields aren't. Agents may hold `consults:book` to book, move and cancel.
+Why: support books appointments all day and has no business reading notes; the schedule is the part of a consult that booking needs.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### CNS12. Only slots Medora offers can be booked, and the database has the last word
+
+Decision: a slot is one block's length on that block's grid, inside the clinician's weekly hours in their own time zone, outside their time off, and clear of their other consults. Bookings start at least 15 minutes ahead and at most 60 days ahead; these are platform constants, not tenant settings. A slot daylight saving skips or stretches is not offered. The service re-checks the slot inside the booking transaction with the clinician locked, and the database refuses any two consults that aren't cancelled overlapping for one clinician or one patient. A no-show keeps its slot. Changing hours or time off later doesn't touch consults already booked. There is no staff override.
+Why: two people booking the same slot is the race that happens every day; only the database can settle it for certain.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### CNS13. Who can be booked
+
+Decision: the clinician must be in standing to consult when the consult is booked, and a prescriber in standing for an initial or review consult; a follow-up can be with any clinician in standing. The patient must be 18 or over on the tenant's calendar day (a platform floor) and must have agreed to the current privacy and telehealth terms; the refusal names the missing ones. A phone consult needs a mobile number on the patient's record. A lapse after booking isn't predicted: the start of the consult checks standing again.
+Why: a consult that can't go ahead shouldn't be bookable, and finding out at the start wastes the patient's time.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### CNS14. Only a scheduled consult with no evidence can be cancelled, and cancelled is final
+
+Decision: cancelling needs one of a fixed list of reasons (patient request, clinician unavailable, booked in error, other) and no free text. "Rescheduled" is set only by a move. A consult that has any evidence can't be cancelled or moved, whatever its status says, because evidence may back a script. A cancelled consult stays cancelled; the way back is to book again, since the slot may be gone.
+Why: the gate ignores status, so status alone can't protect a consult a script relies on. Free text in a cancellation reason is where clinical detail leaks.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### CNS15. Rescheduling is one step: cancel and book together
+
+Decision: rescheduling cancels the consult (reason "rescheduled") and books the new time, with the same patient and purpose and the same clinician and mode unless others are given, by the same rules as any booking, in one transaction. If the new time is refused, the old consult stands. The new consult points at the one it replaced. It sends one event, `consult.rescheduled`, so the patient gets one message.
+Why: a move that half-happens leaves a patient with no consult or two.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### CNS16. Only a person marks a no-show, and it can be undone
+
+Decision: a scheduled consult with no evidence can be marked a no-show once its start has passed. Nothing marks one automatically yet. Reinstating a no-show puts it back to scheduled, for a mistaken mark. Both are audited, and both refuse an agent: an agent can't know whether a patient turned up.
+Why: a wrong no-show can cost a patient a fee or their place in a program, so a person owns it.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### CNS17. Booking events carry ids and times only
+
+Decision: `consult.booked`, `consult.rescheduled` (with the previous consult's id), `consult.cancelled` (with the reason), `consult.marked_no_show` and `consult.reinstated` carry the consult, patient and clinician ids, mode, purpose and times. Reminders are sent after commit by messaging, which reads what it needs through the front doors when it sends and skips a consult that is no longer scheduled. The tenant setting that makes the gate stricter is still deferred: nobody has asked, and the floor is safe.
+Why: events reach other modules and outside services; names and contact details stay where they're kept.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.
