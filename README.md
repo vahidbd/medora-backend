@@ -54,6 +54,10 @@ The start command applies pending migrations as the owner, then serves as the AP
 - `STORAGE_MODE=s3` with `S3_BUCKET`, `S3_REGION` (`ap-southeast-2` or `ap-southeast-4`), `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, and `S3_ENDPOINT` when not AWS.
 - `SENTRY_DSN`: an error tracker that keeps data in Australia (ADR 0026). Optional; unset turns error tracking off.
 
+## The worker service
+
+Scheduled jobs and outbox delivery run in a second service from the same image (ADR 0029, `docs/decisions/jobs.md`): start command `node dist/worker.js`, the same settings as the API, and no health check path (it serves no HTTP). Run as many copies as you like; leases keep each job to one run at a time. Locally: `npm run dev:worker`.
+
 ## Deploys
 
 Deploys are off until the repository variable `DEPLOYS` is `on`. With it on, a green CI run on `main` deploys staging; production is deployed by hand (Actions, "Deploy", with the commit already live on staging). Each deploy waits until `/health` reports the new commit, watches it, and rolls back if it fails (ADR 0024).

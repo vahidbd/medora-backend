@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { bigint, check, index, integer, jsonb, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { oneOf } from './checks.js';
-import { ACTOR_TYPES, DATA_ZONES, MEMBERSHIP_STATUSES, ROLES } from './values.js';
+import { ACTOR_TYPES, DATA_ZONES, JOB_OUTCOMES, MEMBERSHIP_STATUSES, ROLES } from './values.js';
 import { platform } from './zones.js';
 
 /**
@@ -96,7 +96,8 @@ export const auditLog = platform.table(
 
 /**
  * Events waiting to be delivered (ADR 0016), written in the same transaction
- * as the change they describe. Delivery comes with the first worker.
+ * as the change they describe. The worker delivers them to each handler
+ * (src/lib/outbox-delivery.ts) and retries with backoff (docs/decisions/jobs.md).
  */
 export const outbox = platform.table(
   'outbox',
@@ -115,8 +116,59 @@ export const outbox = platform.table(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     deliveredAt: timestamp('delivered_at', { withTimezone: true }),
     attempts: integer('attempts').notNull().default(0),
+    /** When delivery may be tried next: now for a new event, later after a failure. */
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Set when the attempts ran out; the event is reported and never tried again by itself. */
+    failedAt: timestamp('failed_at', { withTimezone: true }),
+    /** The last failure's error name and code, never its message (it could carry personal details). */
+    lastError: text('last_error'),
   },
-  (table) => [index('outbox_tenant_idx').on(table.tenantId, table.id)],
+  (table) => [
+    index('outbox_tenant_idx').on(table.tenantId, table.id),
+    index('outbox_due_idx').on(table.nextAttemptAt).where(sql`${table.deliveredAt} is null and ${table.failedAt} is null`),
+  ],
+);
+
+/**
+ * Which handler has already handled which event (JOB3), so a retry runs only
+ * the handlers that failed. Written once, never changed.
+ */
+export const outboxDeliveries = platform.table(
+  'outbox_deliveries',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    eventId: bigint('event_id', { mode: 'number' })
+      .notNull()
+      .references(() => outbox.id),
+    handler: text('handler').notNull(),
+    deliveredAt: timestamp('delivered_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('outbox_deliveries_event_handler_key').on(table.eventId, table.handler),
+    index('outbox_deliveries_tenant_idx').on(table.tenantId),
+  ],
+);
+
+/**
+ * One row per scheduled job (ADR 0029): the lease that lets one process at a
+ * time run it, and how its last run went. Platform-level, no tenant: a job
+ * that works per tenant loops tenants inside its run.
+ */
+export const jobLeases = platform.table(
+  'job_leases',
+  {
+    name: text('name').primaryKey(),
+    /** The process and run holding the lease; null when nobody does. */
+    holder: text('holder'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    lastStartedAt: timestamp('last_started_at', { withTimezone: true }),
+    lastFinishedAt: timestamp('last_finished_at', { withTimezone: true }),
+    lastOutcome: text('last_outcome'),
+  },
+  (table) => [check('job_leases_last_outcome_check', sql`${table.lastOutcome} is null or ${oneOf(table.lastOutcome, JOB_OUTCOMES)}`)],
 );
 
 /**

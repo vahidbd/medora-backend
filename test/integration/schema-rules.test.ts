@@ -15,6 +15,7 @@ const NO_TENANT_COLUMN: Record<string, string> = {
   'platform.tenants': 'the tenant itself: its policy matches its own id',
   'platform.users': 'a person is held once across tenants: visible to themselves and to the tenants they belong to',
   'platform.rate_limit_counters': 'counts attempts before anyone is known, keyed by address',
+  'platform.job_leases': 'one row per scheduled job: job names and process ids, no tenant data (ADR 0029)',
 };
 
 /** Tables whose tenant_id may be null, and why. */
@@ -23,7 +24,7 @@ const NULLABLE_TENANT: Record<string, string> = {
 };
 
 /** The reviewed cross-tenant functions (ADR 0006). */
-const SECURITY_DEFINER = ['platform.claim_user', 'platform.my_memberships'];
+const SECURITY_DEFINER = ['platform.claim_user', 'platform.my_memberships', 'platform.tenants_with_due_events', 'platform.tenant_ids'];
 
 async function rows<T>(query: string, params: unknown[] = []): Promise<T[]> {
   return (await admin.query(query, params)).rows as T[];
