@@ -88,6 +88,47 @@ export type ConsentDecision = (typeof CONSENT_DECISIONS)[number];
 export const CONSENT_CHANNELS = ['web', 'phone', 'in_person'] as const;
 export type ConsentChannel = (typeof CONSENT_CHANNELS)[number];
 
+/** A clinician's profession: what they are registered as, which sets their scope (docs/decisions/workforce.md WRK1). */
+export const PROFESSIONS = [
+  'medical_practitioner',
+  'nurse_practitioner',
+  'registered_nurse',
+  'pharmacist',
+  'dietitian',
+  'psychologist',
+  'health_coach',
+] as const;
+export type Profession = (typeof PROFESSIONS)[number];
+
+/** What a credential row records (WRK2). */
+export const CREDENTIAL_KINDS = ['registration', 'endorsement', 'indemnity'] as const;
+export type CredentialKind = (typeof CREDENTIAL_KINDS)[number];
+
+/** Who a clinician is registered with. Dietitians are credentialed by their professional body, not Ahpra. */
+export const REGISTERING_BODIES = ['ahpra', 'dietitians_australia'] as const;
+export type RegisteringBody = (typeof REGISTERING_BODIES)[number];
+
+export const REGISTRATION_TYPES = ['general', 'specialist', 'provisional', 'limited'] as const;
+export type RegistrationType = (typeof REGISTRATION_TYPES)[number];
+
+/** Only `practising` lets a clinician consult (WRK3). */
+export const REGISTRATION_STATUSES = ['practising', 'non_practising', 'suspended', 'cancelled'] as const;
+export type RegistrationStatus = (typeof REGISTRATION_STATUSES)[number];
+
+/** Endorsements Medora reads. A nurse practitioner prescribes only with this one. */
+export const ENDORSEMENTS = ['nurse_practitioner'] as const;
+export type Endorsement = (typeof ENDORSEMENTS)[number];
+
+/** Why a credential stopped counting. Credentials are never deleted (WRK2). */
+export const CREDENTIAL_WITHDRAWAL_REASONS = ['entered_in_error', 'replaced', 'no_longer_held'] as const;
+export type CredentialWithdrawalReason = (typeof CREDENTIAL_WITHDRAWAL_REASONS)[number];
+
+/** Why a clinician was suspended. A fixed list, so no free text reaches the audit log. */
+export const SUSPENSION_REASONS = ['registration_concern', 'indemnity_concern', 'clinical_governance', 'leave', 'other'] as const;
+export type SuspensionReason = (typeof SUSPENSION_REASONS)[number];
+
+export const TIME_OFF_REASONS = ['leave', 'sick', 'training', 'other'] as const;
+export type TimeOffReason = (typeof TIME_OFF_REASONS)[number];
 /** The documents a patient's identity can be checked against (IDN-02, docs/decisions/patients.md IDN16). */
 export const IDENTITY_DOCUMENTS = ['driver_licence', 'passport', 'medicare_card'] as const;
 export type IdentityDocument = (typeof IDENTITY_DOCUMENTS)[number];
@@ -183,6 +224,15 @@ export const CHECKED_VALUES = [
   { table: 'platform.audit_log', column: 'zone', values: DATA_ZONES },
   { table: 'platform.webhook_inbox', column: 'provider', values: WEBHOOK_PROVIDERS },
   { table: 'platform.webhook_inbox', column: 'status', values: WEBHOOK_STATUSES },
+  { table: 'operational.clinicians', column: 'profession', values: PROFESSIONS },
+  { table: 'operational.clinicians', column: 'suspension_reason', values: SUSPENSION_REASONS },
+  { table: 'operational.clinician_credentials', column: 'kind', values: CREDENTIAL_KINDS },
+  { table: 'operational.clinician_credentials', column: 'registering_body', values: REGISTERING_BODIES },
+  { table: 'operational.clinician_credentials', column: 'registration_type', values: REGISTRATION_TYPES },
+  { table: 'operational.clinician_credentials', column: 'registration_status', values: REGISTRATION_STATUSES },
+  { table: 'operational.clinician_credentials', column: 'endorsement', values: ENDORSEMENTS },
+  { table: 'operational.clinician_credentials', column: 'withdrawal_reason', values: CREDENTIAL_WITHDRAWAL_REASONS },
+  { table: 'operational.clinician_time_off', column: 'reason', values: TIME_OFF_REASONS },
   { table: 'platform.tenant_keys', column: 'provider', values: KEY_PROVIDERS },
   { table: 'clinical.patients', column: 'sex', values: SEXES },
   { table: 'clinical.patients', column: 'identity_status', values: IDENTITY_STATUSES },

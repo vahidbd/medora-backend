@@ -22,6 +22,10 @@ export const PERMISSIONS = [
   'patients:manage',
   // Publish the tenant's consent documents (IDN14).
   'consents:manage',
+  // Clinicians' standing, hours and time off; a clinician's own credentials (docs/decisions/workforce.md WRK4).
+  'clinicians:read',
+  // Add clinicians, check credentials, review conditions, suspend (WRK4). Never about yourself.
+  'clinicians:manage',
   // Mark a patient's identity verified after sighting their document (IDN17).
   'patients:verify_identity',
   // Protocols and programs (docs/decisions/intake.md INT4, INT11).
@@ -53,6 +57,8 @@ export const PERMISSION_ZONES: Record<Permission, DataZone> = {
   'patients:read': 'operational',
   'patients:manage': 'operational',
   'consents:manage': 'platform',
+  'clinicians:read': 'operational',
+  'clinicians:manage': 'operational',
   'patients:verify_identity': 'operational',
   'protocols:read': 'operational',
   'protocols:manage': 'operational',
@@ -86,6 +92,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'consents:manage',
     'protocols:read',
     'programs:manage',
+    'clinicians:read',
+    'clinicians:manage',
   ],
   medical_director: [
     'staff:read',
@@ -99,10 +107,12 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'protocols:sign_off',
     'programs:manage',
     'intakes:read',
+    'clinicians:read',
+    'clinicians:manage',
   ],
-  prescriber: ['staff:read', 'catalogue:read', 'patients:read', 'protocols:read', 'intakes:read'],
-  clinician: ['staff:read', 'catalogue:read', 'patients:read', 'protocols:read', 'intakes:read'],
-  support: ['staff:read', 'catalogue:read', 'patients:read', 'patients:manage'],
+  prescriber: ['staff:read', 'catalogue:read', 'patients:read', 'protocols:read', 'intakes:read', 'clinicians:read'],
+  clinician: ['staff:read', 'catalogue:read', 'patients:read', 'protocols:read', 'intakes:read', 'clinicians:read'],
+  support: ['staff:read', 'catalogue:read', 'patients:read', 'patients:manage', 'clinicians:read'],
   finance: ['staff:read', 'catalogue:read'],
   operations: ['staff:read', 'catalogue:read', 'catalogue:manage'],
   marketing: ['staff:read', 'catalogue:read'],
@@ -116,7 +126,8 @@ export const CLINICAL_ROLES: ReadonlySet<Role> = new Set<Role>(['prescriber', 'c
 export const FULL_ACCESS_ROLE: Role = 'owner';
 
 /** Permissions no agent may ever use, whatever role it runs as (ADM4, PRD ADM-07). */
-export const AGENT_FORBIDDEN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>(['staff:manage', 'roles:manage', 'break_glass:review']);
+// clinicians:manage: who may see patients is decided by people (docs/decisions/workforce.md WRK4).
+export const AGENT_FORBIDDEN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>(['staff:manage', 'roles:manage', 'break_glass:review', 'clinicians:manage']);
 
 /** How long break-glass lasts once opened (ADM3). */
 export const BREAK_GLASS_MINUTES = 60;

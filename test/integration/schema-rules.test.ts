@@ -91,15 +91,13 @@ describe('tenancy in the catalogue (ADR 0006)', () => {
 
 describe('allowed values (ADR 0028)', () => {
   it.each(CHECKED_VALUES)('$table.$column matches values.ts', async ({ table, column, values }) => {
-    const defs = await rows<{ def: string }>(
-      `select pg_get_constraintdef(oid) as def from pg_constraint where conrelid = $1::regclass and contype = 'c'`,
-      [table],
+    // The CHECK is named <table>_<column>_check, so another column's list that happens to hold this column's name can't be mistaken for it.
+    const name = `${table.split('.')[1]}_${column}_check`;
+    const [found] = await rows<{ def: string }>(
+      `select pg_get_constraintdef(oid) as def from pg_constraint where conrelid = $1::regclass and contype = 'c' and conname = $2`,
+      [table, name],
     );
-    // Postgres writes a one-value list as `CHECK ((column = 'value'::text))`, and longer ones with `= ANY (ARRAY[...])`.
-    const listed = defs.map((d) => d.def);
-    const def =
-      listed.find((d) => new RegExp(`\\b${column}\\b`).test(d) && d.includes('ARRAY[')) ??
-      listed.find((d) => new RegExp(`^CHECK \\(\\(${column} = '[^']+'::text\\)\\)$`).test(d));
+    const def = found?.def;
     expect(def, `a CHECK on ${column}`).toBeDefined();
     const inDatabase = [...(def ?? '').matchAll(/'([^']+)'::text/g)].map((m) => m[1]);
     expect(inDatabase.sort()).toEqual([...values].sort());

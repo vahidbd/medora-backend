@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { auditRoutes } from './audit/index.js';
+import { cliniciansRoutes } from './clinicians/index.js';
 import { intakeRoutes, programsOfPatient } from './intake/index.js';
 import { patientRoutes } from './patients/index.js';
 import { protocolsRoutes } from './protocols/index.js';
@@ -11,6 +12,7 @@ import { telephonyRoutes } from './telephony/index.js';
 /** Every module's routes, under /v1. */
 export const registerModules: FastifyPluginAsync = async (app) => {
   await app.register(staffRoutes);
+  await app.register(cliniciansRoutes);
   await app.register(telephonyRoutes);
   await app.register(patientRoutes, { programsOf: programsOfPatient });
   await app.register(protocolsRoutes);
