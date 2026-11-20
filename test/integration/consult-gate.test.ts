@@ -92,15 +92,17 @@ describe('the consult gate (CNS1 to CNS6)', () => {
     expect(consult.rows[0].status).toBe('in_progress');
   });
 
-  it('is usable until exactly 24 hours after they were last together', async () => {
+  it('is usable until exactly 24 hours after they were last together, and a later time is read as now', async () => {
     const { tenantId, patientId, doctor } = await clinic();
-    const from = minutesAgo(10);
+    const from = minutesAgo(25 * 60);
     await heldConsult(app, tenantId, { patientId, clinicianUserId: doctor.userId, from, seconds: 120 });
     const end = from.getTime() + 120_000 + 24 * 3_600_000;
     expect(await gate(tenantId, { patientId, clinicianUserId: doctor.userId, at: new Date(end) })).not.toBeNull();
     expect(await gate(tenantId, { patientId, clinicianUserId: doctor.userId, at: new Date(end + 1) })).toBeNull();
     expect(await lastGateAudit(tenantId)).toMatchObject({ found: false, reason: 'no_consult' });
     expect(await gate(tenantId, { patientId, clinicianUserId: doctor.userId, at: new Date(from.getTime() + 60_000) })).toBeNull();
+    expect(await gate(tenantId, { patientId, clinicianUserId: doctor.userId, at: new Date(Date.now() + 3_600_000) })).toBeNull();
+    expect(await gate(tenantId, { patientId, clinicianUserId: doctor.userId })).toBeNull();
   });
 
   it('never qualifies a cancelled or no-show consult, whatever the evidence says', async () => {

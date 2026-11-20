@@ -83,15 +83,18 @@ function judge(consult: Consult, marks: EvidenceMark[], at: Date, options: { win
 
 /**
  * The consult that lets this clinician write this patient a script at `at`,
- * or null. `at` defaults to the database's clock; script writing must leave
- * it out, so nothing can be backdated (CNS8). The clinician must also be a
+ * or null. `at` defaults to the database's clock, and is never later than
+ * it; opening the prescribing system leaves it out, so nothing can be
+ * backdated (CNS8). The clinician must also be a
  * prescriber in good standing at `at`. Every call is audited (ADR 0008).
  */
 export async function findQualifyingConsult(
   tx: TenantTx,
   input: { patientId: string; clinicianUserId: string; at?: Date },
 ): Promise<QualifyingConsult | null> {
-  const at = input.at ?? (await databaseNow(tx));
+  const now = await databaseNow(tx);
+  // CNS8: a past time asks what was true then (a script reviewed after it came back); a future one is treated as now.
+  const at = input.at && input.at < now ? input.at : now;
   const found = await qualifying(tx, { ...input, at });
   await audit(tx, {
     action: 'consult.gate_checked',

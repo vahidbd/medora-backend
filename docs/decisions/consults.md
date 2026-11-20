@@ -50,15 +50,15 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 
 ### CNS8. The gate check is audited every time and runs on the database's clock
 
-Decision: `findQualifyingConsult` returns the consult that lets this clinician write this patient a script now, or nothing. It also checks that the clinician is a prescriber in good standing at that moment, as the contract with prescribing promised. Every call writes an audit entry with ids only: the clinician, whether a consult was found, which, and when not, a reason code (`no_consult`, `too_short`, `window_closed`, `not_a_prescriber`). Its time defaults to the database's clock; script writing must leave it out, so nothing can be backdated. `listQualifyingConsults` lists every consult with enough time together, whatever the window, for a reviewer linking a script by hand; standing is the caller's to check there.
+Decision: `findQualifyingConsult` returns the consult that lets this clinician write this patient a script now, or nothing. It also checks that the clinician is a prescriber in good standing at that moment, as the contract with prescribing promised. Every call writes an audit entry with ids only: the clinician, whether a consult was found, which, and when not, a reason code (`no_consult`, `too_short`, `window_closed`, `not_a_prescriber`). Its time defaults to the database's clock and is never later than it. Opening the prescribing system leaves it out, so nothing can be backdated; reviewing a script that came back without a consult passes the time the script was written, so only a consult that qualified before then can be linked. `listQualifyingConsults` lists every consult with enough time together, whatever the window, for a reviewer linking a script by hand; standing is the caller's to check there.
 Why: the check reads clinical data (ADR 0008), and a reason in the audit lets a medical director see why a script was refused without putting anything clinical in it.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 
 ### CNS9. The script side of the gate belongs to prescribing
 
-Decision: open for the prescribing pull request: the script row carries the consult id that qualified it, and the database refuses a script without one (ADR 0009, "in the database where it can be"); script writing also checks the prescriber's standing itself rather than relying only on this check.
-Why: written down so it doesn't fall between pull requests.
-Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+Decision: scripts are written in Parchment and come back by webhook (ADR 0013), so the database can't refuse one without losing the record of a script that exists. The gate is enforced where Medora acts: a prescribing session carries the qualifying consult's id, not null, and is opened only after this check and the prescriber's own standing check pass. A script that comes back without a session's consult is stored, flagged to the medical director (ADR 0009), and can't be ordered, charged or dispensed. Those rulings are prescribing's (RX1, RX6, RX8, RX10).
+Why: written down here so the two halves of the gate are visibly one rule, and neither falls between pull requests.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid; amended after prescribing's rulings, with ADR 0013 in view.
 
 ### CNS10. "Recorded" means the evidence record, not a recording
 
