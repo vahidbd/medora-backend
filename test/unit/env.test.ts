@@ -18,6 +18,8 @@ const production: NodeJS.ProcessEnv = {
   S3_SECRET_ACCESS_KEY: 'key',
   FORWARDED_IP_SECRET: 'a'.repeat(40),
   RELEASE_SHA: '0123456789abcdef0123456789abcdef01234567',
+  STRIPE_SECRET_KEY: 'sk_live_made_up_for_tests',
+  CONSOLE_URL: 'https://console.example.com.au',
 };
 
 function refusal(source: NodeJS.ProcessEnv): string {
@@ -43,12 +45,20 @@ describe('production and staging refuse unsafe settings', () => {
     ['storage outside Australia', { S3_REGION: 'us-east-1' }, 'Australian region'],
     ['no client address secret', { FORWARDED_IP_SECRET: undefined }, 'FORWARDED_IP_SECRET'],
     ['an unknown release', { RELEASE_SHA: undefined }, 'release commit is unknown'],
+    ['no Stripe key', { STRIPE_SECRET_KEY: undefined }, 'STRIPE_SECRET_KEY must be a live key'],
+    ['a Stripe test key', { STRIPE_SECRET_KEY: 'sk_test_made_up' }, 'STRIPE_SECRET_KEY must be a live key'],
+    ['no console address for Stripe to send staff back to', { CONSOLE_URL: undefined }, 'CONSOLE_URL is required'],
   ])('refuses %s', (_name, change, message) => {
     expect(refusal({ ...production, ...change })).toContain(message);
   });
 
-  it('lets staging use a Clerk development instance', () => {
-    expect(loadEnv({ ...production, MEDORA_ENV: 'staging', CLERK_PUBLISHABLE_KEY: TEST_KEY }).MEDORA_ENV).toBe('staging');
+  it('lets staging use a Clerk development instance and a Stripe test key', () => {
+    const staging = { ...production, MEDORA_ENV: 'staging', CLERK_PUBLISHABLE_KEY: TEST_KEY, STRIPE_SECRET_KEY: 'rk_test_made_up' };
+    expect(loadEnv(staging).MEDORA_ENV).toBe('staging');
+  });
+
+  it('keeps live payment keys in production', () => {
+    expect(refusal({ ...production, MEDORA_ENV: 'staging' })).toContain('live payment keys stay in production');
   });
 });
 
@@ -72,6 +82,12 @@ describe('outside a deployed service', () => {
     const remote = { ...development, DATABASE_URL: 'postgres://u:p@staging.example.com/medora', ALLOW_REMOTE_DATABASE: '1' };
     expect(loadEnv(remote).MEDORA_ENV).toBe('development');
     expect(refusal({ ...remote, MEDORA_ENV: 'test' })).toContain('Refusing to connect');
+  });
+
+  it('refuses a live Stripe key, and anything that is not a Stripe key', () => {
+    expect(refusal({ ...development, STRIPE_SECRET_KEY: 'sk_live_made_up' })).toContain('live payment keys stay in production');
+    expect(refusal({ ...development, STRIPE_SECRET_KEY: 'pk_test_made_up' })).toContain('must be a Stripe secret or restricted key');
+    expect(loadEnv({ ...development, STRIPE_SECRET_KEY: 'sk_test_made_up' }).STRIPE_SECRET_KEY).toBe('sk_test_made_up');
   });
 
   it('needs a long development secret for dev sign-in', () => {

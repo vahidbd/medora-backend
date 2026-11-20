@@ -7,7 +7,7 @@ import { type TenantContext, withTenant } from '../../src/db/tenant.js';
 import { recordingLog } from '../support/log.js';
 import { ledgerBalance, ledgerBalanceCheck, postEntry, reverseEntry, type LineInput } from '../../src/modules/ledger/index.js';
 import { headers, signIn, testApp } from '../support/app.js';
-import { admin, tenantWith } from '../support/db.js';
+import { admin, createPaymentAccount, tenantWith } from '../support/db.js';
 
 /** The ledger (ADR 0016, docs/decisions/billing.md BIL1 to BIL6). */
 let app: App | undefined;
@@ -38,7 +38,7 @@ const balance = (accountKind: string, ownerColumn: string, ownerId: string) =>
 describe('posting', () => {
   it('writes balanced lines, updates both balances and audits the posting', async () => {
     const patientId = randomUUID();
-    const paymentAccountId = randomUUID();
+    const paymentAccountId = await createPaymentAccount(tenant.tenantId);
     const posted = await inTenant((tx) => postEntry(tx, { kind: 'payment_received', idempotencyKey: `pay:${patientId}`, lines: payment(patientId, paymentAccountId) }));
     expect(posted.replayed).toBe(false);
     expect(await balance('processor_clearing', 'payment_account_id', paymentAccountId)).toBe(11000);
@@ -49,7 +49,7 @@ describe('posting', () => {
 
   it('posts a key once: the same lines again change nothing, different lines are refused', async () => {
     const patientId = randomUUID();
-    const paymentAccountId = randomUUID();
+    const paymentAccountId = await createPaymentAccount(tenant.tenantId);
     const key = `pay:${patientId}`;
     const first = await inTenant((tx) => postEntry(tx, { kind: 'payment_received', idempotencyKey: key, lines: payment(patientId, paymentAccountId) }));
     const again = await inTenant((tx) => postEntry(tx, { kind: 'payment_received', idempotencyKey: key, lines: payment(patientId, paymentAccountId) }));
@@ -74,7 +74,7 @@ describe('posting', () => {
 
 describe('posting at the same moment (ADR 0016)', () => {
   it('lands every posting on a shared account, none lost', async () => {
-    const paymentAccountId = randomUUID();
+    const paymentAccountId = await createPaymentAccount(tenant.tenantId);
     const patients = Array.from({ length: 12 }, () => randomUUID());
     await Promise.all(
       patients.map((patientId) => inTenant((tx) => postEntry(tx, { kind: 'payment_received', idempotencyKey: `pay:${patientId}`, lines: payment(patientId, paymentAccountId, 100) }))),
@@ -89,7 +89,7 @@ describe('posting at the same moment (ADR 0016)', () => {
 
   it('writes one entry when the same key is posted twice at once', async () => {
     const patientId = randomUUID();
-    const paymentAccountId = randomUUID();
+    const paymentAccountId = await createPaymentAccount(tenant.tenantId);
     const post = () => inTenant((tx) => postEntry(tx, { kind: 'payment_received', idempotencyKey: `pay:${patientId}`, lines: payment(patientId, paymentAccountId) }));
     const results = await Promise.all([post(), post()]);
     expect(new Set(results.map((r) => r.entryId)).size).toBe(1);
@@ -101,7 +101,7 @@ describe('posting at the same moment (ADR 0016)', () => {
 describe('reversal', () => {
   it('undoes an entry with its lines negated, once', async () => {
     const patientId = randomUUID();
-    const paymentAccountId = randomUUID();
+    const paymentAccountId = await createPaymentAccount(tenant.tenantId);
     const posted = await inTenant((tx) => postEntry(tx, { kind: 'payment_received', idempotencyKey: `pay:${patientId}`, lines: payment(patientId, paymentAccountId) }));
     const reversed = await inTenant((tx) => reverseEntry(tx, posted.entryId, `reverse:${posted.entryId}`));
     expect(await balance('processor_clearing', 'payment_account_id', paymentAccountId)).toBe(0);
@@ -128,7 +128,8 @@ describe('the database keeps the ledger whole', () => {
 
   it('refuses to change or delete a line, even for the owner', async () => {
     const patientId = randomUUID();
-    const posted = await inTenant((tx) => postEntry(tx, { kind: 'payment_received', idempotencyKey: `pay:${patientId}`, lines: payment(patientId, randomUUID()) }));
+    const paymentAccountId = await createPaymentAccount(tenant.tenantId);
+    const posted = await inTenant((tx) => postEntry(tx, { kind: 'payment_received', idempotencyKey: `pay:${patientId}`, lines: payment(patientId, paymentAccountId) }));
     await expect(admin.query(`update operational.ledger_lines set amount_cents = 1 where entry_id = $1`, [posted.entryId])).rejects.toThrow(/append-only/);
     await expect(admin.query(`delete from operational.ledger_entries where id = $1`, [posted.entryId])).rejects.toThrow(/append-only/);
   });
@@ -138,7 +139,8 @@ describe('tenancy (ADR 0006)', () => {
   it("never shows or touches another tenant's ledger", async () => {
     const other = await tenantWith('owner');
     const patientId = randomUUID();
-    const posted = await inTenant((tx) => postEntry(tx, { kind: 'payment_received', idempotencyKey: `pay:${patientId}`, lines: payment(patientId, randomUUID()) }));
+    const paymentAccountId = await createPaymentAccount(tenant.tenantId);
+    const posted = await inTenant((tx) => postEntry(tx, { kind: 'payment_received', idempotencyKey: `pay:${patientId}`, lines: payment(patientId, paymentAccountId) }));
     const seen = await withTenant(as(other.tenantId, other.members[0]!.id), async (tx) => ({
       entries: (await tx.db.execute(sql`select id from operational.ledger_entries`)).rows,
       lines: (await tx.db.execute(sql`select id from operational.ledger_lines`)).rows,
@@ -163,7 +165,8 @@ describe('tenancy (ADR 0006)', () => {
 describe('the nightly balance check (BIL2)', () => {
   it('reports an account whose cached balance differs from its lines, and changes nothing', async () => {
     const patientId = randomUUID();
-    await inTenant((tx) => postEntry(tx, { kind: 'payment_received', idempotencyKey: `pay:${patientId}`, lines: payment(patientId, randomUUID()) }));
+    const paymentAccountId = await createPaymentAccount(tenant.tenantId);
+    await inTenant((tx) => postEntry(tx, { kind: 'payment_received', idempotencyKey: `pay:${patientId}`, lines: payment(patientId, paymentAccountId) }));
     await admin.query(`update operational.ledger_accounts set balance_cents = balance_cents + 1 where tenant_id = $1 and patient_id = $2`, [tenant.tenantId, patientId]);
     const log = recordingLog();
     await expect(ledgerBalanceCheck.run({ name: ledgerBalanceCheck.name, log })).rejects.toThrow(/differ from their lines/);
@@ -177,7 +180,8 @@ describe('routes', () => {
   it('shows balances and entries to finance and the owner, and to nobody else', async () => {
     app = await testApp();
     const patientId = randomUUID();
-    await inTenant((tx) => postEntry(tx, { kind: 'payment_received', idempotencyKey: `pay:${patientId}`, lines: payment(patientId, randomUUID()) }));
+    const paymentAccountId = await createPaymentAccount(tenant.tenantId);
+    await inTenant((tx) => postEntry(tx, { kind: 'payment_received', idempotencyKey: `pay:${patientId}`, lines: payment(patientId, paymentAccountId) }));
     const list = await app.inject({ method: 'GET', url: '/v1/ledger/accounts', headers: headers(await signIn(finance.email), tenant.tenantId) });
     expect(list.statusCode).toBe(200);
     const account = list.json().accounts.find((a: { patientId: string | null }) => a.patientId === patientId);

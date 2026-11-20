@@ -46,6 +46,15 @@ const envSchema = z.object({
   /** The header the host's edge writes the connecting address to. Default x-real-ip once deployed. */
   CLIENT_IP_HEADER: optionalText,
 
+  /**
+   * Medora's own Stripe key, for Stripe Connect (ADR 0160). Tenants' money goes
+   * to their own Stripe accounts; this key only opens and reads them. Unset
+   * outside a deployed service: a fake processor stands in.
+   */
+  STRIPE_SECRET_KEY: z.preprocess((value) => (value === '' ? undefined : value), z.string().regex(/^(sk|rk)_(test|live)_\w+$/, 'must be a Stripe secret or restricted key').optional()),
+  /** The staff console's address, where a processor's onboarding pages send staff back to. */
+  CONSOLE_URL: z.preprocess((value) => (value === '' ? undefined : value), z.url().optional()),
+
   /** A Sentry-compatible server in Australia (ADR 0026). Unset: error tracking is off. */
   SENTRY_DSN: z.preprocess((value) => (value === '' ? undefined : value), z.url().optional()),
 
@@ -69,7 +78,7 @@ export function loadEnv(source: NodeJS.ProcessEnv): Env {
     throw new Error(`Invalid environment configuration:\n${details}`);
   }
   const config = parsed.data;
-  const problems = [...authProblems(config), ...(isDeployedService(source) ? deployedProblems(config) : [])];
+  const problems = [...authProblems(config), ...paymentProblems(config), ...(isDeployedService(source) ? deployedProblems(config) : [])];
   if (problems.length > 0) {
     throw new Error(`Refusing to start (MEDORA_ENV=${config.MEDORA_ENV}):\n${problems.map((p) => `  ${p}`).join('\n')}`);
   }
@@ -87,6 +96,13 @@ function authProblems(config: Env): string[] {
     problems.push(error instanceof Error ? error.message : String(error));
   }
   return problems;
+}
+
+/** A live payment key works only in production, and production takes nothing else (ADRs 0025, 0160). */
+function paymentProblems(config: Env): string[] {
+  const live = /^(sk|rk)_live_/.test(config.STRIPE_SECRET_KEY ?? '');
+  if (config.MEDORA_ENV === 'production') return live ? [] : ['STRIPE_SECRET_KEY must be a live key (sk_live_ or rk_live_) in production'];
+  return live ? ['STRIPE_SECRET_KEY is a live key: live payment keys stay in production'] : [];
 }
 
 /**
@@ -109,6 +125,9 @@ export function deployedProblems(config: Env): string[] {
   for (const name of ['S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const) {
     if (!config[name]) problems.push(`${name} is required`);
   }
+  if (config.STRIPE_SECRET_KEY && !config.CONSOLE_URL?.startsWith('https://')) {
+    problems.push("CONSOLE_URL is required with STRIPE_SECRET_KEY: the staff console's https address, where Stripe sends staff back after onboarding");
+  }
   if ((config.FORWARDED_IP_SECRET ?? '').length < 32) problems.push('FORWARDED_IP_SECRET of at least 32 characters is required');
   if (!/^[0-9a-f]{40}$/.test(config.RELEASE_SHA ?? '')) problems.push('the release commit is unknown (build with scripts/build.mjs, or set RELEASE_SHA)');
   return problems;
@@ -120,3 +139,6 @@ export const env: Env = loadEnv(process.env);
 
 export const isDeployed = env.MEDORA_ENV === 'staging' || env.MEDORA_ENV === 'production';
 export const isTest = env.MEDORA_ENV === 'test';
+
+/** The staff console's address: CONSOLE_URL once deployed, the local web app otherwise. */
+export const consoleUrl = (env.CONSOLE_URL ?? 'http://localhost:3000').replace(/\/$/, '');

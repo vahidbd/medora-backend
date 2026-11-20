@@ -21,6 +21,7 @@ const OWNERS: Record<string, string[]> = {
   'operational.ledger_accounts': ['src/modules/ledger/'],
   'operational.ledger_entries': ['src/modules/ledger/'],
   'operational.ledger_lines': ['src/modules/ledger/'],
+  'operational.payment_accounts': ['src/modules/payments/'],
   'platform.rate_limit_counters': ['src/lib/rate-limit.ts'],
 };
 

@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { bigint, check, foreignKey, index, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { oneOf } from './checks.js';
+import { paymentAccounts } from './payments.js';
 import { tenants } from './platform.js';
 import { CURRENCIES, FEE_KINDS, LEDGER_ACCOUNT_KINDS, LEDGER_ENTRY_KINDS } from './values.js';
 import { operational } from './zones.js';
@@ -24,7 +25,7 @@ export const ledgerAccounts = operational.table(
     currency: text('currency').notNull().default('AUD'),
     /** Patient accounts only. Foreign key owed until patients merge (BIL5). */
     patientId: uuid('patient_id'),
-    /** Processor clearing only. Foreign key owed until payment accounts merge (BIL5). */
+    /** Processor clearing only. */
     paymentAccountId: uuid('payment_account_id'),
     /** Pharmacy payable only. Foreign key owed until partner pharmacies merge (BIL5). */
     partnerPharmacyId: uuid('partner_pharmacy_id'),
@@ -37,6 +38,12 @@ export const ledgerAccounts = operational.table(
     unique('ledger_accounts_owner_key')
       .on(table.tenantId, table.kind, table.currency, table.patientId, table.paymentAccountId, table.partnerPharmacyId)
       .nullsNotDistinct(),
+    foreignKey({
+      name: 'ledger_accounts_payment_account_fk',
+      columns: [table.tenantId, table.paymentAccountId],
+      foreignColumns: [paymentAccounts.tenantId, paymentAccounts.id],
+    }),
+    index('ledger_accounts_payment_account_idx').on(table.tenantId, table.paymentAccountId),
     check('ledger_accounts_kind_check', oneOf(table.kind, LEDGER_ACCOUNT_KINDS)),
     check('ledger_accounts_currency_check', oneOf(table.currency, CURRENCIES)),
     check(
