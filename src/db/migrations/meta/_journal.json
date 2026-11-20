@@ -19,22 +19,15 @@
     {
       "idx": 2,
       "version": "7",
-      "when": 1795147658168,
-      "tag": "0002_field_keys",
+      "when": 1795147804541,
+      "tag": "0002_staff_access",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "7",
-      "when": 1795148165558,
-      "tag": "0003_patients",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1795148868267,
-      "tag": "0004_consents",
+      "when": 1795149079451,
+      "tag": "0003_intake_identity",
       "breakpoints": true
     }
   ]

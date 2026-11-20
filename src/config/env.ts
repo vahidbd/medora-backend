@@ -32,6 +32,11 @@ const envSchema = z.object({
   CLERK_ISSUER: optionalText,
   /** The web app origins a token may be issued for, comma-separated. */
   CLERK_AUTHORIZED_PARTIES: optionalText,
+  /** Clerk's Backend API key, for sending staff invitations (docs/decisions/admin.md ADM5). Unset: invitations are saved but no email goes out. */
+  CLERK_SECRET_KEY: optionalText,
+  /** The staff console's origin, where an invitation's link lands (e.g. https://console.example.com.au). */
+  CONSOLE_URL: z.preprocess((value) => (value === '' ? undefined : value), z.url().optional()),
+
   /**
    * Patients sign in on their own Clerk instance (ADR 0035): open sign-up,
    * one-time codes, passkeys. Patient routes accept only its tokens, and staff
@@ -132,6 +137,11 @@ export function deployedProblems(config: Env): string[] {
   if (config.MEDORA_ENV === 'production' && config.CLERK_PUBLISHABLE_KEY && !config.CLERK_PUBLISHABLE_KEY.startsWith('pk_live_')) {
     problems.push('CLERK_PUBLISHABLE_KEY must be a production instance key (pk_live_) in production');
   }
+  if (!config.CLERK_SECRET_KEY) problems.push('CLERK_SECRET_KEY is required (staff invitations are sent through Clerk)');
+  if (config.MEDORA_ENV === 'production' && config.CLERK_SECRET_KEY && !config.CLERK_SECRET_KEY.startsWith('sk_live_')) {
+    problems.push('CLERK_SECRET_KEY must be a production instance key (sk_live_) in production');
+  }
+  if (!config.CONSOLE_URL?.startsWith('https://')) problems.push('CONSOLE_URL must be the staff console\'s https origin');
   if (parseAuthorizedParties(config.CLERK_AUTHORIZED_PARTIES).length === 0) {
     problems.push('CLERK_AUTHORIZED_PARTIES is required (the web app origins, e.g. https://console.example.com.au)');
   }
