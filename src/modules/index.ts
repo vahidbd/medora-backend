@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { priceRoutes, subscriptionRoutes } from './billing/index.js';
+import { invoiceRoutes, priceRoutes, subscriptionRoutes } from './billing/index.js';
 import { ledgerRoutes } from './ledger/index.js';
 import { paymentAccountRoutes } from './payments/index.js';
 import { staffRoutes } from './staff/index.js';
@@ -11,4 +11,5 @@ export const registerModules: FastifyPluginAsync = async (app) => {
   await app.register(paymentAccountRoutes);
   await app.register(priceRoutes);
   await app.register(subscriptionRoutes);
+  await app.register(invoiceRoutes);
 };

@@ -3,7 +3,7 @@ import { bigint, boolean, check, date, foreignKey, index, integer, smallint, tex
 import { oneOf } from './checks.js';
 import { paymentAccounts } from './payments.js';
 import { tenants } from './platform.js';
-import { BILLING_MODELS, CANCEL_REASONS, FEE_KINDS, GST_TREATMENTS, INTERVAL_UNITS, PRICE_STATUSES, SUBSCRIPTION_STATUSES } from './values.js';
+import { BILLING_MODELS, CANCEL_REASONS, FEE_KINDS, GST_TREATMENTS, HELD_REASONS, INTERVAL_UNITS, PRICE_STATUSES, SUBSCRIPTION_STATUSES } from './values.js';
 import { operational } from './zones.js';
 
 /**
@@ -145,6 +145,9 @@ export const subscriptions = operational.table(
     /** Set when it ends, or when it is due to end at the period's end (BIL21). */
     cancelReason: text('cancel_reason'),
     endedOn: date('ended_on'),
+    /** Why a due period has no invoice yet, as the renewal job last heard; cleared when it is issued (BIL24). */
+    renewalHeldReason: text('renewal_held_reason'),
+    renewalCheckedAt: timestamp('renewal_checked_at', { withTimezone: true }),
     activatedAt: timestamp('activated_at', { withTimezone: true }),
     cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -169,6 +172,13 @@ export const subscriptions = operational.table(
     check('subscriptions_status_check', oneOf(table.status, SUBSCRIPTION_STATUSES)),
     check('subscriptions_cancel_reason_check', sql`${table.cancelReason} is null or ${oneOf(table.cancelReason, CANCEL_REASONS)}`),
     check('subscriptions_anchor_day_check', sql`${table.anchorDay} between 1 and 31`),
+    check('subscriptions_renewal_held_reason_check', sql`${table.renewalHeldReason} is null or ${oneOf(table.renewalHeldReason, HELD_REASONS)}`),
+    check(
+      'subscriptions_renewal_held_check',
+      sql`(${table.renewalHeldReason} is null or (${table.renewalCheckedAt} is not null and ${table.status} <> 'cancelled'))`,
+    ),
+    // The renewal job finds what is due by date.
+    index('subscriptions_due_idx').on(table.tenantId, table.nextPeriodStartsOn),
     check(
       'subscriptions_lifecycle_check',
       sql`(${table.status} = 'pending') = (${table.activatedAt} is null and ${table.status} <> 'cancelled')

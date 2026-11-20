@@ -5,7 +5,7 @@ import type { App } from '../../src/app.js';
 import { closeDatabase } from '../../src/db/health.js';
 import { type TenantContext, withTenant } from '../../src/db/tenant.js';
 import { startSubscription } from '../../src/modules/billing/index.js';
-import { activateSubscription } from '../../src/modules/billing/subscriptions.service.js';
+import { beginPeriod } from '../../src/modules/billing/subscriptions.service.js';
 import { headers, signIn, testApp } from '../support/app.js';
 import { admin, createPaymentAccount, tenantWith } from '../support/db.js';
 
@@ -64,7 +64,7 @@ const start = (priceId: string, patientId: string = randomUUID(), timeZone = 'Au
 async function running(startsOn: string) {
   const price = await livePrice();
   const started = await start(price.priceId);
-  return inClinic((tx) => activateSubscription(tx, started.subscriptionId, startsOn));
+  return inClinic((tx) => beginPeriod(tx, started.subscriptionId, startsOn));
 }
 
 const trail = (recordId: string) =>
@@ -115,9 +115,9 @@ describe('starting (BIL18, BIL19)', () => {
   it('starts the first period on the day it is released, and keeps a month-end anchor', async () => {
     const price = await livePrice();
     const started = await start(price.priceId);
-    const active = await inClinic((tx) => activateSubscription(tx, started.subscriptionId, '2027-01-31'));
+    const active = await inClinic((tx) => beginPeriod(tx, started.subscriptionId, '2027-01-31'));
     expect(active).toMatchObject({ status: 'active', currentPeriod: { startsOn: '2027-01-31', endsOn: '2027-02-28' }, nextPeriodStartsOn: '2027-02-28' });
-    expect(await code(inClinic((tx) => activateSubscription(tx, started.subscriptionId, '2027-02-01')))).toBe('subscription_not_pending');
+    expect(await code(inClinic((tx) => beginPeriod(tx, started.subscriptionId, '2027-02-01')))).toBe('period_not_due');
     // Overdue, so skipping moves it along the anchor: the 31st, or the month's last day.
     expect((await call('POST', `/subscriptions/${active.subscriptionId}/skip`)).body.nextPeriodStartsOn).toBe('2027-03-31');
   });

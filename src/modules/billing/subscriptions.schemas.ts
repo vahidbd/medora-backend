@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CANCEL_REASONS, type CancelReason, INTERVAL_UNITS, SUBSCRIPTION_STATUSES } from '../../db/schema/values.js';
+import { CANCEL_REASONS, type CancelReason, HELD_REASONS, INTERVAL_UNITS, SUBSCRIPTION_STATUSES } from '../../db/schema/values.js';
 
 /** A calendar date in the subscription's time zone. */
 const calendarDate = z.iso.date();
@@ -30,6 +30,8 @@ export const subscription = z.object({
   cancelsAtPeriodEnd: z.boolean(),
   cancelReason: z.enum(CANCEL_REASONS).nullable(),
   endedOn: calendarDate.nullable(),
+  /** A due period with no invoice yet, and why, as the renewal job last heard. */
+  renewalHeld: z.object({ reason: z.enum(HELD_REASONS), checkedAt: z.iso.datetime() }).nullable(),
   createdAt: z.iso.datetime(),
 });
 

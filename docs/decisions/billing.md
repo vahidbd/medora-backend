@@ -26,7 +26,7 @@ Why: the ledger shows the mistake and its fix (ADR 0016). A partial refund is no
 
 ### BIL5. Columns that will point at another feature's table wait for it, and a test says so
 
-Decision: `patient_id` and `partner_pharmacy_id` on ledger accounts, `company_id` on payment accounts, `program_id` on prices, `product_id` on price fees and `patient_id` on subscriptions are uuids without a foreign key until those tables merge (patients and programs from intake, partner pharmacies from orders, companies and products from tenant settings and the catalogue). `payment_account_id` got its foreign key, through the tenant, when payment accounts arrived. `FOREIGN_KEYS_OWED` in `test/integration/schema-rules.test.ts` lists each with the table it will reference; the test fails as soon as that table exists, so the foreign key is added in the next migration and the column leaves the list.
+Decision: `patient_id` and `partner_pharmacy_id` on ledger accounts, `company_id` on payment accounts, `program_id` on prices, `product_id` on price fees, `patient_id` on subscriptions, and `company_id`, `patient_id`, `order_id` and `partner_pharmacy_id` on invoices (and `product_id` on their lines, `company_id` on invoice numbers) are uuids without a foreign key until those tables merge (patients and programs from intake, orders and partner pharmacies from orders, companies and products from tenant settings and the catalogue). `payment_account_id` got its foreign key, through the tenant, when payment accounts arrived. `FOREIGN_KEYS_OWED` in `test/integration/schema-rules.test.ts` lists each with the table it will reference; the test fails as soon as that table exists, so the foreign key is added in the next migration and the column leaves the list.
 Why: billing is built alongside those features; waiting for them would stall it, and a forgotten foreign key is exactly what ADR 0028 forbids. The tenant id's foreign key and row-level security are real from the start.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 
@@ -106,19 +106,19 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 
 ### BIL19. Pending, active, paused, cancelled; the first period starts when it is released
 
-Decision: a subscription waits as `pending` until its first billing period's invoice is released after the clinician accepts, and that day starts period 1 and sets the anchor day. A period that starts off its schedule (released late, overdue on resume, or on a pause's resume date) starts on its release date and sets a new anchor day from it, as there is no proration (P8b) and every period is a full one. An anchor on the 29th to 31st falls on a shorter month's last day without changing the anchor. Invoices, the renewal job and the re-anchoring arrive with invoices; this part holds the dates.
+Decision: a subscription waits as `pending` until its first billing period's invoice is released after the clinician accepts, and that day starts period 1 and sets the anchor day. A period that starts off its schedule (released late, overdue on resume, or on a pause's resume date) starts on its release date and sets a new anchor day from it, as there is no proration (P8b) and every period is a full one. An anchor on the 29th to 31st falls on a shorter month's last day without changing the anchor. The renewal job starts each period when its invoice is issued (BIL24).
 Why: the patient pays for care from the day it is approved, not from checkout.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 
 ### BIL20. Pauses and skips put the next period off by three months at most
 
-Decision: a pause names the date the next period starts: after today in the patient's time zone, no earlier than the current period's end, and at most three months after it. Resuming sets the next period back to the current period's end; if that has passed, the period is due now and goes through the same late release and clinical gate as any overdue renewal. A skip moves the next period one interval on along the anchor day, only before that period's invoice is released (enforced with invoices). A paused subscription changes its resume date instead of skipping. Pauses and skips share the same three months, which the database also checks. Pausing will void a held, unreleased invoice, and resuming makes a fresh one through the gate.
+Decision: a pause names the date the next period starts: after today in the patient's time zone, no earlier than the current period's end, and at most three months after it. Resuming sets the next period back to the current period's end; if that has passed, the period is due now and goes through the same late release and clinical gate as any overdue renewal. A skip moves the next period one interval on along the anchor day; a period already issued has started, so it can't be skipped. A paused subscription changes its resume date instead of skipping. Pauses and skips share the same three months, which the database also checks.
 Why: a short break shouldn't need a cancel and a new checkout, and a longer one should; a single cap is easy to explain.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 
 ### BIL21. Cancel at the period's end or now; reasons are codes; nothing is refunded by itself
 
-Decision: cancelling at the period's end keeps the subscription running until the current period ends, with the reason kept beside it, and reinstating before then clears both. Cancelling now ends it today. With no paid days left (still pending, or the current period already over) a cancel at the period's end ends it today too, and will void any held invoice in the same transaction. A reason is a code: `patient_request`, `staff_decision` or `other` from staff, and `clinician_declined` only from the consult's outcome, which the staff route refuses. Cancelling never prorates or refunds; a refund is its own action. An ended subscription is never changed or deleted.
+Decision: cancelling at the period's end keeps the subscription running until the current period ends, with the reason kept beside it, and reinstating before then clears both. Cancelling now ends it today. With no paid days left (still pending, or the current period already over) a cancel at the period's end ends it today too. There is no held invoice to void: an invoice exists only once issued (BIL23). A reason is a code: `patient_request`, `staff_decision` or `other` from staff, and `clinician_declined` only from the consult's outcome, which the staff route refuses. Cancelling never prorates or refunds; a refund is its own action. An ended subscription is never changed or deleted.
 Why: codes keep patient details out of billing records (ADR 0008), and a refund is a money decision a person makes on purpose.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 
@@ -127,3 +127,32 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 Decision: `subscriptions:read` and `subscriptions:manage` are held by support, finance and the owner. Clinicians hold neither; a clinician declining cancels the subscription as part of the consult outcome, without a subscription permission. Every change writes an audit entry and an event (`subscription.started`, `activated`, `paused`, `resumed`, `skipped`, `cancellation_scheduled`, `reinstated`, `cancelled`) with the patient's and program's ids, never patient details, so orders can hold or cancel an order it placed when a subscription pauses or ends. No agent tool changes a subscription yet: the support agent's tools and their limits are decided when that agent is built (ADR 0012).
 Why: support handles a patient's request to pause or stop, and finance answers for the money.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### BIL23. An invoice exists only once it is issued, and is never changed
+
+Decision: there are no held invoices. An invoice is written once, when it is issued: its number (BIL25), its lines copied from the price's fees with their GST treatment and GST, and its `invoice_issued` ledger entry, in one transaction. The patient's receivable is debited with the total; each line credits its fee kind's revenue with its amount less GST and, for medicine, less the pharmacy's share, which is credited to that pharmacy's payable; the GST goes to GST collected (BIL3, BIL7). The consult fee is its own invoice, issued at checkout with the subscription (BIL13). Nothing changes or deletes an issued invoice or its lines; voiding one (it keeps its number, and the ledger entry is reversed) and adjustment notes arrive with payments and refunds. Until then every invoice is `open`.
+Why: "held" only ever meant "not issued yet". Without a held row there is nothing to void when a subscription pauses or ends, and the database can require an order behind every medicine charge (BIL24).
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### BIL24. A billing period is issued only once it is cleared, and the reason it waits is kept
+
+Decision: the job `billing-renewals` runs every 15 minutes, a tenant at a time, each subscription in its own savepoint so one failure is logged and the rest go on. It tries a pending subscription's first period at any time, and a renewal from 10:00 in the patient's time zone on the period's first day. It asks the clearance source, which consults (the clinician accepted, for the first period) and orders (`clearanceForPeriod`: an order with a current script the pharmacist has checked, for bundled prices) provide. Cleared: the period starts that day, and its invoice charges the program and shipping fees and, when bundled, the medicine fee for the product on the order's script, naming the order and its pharmacy. The database refuses a medicine line that doesn't carry its invoice's order, a second invoice for one period, and a second invoice for one order. Held: the reason code (`awaiting_clinician`, `no_order`, `no_current_script`, `awaiting_pharmacist`, `cannot_dispense`, `no_medicine_fee`, `other`) and when it was checked are kept on the subscription, cleared when the period is issued, and `subscription.renewal_held` is emitted only when the reason changes. A script whose product has no medicine fee on the price is held as `no_medicine_fee` (BIL13). A clinician declining ends the subscription through the consult's outcome (BIL21), not here. Until consults and orders are wired in, the job's clearance source clears nothing, so nothing can be charged by accident.
+Why: ADR 0009, held by the shape of the data as well as by the job. Staff and the patient app can say why no money was taken without reading the orders module.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### BIL25. Invoice numbers run per issuing company, without gaps, from the moment of issue
+
+Decision: an invoice's issuing company is its payment account's. Its number is `<prefix>-<number>`, zero-padded to at least six digits, with the prefix `INV` until tenant settings lets a company choose its own; a new prefix applies only to numbers issued after it. The number is taken from the company's row in `operational.invoice_numbers` inside the issuing transaction, so a rolled-back invoice gives its number back and two issues for one company wait for each other. The full number is stored, unique per company.
+Why: a tax invoice needs a unique number, and a gapless series per company is what the tenant's accountant and the ATO expect.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### BIL26. Orders reads upcoming renewals to place renewal orders ahead
+
+Decision: `upcomingRenewals(tx, { withinDays })` lists active subscriptions not due to end whose next period starts within the window, with the price's billing model. Orders' job uses it to place a bundled renewal order three days before the period starts, through the same checks as a staff order; pharmacy-billed subscriptions get none. Subscription events carry the patient's and program's ids so orders can hold or cancel an order it placed when a subscription pauses, skips or ends.
+Why: the medicine has to be checked and ready by 10:00 on the period's first day, or the renewal waits.
+Decided by: stand-in (Fable 5.2), with the orders thread, to confirm with Vahid.
+
+### BIL27. Support, finance and the owner read invoices; no route issues one
+
+Decision: `invoices:read` is held by support, finance and the owner. Invoices are issued only by checkout and the renewal job: no route or agent tool issues, edits or voids one. Issuing writes an audit entry and `invoice.issued` with the patient's and subscription's ids, the kind, the number and the total.
+Why: an invoice follows from a price and a cleared period, never from someone's choice on the day (ADR 0012).
