@@ -2,7 +2,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { withTenant } from '../../db/tenant.js';
 import { requireTenant, tenantContextOf } from '../../plugins/auth.js';
 import { breakGlassListReply, breakGlassParams, breakGlassQuery, breakGlassRecord, openBody, reviewBody } from './break-glass.schemas.js';
-import { closeBreakGlass, listBreakGlass, openBreakGlass, reviewBreakGlass } from './break-glass.service.js';
+import { closeMyBreakGlass, listBreakGlass, openBreakGlass, reviewBreakGlass } from './break-glass.service.js';
 
 const NO_AGENT = { none: 'Break-glass is a person stating why they need clinical access (docs/decisions/admin.md ADM3); an agent never opens or reviews it' } as const;
 
@@ -22,12 +22,15 @@ export const breakGlassRoutes: FastifyPluginAsyncZod = async (app) => {
   );
 
   app.post(
-    '/break-glass/:breakGlassId/close',
+    '/break-glass/close',
     {
       config: { access: 'member', audit: ['break_glass.closed'], events: ['break_glass.closed'], agentTool: NO_AGENT },
-      schema: { tags: ['staff'], summary: 'End your break-glass early', params: breakGlassParams, response: { 200: breakGlassRecord } },
+      schema: { tags: ['staff'], summary: 'End your break-glass early', response: { 200: breakGlassListReply } },
     },
-    async (request) => withTenant(tenantContextOf(request), (tx) => closeBreakGlass(tx, request.params.breakGlassId)),
+    async (request) => {
+      const { tenant } = requireTenant(request);
+      return { breakGlass: await withTenant(tenantContextOf(request), (tx) => closeMyBreakGlass(tx, tenant)) };
+    },
   );
 
   app.get(

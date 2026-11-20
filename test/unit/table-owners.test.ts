@@ -11,7 +11,10 @@ import * as schema from '../../src/db/schema/index.js';
  * written only by migrations' reviewed functions and the development seed.
  */
 const OWNERS: Record<string, string[]> = {
-  'platform.tenants': [],
+  'platform.tenants': ['src/modules/brands/'],
+  'platform.companies': ['src/modules/brands/'],
+  'platform.brands': ['src/modules/brands/'],
+  'platform.brand_domains': ['src/modules/brands/'],
   'platform.users': [],
   'platform.memberships': ['src/modules/staff/'],
   'platform.roles': ['src/modules/staff/'],
@@ -31,6 +34,7 @@ const OWNERS: Record<string, string[]> = {
   'clinical.consent_documents': ['src/modules/patients/'],
   'clinical.patient_consents': ['src/modules/patients/'],
   'clinical.messages': ['src/modules/messaging/'],
+  'operational.senders': ['src/modules/messaging/'],
 };
 
 /** Made-up local data only (src/db/seed.ts refuses anything but development). */

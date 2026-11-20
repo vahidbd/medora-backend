@@ -47,8 +47,22 @@
     {
       "idx": 6,
       "version": "7",
+      "when": 1795149992214,
+      "tag": "0003_tenant_onboarding",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
       "when": 1795150661132,
       "tag": "0005_messaging",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795151704642,
+      "tag": "0006_senders",
       "breakpoints": true
     }
   ]

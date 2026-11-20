@@ -37,6 +37,8 @@ export interface QueueInput {
   /** The helpdesk ticket it belongs to, if any. */
   ticketId?: string | null;
   patientId?: string | null;
+  /** The brand it is sent as. */
+  brandId?: string | null;
   templateKey?: string | null;
   automated?: boolean;
   /** "Send this once": a second call with the same key returns the first message (ADR 0029). */
@@ -60,6 +62,7 @@ export async function queueMessage(tx: TenantTx, input: QueueInput): Promise<{ m
       tenantId: tx.context.tenantId,
       ticketId: input.ticketId ?? null,
       patientId: input.patientId ?? null,
+      brandId: input.brandId ?? null,
       direction: 'outbound',
       channel: input.channel,
       kind: input.kind,

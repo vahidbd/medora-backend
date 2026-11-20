@@ -33,6 +33,12 @@ const SECURITY_DEFINER = [
   'platform.invite_person',
   'platform.tenants_with_due_events',
   'platform.tenant_ids',
+  'platform.create_tenant',
+  'platform.renew_owner_invitation',
+  'platform.platform_tenants',
+  'platform.platform_domains',
+  'platform.verify_domain',
+  'platform.resolve_brand',
 ];
 
 async function rows<T>(query: string, params: unknown[] = []): Promise<T[]> {

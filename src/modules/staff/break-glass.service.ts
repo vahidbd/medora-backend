@@ -89,20 +89,33 @@ export async function openBreakGlass(tx: TenantTx, access: TenantAccess, reason:
   return find(tx, row!.id);
 }
 
-/** End your own break-glass before its hour is up. */
-export async function closeBreakGlass(tx: TenantTx, id: string): Promise<BreakGlassRecord> {
+/**
+ * End your own break-glass in this tenant before its hour is up. The
+ * console knows only that one is open (GET /v1/me), not its id, so this
+ * ends every one of yours still running, and answers with what it ended.
+ */
+export async function closeMyBreakGlass(tx: TenantTx, access: TenantAccess): Promise<BreakGlassRecord[]> {
   const userId = personOf(tx);
-  const current = await find(tx, id);
-  if (current.userId !== userId) throw new ForbiddenError('You can only end your own break-glass');
-  if (new Date(current.endsAt).getTime() <= Date.now()) return current;
-  await tx.db
+  const ended = await tx.db
     .update(breakGlass)
     .set({ endsAt: sql`greatest(now(), ${breakGlass.openedAt} + interval '1 millisecond')` })
-    .where(and(eq(breakGlass.tenantId, tx.context.tenantId), eq(breakGlass.id, id)));
-  const record = { recordTable: 'platform.break_glass', recordId: id } as const;
-  await audit(tx, { action: 'break_glass.closed', zone: 'platform', ...record });
-  await emitEvent(tx, { type: 'break_glass.closed', ...record, payload: { userId } });
-  return find(tx, id);
+    .where(
+      and(
+        eq(breakGlass.tenantId, tx.context.tenantId),
+        eq(breakGlass.membershipId, access.membershipId),
+        eq(breakGlass.userId, userId),
+        gt(breakGlass.endsAt, sql`now()`),
+      ),
+    )
+    .returning({ id: breakGlass.id });
+  for (const { id } of ended) {
+    const record = { recordTable: 'platform.break_glass', recordId: id } as const;
+    await audit(tx, { action: 'break_glass.closed', zone: 'platform', ...record });
+    await emitEvent(tx, { type: 'break_glass.closed', ...record, payload: { userId } });
+  }
+  const records: BreakGlassRecord[] = [];
+  for (const { id } of ended) records.push(await find(tx, id));
+  return records;
 }
 
 export async function listBreakGlass(tx: TenantTx, options: { unreviewedOnly: boolean }): Promise<BreakGlassRecord[]> {
