@@ -10,7 +10,7 @@ if (env.MEDORA_ENV !== 'development' || env.AUTH_MODE !== 'dev') throw new Error
 const secret = new TextEncoder().encode(env.DEV_JWT_SECRET);
 let token: string;
 if (process.argv[2] === '--patient') {
-  // A patient sign-in (ADR 0035): `aud: "patient"` and a session id. Seeded patients are 1 and 2.
+  // A patient sign-in (ADR 0100): `aud: "patient"` and a session id. Seeded patients are 1 and 2.
   const n = process.argv[3];
   if (!n) throw new Error('Usage: npm run dev:token -- --patient <n>');
   token = await new SignJWT({ sid: `sess_dev_${n}_${Date.now()}`, email: `patient-${n}@example.test` })

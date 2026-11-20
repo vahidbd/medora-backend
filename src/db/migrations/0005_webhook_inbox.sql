@@ -18,8 +18,7 @@ CREATE TABLE "platform"."webhook_inbox" (
 --> statement-breakpoint
 ALTER TABLE "platform"."webhook_inbox" ADD CONSTRAINT "webhook_inbox_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "platform"."tenants"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "webhook_inbox_delivery_key" ON "platform"."webhook_inbox" USING btree ("tenant_id","provider","provider_event_id");--> statement-breakpoint
-CREATE INDEX "webhook_inbox_pending_idx" ON "platform"."webhook_inbox" USING btree ("tenant_id","status","id");--> statement-breakpoint
-
+CREATE INDEX "webhook_inbox_pending_idx" ON "platform"."webhook_inbox" USING btree ("tenant_id","status","id");
 -- The webhook inbox (ADR 0029, docs/decisions/webhooks.md): tenant-isolated
 -- like every tenant table (ADR 0006). The API stores and processes; it never
 -- deletes a delivery.

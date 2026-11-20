@@ -3,7 +3,7 @@ import { patientSignIns, patients, tenants } from './schema/index.js';
 import { withTenant } from './tenant.js';
 
 /**
- * Who a verified patient sign-in is inside one tenant (ADR 0035,
+ * Who a verified patient sign-in is inside one tenant (ADR 0100,
  * docs/decisions/patients.md IDN2 and IDN3). Runs inside the tenant, so
  * row-level security decides what exists; no cross-tenant function is needed,
  * because the request names its tenant before anyone is looked up.
