@@ -2,7 +2,7 @@
 
 Rulings for consults, their evidence and the consult gate (ADRs 0005, 0006, 0008, 0009, 0020, 0029, 0120). `src/modules/consults/`, tables in the `clinical` schema. Booking, the phone flow and the video room service add their rulings here as they land.
 
-Rulings marked "Decided by: stand-in" were made while the product owner was away and are to be confirmed with him.
+Rulings marked "Decided by: stand-in" were made while the product owner was away and are to be confirmed with Vahid.
 
 ### CNS1. A consult is a real-time phone or video call, and nothing else
 
