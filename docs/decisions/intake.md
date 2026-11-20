@@ -1,6 +1,6 @@
 # Intake and the protocol engine
 
-Rulings for protocols, their versions and sign-off, programs, and intakes (PRD section 2). ADR 0023 sets the rule that conditions, protocols and their questions are tenant data, never code; ADRs 0006, 0007, 0008, 0009, 0010, 0012 and 0028 apply throughout. Rulings marked "Decided by: stand-in" were decided by the product owner's stand-in while the product owner was away, and are listed in the pull request to confirm.
+Rulings for protocols, their versions and sign-off, programs, and intakes (PRD section 2). ADR 0023 sets the rule that conditions, protocols and their questions are tenant data, never code; ADRs 0006, 0007, 0008, 0009, 0010, 0012 and 0028 apply throughout. Rulings marked "Decided by: stand-in" were decided by the product owner's stand-in while the product owner was away, and are listed in the pull request to confirm. The web app's rulings for the same screens are INT19 onward in its own copy of this file.
 
 ### INT1. One small rule language, run on the server
 
