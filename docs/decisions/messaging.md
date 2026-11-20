@@ -27,3 +27,9 @@ Decided by: stand-in, to confirm with Vahid. The provider is Vahid's choice.
 Decision: a message's text, addresses and author are never changed or deleted once written; the database refuses it. Only its delivery status, the provider's id and the failure code change. A correction is a new message or a comment. Attachments aren't stored in v1: the message keeps how many were sent, so staff can ask the person to upload through the patient app.
 Why: what we told a patient, and what they told us, is part of their record (ADR 0028). A photo sent by SMS is often clinical and needs its own ruling before we keep it.
 Decided by: stand-in, to confirm with Vahid.
+
+### CRM5. Each brand has its own addresses, and marketing never shares one with service
+
+Decision: a sender is a brand's address on a channel for a purpose: `service` (ticket replies and transactional messages) or `marketing`. One per brand, channel and purpose. An admin (`messaging:manage`) sets them; phone numbers are stored in E.164 and email addresses lower-cased. A brand from another tenant is not found. Agents can't change them.
+Why: a patient sees the brand they signed up with, never the platform (PRD 14). Marketing SMS must come from another number, or a STOP sent to a marketing message at the carrier would also block dose reminders and the safety reply.
+Decided by: stand-in, to confirm with Vahid.

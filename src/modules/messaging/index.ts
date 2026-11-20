@@ -4,4 +4,6 @@
  */
 export { deliverMessage, messageDelivery, registerDeliveryWebhooks, sweepUnconfirmed, unconfirmedSweep } from './delivery.js';
 export { fakeEmail } from './email.js';
+export { messagingRoutes } from './messaging.routes.js';
 export { queueMessage, type MessageRow, type QueueInput } from './messages.service.js';
+export { senderAddress, senderByAddress } from './senders.service.js';

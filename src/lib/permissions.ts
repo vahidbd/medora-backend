@@ -24,6 +24,8 @@ export const PERMISSIONS = [
   'consents:manage',
   'tenant:manage',
   'brands:manage',
+  // A brand's email addresses and numbers (docs/decisions/messaging.md CRM5).
+  'messaging:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -43,6 +45,7 @@ export const PERMISSION_ZONES: Record<Permission, DataZone> = {
   'consents:manage': 'platform',
   'tenant:manage': 'platform',
   'brands:manage': 'platform',
+  'messaging:manage': 'operational',
 };
 
 const ALL: readonly Permission[] = PERMISSIONS;
@@ -50,7 +53,7 @@ const ALL: readonly Permission[] = PERMISSIONS;
 /** The starting roles' permissions (ADM2). Tenants can't edit these; they copy one into a custom role instead. */
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   owner: ALL,
-  admin: ['staff:read', 'staff:manage', 'roles:manage', 'tenant:manage', 'brands:manage', 'patients:read', 'patients:manage', 'consents:manage'],
+  admin: ['staff:read', 'staff:manage', 'roles:manage', 'tenant:manage', 'brands:manage', 'patients:read', 'patients:manage', 'consents:manage', 'messaging:manage'],
   medical_director: ['staff:read', 'break_glass:review', 'patients:read'],
   prescriber: ['staff:read', 'patients:read'],
   clinician: ['staff:read', 'patients:read'],
@@ -68,7 +71,13 @@ export const CLINICAL_ROLES: ReadonlySet<Role> = new Set<Role>(['prescriber', 'c
 export const FULL_ACCESS_ROLE: Role = 'owner';
 
 /** Permissions no agent may ever use, whatever role it runs as (ADM4, PRD ADM-07). */
-export const AGENT_FORBIDDEN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>(['staff:manage', 'roles:manage', 'break_glass:review']);
+export const AGENT_FORBIDDEN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
+  'staff:manage',
+  'roles:manage',
+  'break_glass:review',
+  // Agents never change where a brand sends from (CRM5).
+  'messaging:manage',
+]);
 
 /** How long break-glass lasts once opened (ADM3). */
 export const BREAK_GLASS_MINUTES = 60;

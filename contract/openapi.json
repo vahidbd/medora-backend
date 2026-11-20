@@ -251,7 +251,8 @@
                                 "patients:manage",
                                 "consents:manage",
                                 "tenant:manage",
-                                "brands:manage"
+                                "brands:manage",
+                                "messaging:manage"
                               ]
                             }
                           },
@@ -1179,7 +1180,8 @@
                                 "patients:manage",
                                 "consents:manage",
                                 "tenant:manage",
-                                "brands:manage"
+                                "brands:manage",
+                                "messaging:manage"
                               ]
                             }
                           },
@@ -1245,7 +1247,8 @@
                                 "patients:manage",
                                 "consents:manage",
                                 "tenant:manage",
-                                "brands:manage"
+                                "brands:manage",
+                                "messaging:manage"
                               ]
                             }
                           },
@@ -1289,7 +1292,8 @@
                               "patients:manage",
                               "consents:manage",
                               "tenant:manage",
-                              "brands:manage"
+                              "brands:manage",
+                              "messaging:manage"
                             ]
                           },
                           "zone": {
@@ -1372,7 +1376,8 @@
                         "patients:manage",
                         "consents:manage",
                         "tenant:manage",
-                        "brands:manage"
+                        "brands:manage",
+                        "messaging:manage"
                       ]
                     }
                   }
@@ -1437,7 +1442,8 @@
                           "patients:manage",
                           "consents:manage",
                           "tenant:manage",
-                          "brands:manage"
+                          "brands:manage",
+                          "messaging:manage"
                         ]
                       }
                     },
@@ -1506,7 +1512,8 @@
                         "patients:manage",
                         "consents:manage",
                         "tenant:manage",
-                        "brands:manage"
+                        "brands:manage",
+                        "messaging:manage"
                       ]
                     }
                   }
@@ -1578,7 +1585,8 @@
                           "patients:manage",
                           "consents:manage",
                           "tenant:manage",
-                          "brands:manage"
+                          "brands:manage",
+                          "messaging:manage"
                         ]
                       }
                     },
@@ -5872,6 +5880,227 @@
                     "supportEmail",
                     "supportPhone",
                     "timeZone"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/senders": {
+      "get": {
+        "summary": "Each brand's email address and SMS number",
+        "tags": [
+          "messaging"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "senders": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "senderId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "brandId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "channel": {
+                            "type": "string",
+                            "enum": [
+                              "email",
+                              "sms"
+                            ]
+                          },
+                          "purpose": {
+                            "type": "string",
+                            "enum": [
+                              "service",
+                              "marketing"
+                            ]
+                          },
+                          "address": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "senderId",
+                          "brandId",
+                          "channel",
+                          "purpose",
+                          "address",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "senders"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set a brand's address on a channel",
+        "tags": [
+          "messaging"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "brandId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "channel": {
+                    "type": "string",
+                    "enum": [
+                      "email",
+                      "sms"
+                    ]
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "enum": [
+                      "service",
+                      "marketing"
+                    ]
+                  },
+                  "address": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 254
+                  }
+                },
+                "required": [
+                  "brandId",
+                  "channel",
+                  "purpose",
+                  "address"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "senderId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "brandId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "channel": {
+                      "type": "string",
+                      "enum": [
+                        "email",
+                        "sms"
+                      ]
+                    },
+                    "purpose": {
+                      "type": "string",
+                      "enum": [
+                        "service",
+                        "marketing"
+                      ]
+                    },
+                    "address": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "senderId",
+                    "brandId",
+                    "channel",
+                    "purpose",
+                    "address",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/senders/{senderId}": {
+      "delete": {
+        "summary": "Remove a brand's address",
+        "tags": [
+          "messaging"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "senderId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "removed": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "removed"
                   ],
                   "additionalProperties": false
                 }

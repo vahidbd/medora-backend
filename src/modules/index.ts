@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { tenantSetupRoutes } from './brands/index.js';
-import { registerDeliveryWebhooks } from './messaging/index.js';
+import { messagingRoutes, registerDeliveryWebhooks } from './messaging/index.js';
 import { patientRoutes } from './patients/index.js';
 import { staffRoutes } from './staff/index.js';
 import { telephonyRoutes } from './telephony/index.js';
@@ -12,4 +12,5 @@ export const registerModules: FastifyPluginAsync = async (app) => {
   await app.register(patientRoutes);
   await app.register(tenantSetupRoutes);
   registerDeliveryWebhooks();
+  await app.register(messagingRoutes);
 };

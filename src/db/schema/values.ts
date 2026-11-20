@@ -144,6 +144,10 @@ export const TIME_ZONES = [
 ] as const;
 export type TimeZone = (typeof TIME_ZONES)[number];
 
+/** A brand's address on a channel: service (helpdesk and service messages) or marketing, kept apart (CRM5). */
+export const SENDER_PURPOSES = ['service', 'marketing'] as const;
+export type SenderPurpose = (typeof SENDER_PURPOSES)[number];
+
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
   { table: 'platform.memberships', column: 'role', values: MEMBERSHIP_ROLES },
@@ -168,6 +172,8 @@ export const CHECKED_VALUES = [
   { table: 'clinical.messages', column: 'kind', values: MESSAGE_KINDS },
   { table: 'clinical.messages', column: 'status', values: MESSAGE_STATUSES },
   { table: 'clinical.messages', column: 'author_type', values: ACTOR_TYPES },
+  { table: 'operational.senders', column: 'channel', values: SENDER_CHANNELS },
+  { table: 'operational.senders', column: 'purpose', values: SENDER_PURPOSES },
   { table: 'platform.tenants', column: 'time_zone', values: TIME_ZONES },
   { table: 'platform.companies', column: 'state', values: AU_STATES },
   { table: 'platform.brands', column: 'status', values: BRAND_STATUSES },

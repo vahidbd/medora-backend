@@ -49,6 +49,7 @@ One word per thing (ADR 0032). Use these words in table names, API fields, route
 | Thing | We call it | Never |
 | --- | --- | --- |
 | One thing said to or by a person on any channel (email, SMS, chat, a logged call), in or out | **Message** | post, entry, communication |
+| A brand's own email address or phone number on a channel, for service or for marketing | **Sender** | from address, sender id |
 
 ## Platform
 

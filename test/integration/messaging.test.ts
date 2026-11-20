@@ -5,8 +5,8 @@ import { closeDatabase } from '../../src/db/health.js';
 import { type TenantContext, withTenant } from '../../src/db/tenant.js';
 import { deliverMessage, fakeEmail, queueMessage, sweepUnconfirmed } from '../../src/modules/messaging/index.js';
 import { fakeTelephony } from '../../src/modules/telephony/index.js';
-import { testApp } from '../support/app.js';
-import { admin, tenantWith } from '../support/db.js';
+import { headers, signIn, testApp } from '../support/app.js';
+import { admin, createBrand, tenantWith } from '../support/db.js';
 import { postTwilioWebhook } from '../support/twilio.js';
 
 /**
@@ -122,6 +122,39 @@ describe("Twilio's status webhooks (CRM2, WHK)", async () => {
   });
 });
 
+describe("a brand's addresses (CRM5)", async () => {
+  const { tenantId, members } = await tenantWith('admin', 'support');
+  const [adminUser, supportUser] = members;
+  const { brandId } = await createBrand(tenantId);
+
+  it('lets setup set a number, normalised, and refuses the support role', async () => {
+    const token = await signIn(adminUser!.email);
+    const set = await app.inject({
+      method: 'PUT',
+      url: '/v1/senders',
+      headers: headers(token, tenantId),
+      payload: { brandId, channel: 'sms', purpose: 'service', address: '0400 000 003' },
+    });
+    expect(set.statusCode).toBe(200);
+    expect(set.json()).toMatchObject({ address: '+61400000003', channel: 'sms', purpose: 'service' });
+    const refused = await app.inject({ method: 'GET', url: '/v1/senders', headers: headers(await signIn(supportUser!.email), tenantId) });
+    expect(refused.statusCode).toBe(403);
+  });
+
+  it("can't use a brand from another tenant", async () => {
+    const other = await tenantWith('owner');
+    const { brandId: otherBrand } = await createBrand(other.tenantId);
+    const token = await signIn(adminUser!.email);
+    const reply = await app.inject({
+      method: 'PUT',
+      url: '/v1/senders',
+      headers: headers(token, tenantId),
+      payload: { brandId: otherBrand, channel: 'email', purpose: 'service', address: 'hello@larkspur.example' },
+    });
+    expect(reply.statusCode).toBe(404);
+  });
+});
+
 describe('tenancy of messages (ADR 0006)', async () => {
   const a = await tenantWith('owner');
   const b = await tenantWith('owner');
@@ -132,6 +165,22 @@ describe('tenancy of messages (ADR 0006)', async () => {
     expect(seen.rows).toEqual([]);
     const changed = await withTenant(system(a.tenantId), (tx) => tx.db.execute(`update clinical.messages set status = 'failed' where id = '${message.id}'`));
     expect(changed.rowCount).toBe(0);
+  });
+
+  it("never shows, changes or deletes another tenant's sender addresses", async () => {
+    const { brandId } = await createBrand(b.tenantId);
+    await admin.query(
+      `insert into operational.senders (tenant_id, brand_id, channel, purpose, address, updated_by_user_id) values ($1, $2, 'email', 'service', 'care@larkspur.example', $3)`,
+      [b.tenantId, brandId, b.members[0]!.id],
+    );
+    const seen = await withTenant(system(a.tenantId), (tx) => tx.db.execute(`select 1 from operational.senders where tenant_id = '${b.tenantId}'`));
+    expect(seen.rows).toEqual([]);
+    const changed = await withTenant(system(a.tenantId), (tx) => tx.db.execute(`update operational.senders set updated_at = now() where tenant_id = '${b.tenantId}'`));
+    expect(changed.rowCount).toBe(0);
+    const removed = await withTenant(system(a.tenantId), (tx) => tx.db.execute(`delete from operational.senders where tenant_id = '${b.tenantId}'`));
+    expect(removed.rowCount).toBe(0);
+    const kept = await admin.query('select count(*)::int as n from operational.senders where tenant_id = $1', [b.tenantId]);
+    expect(kept.rows[0].n).toBe(1);
   });
 
   it('refuses to change the text of a message once written (CRM4, ADR 0028)', async () => {
