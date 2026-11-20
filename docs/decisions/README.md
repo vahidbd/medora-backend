@@ -36,6 +36,7 @@ Prefixes are unique across both repos, so this table lists both.
 | INT | `intake.md` | both | Protocols, sign-off, programs and intakes |
 | APP | `patient-app.md` | `medora-front` | The patient app: brand hosts, patient sign-in screens, the signed-in frame, Home, Progress, check-ins and Account |
 | TRK | `tracking.md` | `medora-backend` | Measurements, side effects and check-ins a patient records |
+| ADH | `adherence.md` | both | The adherence activity stream and adherence flags |
 | NTF | `notifications.md` | `medora-backend` | How a patient chooses to hear from their care |
 
 Add a row in both repos when you add a file. A prefix is two to four capital letters and is never reused.

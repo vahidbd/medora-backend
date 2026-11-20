@@ -21,3 +21,4 @@ ADR 0033. Each line gets a date and a link to its evidence when it is done. The 
 | 15 | Each protocol template a tenant uses has been reviewed by a medical practitioner engaged by Medora (`docs/decisions/intake.md` INT10) | | |
 | 16 | A scheduled sweep clears unclaimed intakes after 14 days and ends idle ones, for intakes nobody opens (`docs/decisions/intake.md` INT7, INT14) | | |
 | 17 | Patient Clerk production instance: sign-up and sign-in by emailed code, only the email asked for, a 30-minute inactivity timeout, and each brand's patient host an allowed origin (ADRs 0100, 0180; medora-front `docs/decisions/patient-app.md` APP5) | | |
+| 18 | Who is told about an urgent adherence flag out of hours, and how fast one must be looked at, decided by the product owner and staffed (ADR 0260, `docs/decisions/adherence.md` ADH6) | | |

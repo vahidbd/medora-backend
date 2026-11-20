@@ -10,3 +10,4 @@ export * from './brands.js';
 export * from './catalogue.js';
 export * from './clinical-tracking.js';
 export * from './operational-notification-preferences.js';
+export * from './clinical-adherence.js';

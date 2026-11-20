@@ -39,7 +39,7 @@ export const trackingRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/patient/measurements',
     {
-      config: { access: 'patient', audit: ['measurement.recorded'], events: ['measurement.recorded'], agentTool: NO_AGENT },
+      config: { access: 'patient', audit: ['measurement.recorded', 'adherence_activity.recorded'], events: ['measurement.recorded'], agentTool: NO_AGENT },
       schema: { tags: ['tracking'], summary: 'Record readings the patient took', body: measurementsBody, response: { 201: measurementsReply } },
     },
     async (request, reply) => {
@@ -63,7 +63,12 @@ export const trackingRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/patient/side-effects',
     {
-      config: { access: 'patient', audit: ['side_effect.reported'], events: ['side_effect.reported'], agentTool: NO_AGENT },
+      config: {
+        access: 'patient',
+        audit: ['side_effect.reported', 'adherence_flag.raised', 'adherence_activity.recorded'],
+        events: ['side_effect.reported', 'adherence_flag.raised'],
+        agentTool: NO_AGENT,
+      },
       schema: { tags: ['tracking'], summary: 'Report a side effect', body: sideEffectBody, response: { 201: sideEffect } },
     },
     async (request, reply) => {
@@ -86,8 +91,8 @@ export const trackingRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       config: {
         access: 'patient',
-        audit: ['check_in.submitted', 'measurement.recorded', 'side_effect.reported'],
-        events: ['check_in.submitted', 'measurement.recorded', 'side_effect.reported'],
+        audit: ['check_in.submitted', 'measurement.recorded', 'side_effect.reported', 'adherence_flag.raised', 'adherence_activity.recorded'],
+        events: ['check_in.submitted', 'measurement.recorded', 'side_effect.reported', 'adherence_flag.raised'],
         agentTool: NO_AGENT,
       },
       schema: { tags: ['tracking'], summary: 'Submit a check-in', body: checkInBody, response: { 201: checkIn } },

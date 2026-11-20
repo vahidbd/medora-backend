@@ -8,6 +8,7 @@ import { tenantSetupRoutes } from './brands/index.js';
 import { catalogueRoutes } from './catalogue/index.js';
 import { staffRoutes } from './staff/index.js';
 import { trackingRoutes } from './tracking/index.js';
+import { adherenceRoutes } from './adherence/index.js';
 
 /** Every module's routes, under /v1. */
 export const registerModules: FastifyPluginAsync = async (app) => {
@@ -20,4 +21,5 @@ export const registerModules: FastifyPluginAsync = async (app) => {
   await app.register(auditRoutes);
   await app.register(trackingRoutes);
   await app.register(notificationPreferencesRoutes);
+  await app.register(adherenceRoutes);
 };
