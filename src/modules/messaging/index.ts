@@ -1,0 +1,7 @@
+/**
+ * Messaging: the one way Medora writes and sends an email or SMS (ADR 0027,
+ * docs/decisions/messaging.md). The module's front door.
+ */
+export { deliverMessage, messageDelivery, registerDeliveryWebhooks, sweepUnconfirmed, unconfirmedSweep } from './delivery.js';
+export { fakeEmail } from './email.js';
+export { queueMessage, type MessageRow, type QueueInput } from './messages.service.js';

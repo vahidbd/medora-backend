@@ -30,6 +30,7 @@ const OWNERS: Record<string, string[]> = {
   'clinical.patient_sign_ins': ['src/modules/patients/'],
   'clinical.consent_documents': ['src/modules/patients/'],
   'clinical.patient_consents': ['src/modules/patients/'],
+  'clinical.messages': ['src/modules/messaging/'],
 };
 
 /** Made-up local data only (src/db/seed.ts refuses anything but development). */

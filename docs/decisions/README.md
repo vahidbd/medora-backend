@@ -37,5 +37,6 @@ Prefixes are unique across both repos, so this table lists both.
 | IDN | `patients.md` | `medora-backend` | Patients, patient sign-in, identity and consent |
 | JOB | `jobs.md` | `medora-backend` | The worker service: scheduled jobs, leases, outbox delivery |
 | BIL | `billing.md` | `medora-backend` and `medora-front` | Billing and payments: payment accounts, the ledger, subscriptions, invoices, refunds |
+| CRM | `messaging.md` | both | The email and SMS rails, and lifecycle messaging |
 
 Add a row in both repos when you add a file. A prefix is two to four capital letters and is never reused.

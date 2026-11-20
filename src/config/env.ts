@@ -85,6 +85,14 @@ const envSchema = z.object({
   TWILIO_REGION: z.string().default('au1'),
   TWILIO_EDGE: z.string().default('sydney'),
 
+  /**
+   * Email (docs/decisions/messaging.md CRM3). fake: nothing leaves the
+   * process (development, tests, staging). none: email is off and refused
+   * where it would be sent. The provider, in an Australian region, is still
+   * to be chosen; production refuses fake.
+   */
+  EMAIL: z.enum(['fake', 'none']).default('fake'),
+
   /** A Sentry-compatible server in Australia (ADR 0026). Unset: error tracking is off. */
   SENTRY_DSN: z.preprocess((value) => (value === '' ? undefined : value), z.url().optional()),
 
@@ -178,6 +186,7 @@ export function deployedProblems(config: Env): string[] {
   if (parseAuthorizedParties(config.CLERK_PATIENT_AUTHORIZED_PARTIES).length === 0) {
     problems.push('CLERK_PATIENT_AUTHORIZED_PARTIES is required (the patient app origins)');
   }
+  if (config.MEDORA_ENV === 'production' && config.EMAIL === 'fake') problems.push('EMAIL must not be fake in production (it sends nothing); use none until a provider is set up');
   if (config.STORAGE_MODE !== 's3') problems.push('STORAGE_MODE must be s3 (a container disk is wiped on every deploy)');
   if (!config.S3_REGION || !AUSTRALIAN_REGIONS.has(config.S3_REGION)) problems.push('S3_REGION must be an Australian region (ap-southeast-2 or ap-southeast-4)');
   for (const name of ['S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const) {
