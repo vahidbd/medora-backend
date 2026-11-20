@@ -54,6 +54,11 @@ One word per thing (ADR 0032). Use these words in table names, API fields, route
 | A platform protocol a tenant copies into a draft of its own | **Protocol template** | preset, starter |
 | A protocol rule that ends an intake because the person can't be treated on it | **Hard stop** | exclusion, knock-out, disqualifier |
 | A protocol rule that lets the intake go on and shows the prescriber something to look at | **Red flag** | warning, alert, caution |
+| A reading of the body, by the patient or their care team (weight, waist, blood pressure) | **Measurement** | metric, vital, observation, reading (in code) |
+| Something unwanted a patient reports while on treatment | **Side effect** | symptom, adverse reaction (unless it is reported as an adverse event) |
+| A patient's short answer, between consults, to how their care is going | **Check-in** | survey, review form, questionnaire |
+| How a patient chooses to hear from their care: texts or not, reminders or not | **Notification preferences** | settings, subscriptions, opt-outs |
+| A nudge from the app to check in, record a reading or reorder, which a patient can turn off | **Reminder** | nudge, prompt, notification |
 
 ## Platform
 
@@ -70,6 +75,9 @@ One word per thing (ADR 0032). Use these words in table names, API fields, route
 | Every audit entry of one tenant, as people with `audit:read` read and export it | **Audit log** | activity log, audit trail, history |
 | A fact written to the outbox for others to react to | **Event** | message, notification, webhook |
 | A setting that switches unfinished work on or off | **Feature flag** | toggle, switch |
+| The web app a brand's patients sign in to | **Patient app** | portal, member area, patient portal |
+| A domain a brand's patient app answers on | **Patient host** | site, subdomain, URL |
+| What one host serves: the staff console or a brand's patient app | **Surface** | frontend, channel, app (alone) |
 
 ## Who is who in these docs
 

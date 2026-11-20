@@ -110,7 +110,11 @@ export type ProtocolVersionStatus = (typeof PROTOCOL_VERSION_STATUSES)[number];
 export const PROGRAM_STATUSES = ['draft', 'live', 'paused', 'retired'] as const;
 export type ProgramStatus = (typeof PROGRAM_STATUSES)[number];
 
-/** What a patient on a program records (the tracking module's kinds). */
+/**
+ * What a measurement measures, each in one fixed unit (docs/decisions/tracking.md
+ * TRK1); a program names the kinds its patients record. Blood pressure is two
+ * readings taken together.
+ */
 export const MEASUREMENT_KINDS = ['weight', 'waist', 'height', 'blood_pressure_systolic', 'blood_pressure_diastolic', 'heart_rate'] as const;
 export type MeasurementKind = (typeof MEASUREMENT_KINDS)[number];
 
@@ -168,6 +172,17 @@ export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
 export const BLOCK_RULE_MATCHES = ['schedule', 'artg_number', 'compounded'] as const;
 export type BlockRuleMatch = (typeof BLOCK_RULE_MATCHES)[number];
 
+/** Who wrote a measurement or reported a side effect: the patient, or a staff member for them. */
+export const RECORDED_BY_TYPES = ['patient', 'person'] as const;
+export type RecordedByType = (typeof RECORDED_BY_TYPES)[number];
+
+export const SIDE_EFFECT_SEVERITIES = ['mild', 'moderate', 'severe'] as const;
+export type SideEffectSeverity = (typeof SIDE_EFFECT_SEVERITIES)[number];
+
+/** A check-in's answer to "have you missed any doses since your last check-in?" (TRK5). */
+export const MISSED_DOSES = ['none', 'some', 'most'] as const;
+export type MissedDoses = (typeof MISSED_DOSES)[number];
+
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
   { table: 'platform.memberships', column: 'role', values: MEMBERSHIP_ROLES },
@@ -202,4 +217,9 @@ export const CHECKED_VALUES = [
   { table: 'operational.products', column: 'storage', values: STORAGE },
   { table: 'operational.products', column: 'status', values: PRODUCT_STATUSES },
   { table: 'platform.block_rules', column: 'match', values: BLOCK_RULE_MATCHES },
+  { table: 'clinical.measurements', column: 'kind', values: MEASUREMENT_KINDS },
+  { table: 'clinical.measurements', column: 'recorded_by_type', values: RECORDED_BY_TYPES },
+  { table: 'clinical.side_effects', column: 'severity', values: SIDE_EFFECT_SEVERITIES },
+  { table: 'clinical.side_effects', column: 'reported_by_type', values: RECORDED_BY_TYPES },
+  { table: 'clinical.check_ins', column: 'missed_doses', values: MISSED_DOSES },
 ] as const;

@@ -1,0 +1,100 @@
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
+import { withTenant } from '../../db/tenant.js';
+import { patientContextOf, requirePatient } from '../../plugins/patient-auth.js';
+import { checkInsOf, submitCheckIn } from './check-ins.service.js';
+import { measurementsOf, recordMeasurements } from './measurements.service.js';
+import { reportSideEffect, sideEffectsOf } from './side-effects.service.js';
+import {
+  checkIn,
+  checkInBody,
+  checkInsReply,
+  measurementsBody,
+  measurementsQuery,
+  measurementsReply,
+  sideEffect,
+  sideEffectBody,
+  sideEffectsReply,
+} from './tracking.schemas.js';
+
+/**
+ * What a patient records about themselves, under /v1/patient
+ * (docs/decisions/tracking.md). Every route is on the patient's own record
+ * only: the patient comes from the sign-in, never from the request.
+ */
+
+const NO_AGENT = { none: 'A patient records their own readings, side effects and check-ins; an agent never acts as a patient (ADR 0012)' };
+
+export const trackingRoutes: FastifyPluginAsyncZod = async (app) => {
+  app.get(
+    '/patient/measurements',
+    {
+      config: { access: 'patient' },
+      schema: { tags: ['tracking'], summary: 'The signed-in patient’s measurements, newest first', querystring: measurementsQuery, response: { 200: measurementsReply } },
+    },
+    async (request) => ({
+      measurements: await withTenant(patientContextOf(request), (tx) => measurementsOf(tx, requirePatient(request).patientId, request.query.kind)),
+    }),
+  );
+
+  app.post(
+    '/patient/measurements',
+    {
+      config: { access: 'patient', audit: ['measurement.recorded'], events: ['measurement.recorded'], agentTool: NO_AGENT },
+      schema: { tags: ['tracking'], summary: 'Record readings the patient took', body: measurementsBody, response: { 201: measurementsReply } },
+    },
+    async (request, reply) => {
+      const { readings, measuredAt } = request.body;
+      const recorded = await withTenant(patientContextOf(request), (tx) =>
+        recordMeasurements(tx, { patientId: requirePatient(request).patientId, readings, measuredAt: measuredAt ? new Date(measuredAt) : undefined }),
+      );
+      return reply.code(201).send({ measurements: recorded });
+    },
+  );
+
+  app.get(
+    '/patient/side-effects',
+    {
+      config: { access: 'patient' },
+      schema: { tags: ['tracking'], summary: 'The side effects the signed-in patient has reported', response: { 200: sideEffectsReply } },
+    },
+    async (request) => ({ sideEffects: await withTenant(patientContextOf(request), (tx) => sideEffectsOf(tx, requirePatient(request).patientId)) }),
+  );
+
+  app.post(
+    '/patient/side-effects',
+    {
+      config: { access: 'patient', audit: ['side_effect.reported'], events: ['side_effect.reported'], agentTool: NO_AGENT },
+      schema: { tags: ['tracking'], summary: 'Report a side effect', body: sideEffectBody, response: { 201: sideEffect } },
+    },
+    async (request, reply) => {
+      const reported = await withTenant(patientContextOf(request), (tx) => reportSideEffect(tx, { patientId: requirePatient(request).patientId, ...request.body }));
+      return reply.code(201).send(reported);
+    },
+  );
+
+  app.get(
+    '/patient/check-ins',
+    {
+      config: { access: 'patient' },
+      schema: { tags: ['tracking'], summary: 'The signed-in patient’s check-ins, newest first', response: { 200: checkInsReply } },
+    },
+    async (request) => ({ checkIns: await withTenant(patientContextOf(request), (tx) => checkInsOf(tx, requirePatient(request).patientId)) }),
+  );
+
+  app.post(
+    '/patient/check-ins',
+    {
+      config: {
+        access: 'patient',
+        audit: ['check_in.submitted', 'measurement.recorded', 'side_effect.reported'],
+        events: ['check_in.submitted', 'measurement.recorded', 'side_effect.reported'],
+        agentTool: NO_AGENT,
+      },
+      schema: { tags: ['tracking'], summary: 'Submit a check-in', body: checkInBody, response: { 201: checkIn } },
+    },
+    async (request, reply) => {
+      const submitted = await withTenant(patientContextOf(request), (tx) => submitCheckIn(tx, requirePatient(request).patientId, request.body));
+      return reply.code(201).send(submitted);
+    },
+  );
+};
