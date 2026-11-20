@@ -7,13 +7,14 @@ import type { Permission } from '../lib/permissions.js';
  * app can't start with a route that forgot (ADRs 0008, 0012, 0014, 0016, 0030):
  *
  * - `access`: 'public', 'signed-in', 'member' (signed in to the tenant it
- *   names, with a second factor, needing no permission of its own), or the
+ *   names, with a second factor, needing no permission of its own),
+ *   'platform' (platform staff with a second factor, in no tenant), or the
  *   permission it needs;
  * - a response schema for its success replies;
  * - if it changes data: the audit actions it writes, the events it emits and
  *   the agent tool that does the same (or, for each, why there is none).
  */
-export type Access = 'public' | 'signed-in' | 'member' | { permission: Permission };
+export type Access = 'public' | 'signed-in' | 'member' | 'platform' | { permission: Permission };
 
 /** A list of names, or the reason there are none. */
 export type Declared = readonly string[] | { none: string };
@@ -41,7 +42,7 @@ export function routeProblems(route: Pick<RouteOptions, 'method' | 'url' | 'conf
   if ((route.schema as { hide?: boolean } | undefined)?.hide) return [];
   const config = (route.config ?? {}) as { access?: Access; audit?: Declared; events?: Declared; agentTool?: string | { none: string } };
   const problems: string[] = [];
-  if (!config.access) problems.push("declares no access ('public', 'signed-in', 'member' or { permission })");
+  if (!config.access) problems.push("declares no access ('public', 'signed-in', 'member', 'platform' or { permission })");
   const response = (route.schema as { response?: Record<string, unknown> } | undefined)?.response ?? {};
   if (!Object.keys(response).some((status) => /^2\d\d$/.test(status))) problems.push('has no response schema for its success reply');
   if (methods.some((method) => !READS.has(method))) {

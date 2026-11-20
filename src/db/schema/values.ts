@@ -40,10 +40,39 @@ export type ActorType = (typeof ACTOR_TYPES)[number];
 export const DATA_ZONES = ['clinical', 'operational', 'marketing', 'platform'] as const;
 export type DataZone = (typeof DATA_ZONES)[number];
 
+/** Australian states and territories, for where a company is registered. */
+export const AU_STATES = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT'] as const;
+export type AuState = (typeof AU_STATES)[number];
+
+/** A brand's state: `draft` until it goes live; `paused` stops new sign-ups only (docs/decisions/admin.md ADM16). */
+export const BRAND_STATUSES = ['draft', 'live', 'paused'] as const;
+export type BrandStatus = (typeof BRAND_STATUSES)[number];
+
+/** The time zones a tenant can work in (ADR 0017): Australia's, by their IANA names. */
+export const TIME_ZONES = [
+  'Australia/Sydney',
+  'Australia/Melbourne',
+  'Australia/Brisbane',
+  'Australia/Adelaide',
+  'Australia/Darwin',
+  'Australia/Perth',
+  'Australia/Hobart',
+  'Australia/Lord_Howe',
+  'Australia/Eucla',
+  'Australia/Broken_Hill',
+  'Indian/Christmas',
+  'Indian/Cocos',
+  'Antarctica/Macquarie',
+] as const;
+export type TimeZone = (typeof TIME_ZONES)[number];
+
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
   { table: 'platform.memberships', column: 'role', values: MEMBERSHIP_ROLES },
   { table: 'platform.memberships', column: 'status', values: MEMBERSHIP_STATUSES },
   { table: 'platform.audit_log', column: 'actor_type', values: ACTOR_TYPES },
   { table: 'platform.audit_log', column: 'zone', values: DATA_ZONES },
+  { table: 'platform.tenants', column: 'time_zone', values: TIME_ZONES },
+  { table: 'platform.companies', column: 'state', values: AU_STATES },
+  { table: 'platform.brands', column: 'status', values: BRAND_STATUSES },
 ] as const;

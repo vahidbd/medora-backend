@@ -56,3 +56,20 @@ export async function withPerson<T>(userId: string, work: (tx: PersonTx) => Prom
     return work({ db: dbTx, userId });
   });
 }
+
+/**
+ * A transaction for a public page, before any tenant or person is known,
+ * such as finding the brand a host belongs to (docs/decisions/admin.md
+ * ADM16). Nothing is set, so every policy matches nothing: only the reviewed
+ * functions answer.
+ */
+export interface PublicTx {
+  readonly db: DbTx;
+}
+
+export async function withPublic<T>(work: (tx: PublicTx) => Promise<T>): Promise<T> {
+  return db.transaction(async (dbTx) => {
+    await dbTx.execute(sql`select set_config('app.tenant_id', '', true), set_config('app.user_id', '', true)`);
+    return work({ db: dbTx });
+  });
+}

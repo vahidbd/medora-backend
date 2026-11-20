@@ -11,7 +11,7 @@ import { BusinessRuleError, ForbiddenError } from './errors.js';
  * ROLE_PERMISSIONS that should hold it. The owner holds every key without
  * being listed. Code checks permissions, never role keys.
  */
-export const PERMISSIONS = ['staff:read', 'staff:manage', 'roles:manage', 'break_glass:review'] as const;
+export const PERMISSIONS = ['staff:read', 'staff:manage', 'roles:manage', 'break_glass:review', 'tenant:manage', 'brands:manage'] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 /**
@@ -24,6 +24,8 @@ export const PERMISSION_ZONES: Record<Permission, DataZone> = {
   'staff:manage': 'platform',
   'roles:manage': 'platform',
   'break_glass:review': 'platform',
+  'tenant:manage': 'platform',
+  'brands:manage': 'platform',
 };
 
 const ALL: readonly Permission[] = PERMISSIONS;
@@ -31,7 +33,7 @@ const ALL: readonly Permission[] = PERMISSIONS;
 /** The starting roles' permissions (ADM2). Tenants can't edit these; they copy one into a custom role instead. */
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   owner: ALL,
-  admin: ['staff:read', 'staff:manage', 'roles:manage'],
+  admin: ['staff:read', 'staff:manage', 'roles:manage', 'tenant:manage', 'brands:manage'],
   medical_director: ['staff:read', 'break_glass:review'],
   prescriber: ['staff:read'],
   clinician: ['staff:read'],

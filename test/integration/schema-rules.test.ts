@@ -24,7 +24,19 @@ const NULLABLE_TENANT: Record<string, string> = {
 };
 
 /** The reviewed cross-tenant functions (ADR 0006). */
-const SECURITY_DEFINER = ['platform.claim_user', 'platform.my_memberships', 'platform.my_access', 'platform.accept_invitations', 'platform.invite_person'];
+const SECURITY_DEFINER = [
+  'platform.claim_user',
+  'platform.my_memberships',
+  'platform.my_access',
+  'platform.accept_invitations',
+  'platform.invite_person',
+  'platform.create_tenant',
+  'platform.renew_owner_invitation',
+  'platform.platform_tenants',
+  'platform.platform_domains',
+  'platform.verify_domain',
+  'platform.resolve_brand',
+];
 
 async function rows<T>(query: string, params: unknown[] = []): Promise<T[]> {
   return (await admin.query(query, params)).rows as T[];
