@@ -124,6 +124,6 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 
 ### BIL22. Support, finance and the owner manage subscriptions; no agent does yet
 
-Decision: `subscriptions:read` and `subscriptions:manage` are held by support, finance and the owner. Clinicians hold neither; a clinician declining cancels the subscription as part of the consult outcome, without a subscription permission. Every change writes an audit entry and an event (`subscription.started`, `activated`, `paused`, `resumed`, `skipped`, `cancellation_scheduled`, `reinstated`, `cancelled`) with the program, never patient details. No agent tool changes a subscription yet: the support agent's tools and their limits are decided when that agent is built (ADR 0012).
+Decision: `subscriptions:read` and `subscriptions:manage` are held by support, finance and the owner. Clinicians hold neither; a clinician declining cancels the subscription as part of the consult outcome, without a subscription permission. Every change writes an audit entry and an event (`subscription.started`, `activated`, `paused`, `resumed`, `skipped`, `cancellation_scheduled`, `reinstated`, `cancelled`) with the patient's and program's ids, never patient details, so orders can hold or cancel an order it placed when a subscription pauses or ends. No agent tool changes a subscription yet: the support agent's tools and their limits are decided when that agent is built (ADR 0012).
 Why: support handles a patient's request to pause or stop, and finance answers for the money.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.

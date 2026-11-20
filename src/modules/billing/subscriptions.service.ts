@@ -61,8 +61,9 @@ function view({ row, intervalUnit, intervalCount }: { row: Row; intervalUnit: st
   };
 }
 
-async function record(tx: TenantTx, action: Action, row: Pick<Row, 'id' | 'programId'>, details: Record<string, string | null> = {}) {
-  const facts = { programId: row.programId, ...details };
+/** Ids and dates only, so orders can act on a pause or cancel without patient details (BIL22). */
+async function record(tx: TenantTx, action: Action, row: Pick<Row, 'id' | 'patientId' | 'programId'>, details: Record<string, string | null> = {}) {
+  const facts = { patientId: row.patientId, programId: row.programId, ...details };
   await audit(tx, { action: `subscription.${action}`, zone: 'operational', recordTable: TABLE, recordId: row.id, details: facts });
   await emitEvent(tx, { type: `subscription.${action}`, recordTable: TABLE, recordId: row.id, payload: facts });
 }
