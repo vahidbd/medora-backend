@@ -7,7 +7,7 @@ import { withTenant } from '../../src/db/tenant.js';
 import { openFlagsOf } from '../../src/modules/adherence/index.js';
 import { reportSideEffect } from '../../src/modules/tracking/index.js';
 import { headers, patientSignIn, testApp } from '../support/app.js';
-import { admin, createTenant, createUser, addMember } from '../support/db.js';
+import { acceptingBrand, addMember, admin, createTenant, createUser } from '../support/db.js';
 
 /**
  * The adherence activity stream and adherence flags (docs/decisions/adherence.md,
@@ -24,7 +24,7 @@ const adult = { givenName: 'Sam', familyName: 'Example', dateOfBirth: '1985-07-0
 
 async function patientIn(tenantId: string, subject = `user_${randomUUID()}`) {
   const token = await patientSignIn(subject, { email: `${subject}@example.test` });
-  const reply = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: adult });
+  const reply = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: { ...adult, brandId: await acceptingBrand(tenantId) } });
   expect(reply.statusCode).toBe(201);
   const as = headers(token, tenantId);
   return {

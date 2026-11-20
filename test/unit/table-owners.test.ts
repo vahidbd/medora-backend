@@ -38,6 +38,7 @@ const OWNERS: Record<string, string[]> = {
   'clinical.measurements': ['src/modules/tracking/'],
   'clinical.side_effects': ['src/modules/tracking/'],
   'clinical.check_ins': ['src/modules/tracking/'],
+  'operational.notification_preferences': ['src/modules/notification-preferences/'],
   'clinical.adherence_activity': ['src/modules/adherence/'],
   'clinical.adherence_flags': ['src/modules/adherence/'],
 };

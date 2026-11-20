@@ -151,6 +151,36 @@ export async function liveVersionOf(tx: TenantTx, protocolId: string): Promise<{
   return row ? { ...row, definition: row.definition as Definition } : null;
 }
 
+/** A version by its id, with its protocol's name: what an intake pinned when it started (INT3). */
+export async function protocolVersionById(
+  tx: TenantTx,
+  versionId: string,
+): Promise<{ versionId: string; protocolId: string; protocolName: string; version: number; status: ProtocolVersionStatus; definition: Definition }> {
+  const [row] = await tx.db
+    .select({
+      versionId: protocolVersions.id,
+      protocolId: protocolVersions.protocolId,
+      protocolName: protocols.name,
+      version: protocolVersions.version,
+      status: protocolVersions.status,
+      definition: protocolVersions.definition,
+    })
+    .from(protocolVersions)
+    .innerJoin(protocols, and(eq(protocols.tenantId, protocolVersions.tenantId), eq(protocols.id, protocolVersions.protocolId)))
+    .where(and(eq(protocolVersions.tenantId, tx.context.tenantId), eq(protocolVersions.id, versionId)));
+  if (!row) throw new NotFoundError('Protocol version');
+  return { ...row, status: row.status as ProtocolVersionStatus, definition: row.definition as Definition };
+}
+
+/** Versions withdrawn for safety: intakes still in progress on one end (INT4). */
+export async function withdrawnVersionIds(tx: TenantTx): Promise<string[]> {
+  const rows = await tx.db
+    .select({ id: protocolVersions.id })
+    .from(protocolVersions)
+    .where(and(eq(protocolVersions.tenantId, tx.context.tenantId), eq(protocolVersions.status, 'withdrawn')));
+  return rows.map((row) => row.id);
+}
+
 export interface NewProtocol {
   name: string;
   condition?: string | undefined;

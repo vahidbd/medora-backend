@@ -1,5 +1,5 @@
 {
-  "id": "e34b36fb-7d55-478e-85bd-bc2708e1baf2",
+  "id": "206a50d3-588d-44a6-89ff-4c803a0e8bd8",
   "prevId": "b476a088-b8e8-420a-b8e0-faf5a436979f",
   "version": "7",
   "dialect": "postgresql",
@@ -4375,17 +4375,10 @@
       },
       "isRLSEnabled": false
     },
-    "clinical.adherence_activity": {
-      "name": "adherence_activity",
-      "schema": "clinical",
+    "operational.notification_preferences": {
+      "name": "notification_preferences",
+      "schema": "operational",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
         "tenant_id": {
           "name": "tenant_id",
           "type": "uuid",
@@ -4398,99 +4391,33 @@
           "primaryKey": false,
           "notNull": true
         },
-        "kind": {
-          "name": "kind",
-          "type": "text",
+        "sms": {
+          "name": "sms",
+          "type": "boolean",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": true
         },
-        "occurred_at": {
-          "name": "occurred_at",
+        "reminders": {
+          "name": "reminders",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "updated_at": {
+          "name": "updated_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "opened_on": {
-          "name": "opened_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source_table": {
-          "name": "source_table",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source_id": {
-          "name": "source_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
         }
       },
-      "indexes": {
-        "adherence_activity_patient_idx": {
-          "name": "adherence_activity_patient_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "patient_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "occurred_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "adherence_activity_opened_on_key": {
-          "name": "adherence_activity_opened_on_key",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "patient_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "opened_on",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"clinical\".\"adherence_activity\".\"kind\" = 'app_opened'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
-        "adherence_activity_patient_fk": {
-          "name": "adherence_activity_patient_fk",
-          "tableFrom": "adherence_activity",
+        "notification_preferences_patient_fk": {
+          "name": "notification_preferences_patient_fk",
+          "tableFrom": "notification_preferences",
           "tableTo": "patients",
           "schemaTo": "clinical",
           "columnsFrom": [
@@ -4505,352 +4432,18 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "adherence_activity_kind_check": {
-          "name": "adherence_activity_kind_check",
-          "value": "\"clinical\".\"adherence_activity\".\"kind\" in ('app_opened', 'measurement_recorded', 'side_effect_reported', 'check_in_submitted', 'message_sent', 'order_placed')"
-        },
-        "adherence_activity_opened_on_check": {
-          "name": "adherence_activity_opened_on_check",
-          "value": "(\"clinical\".\"adherence_activity\".\"kind\" = 'app_opened') = (\"clinical\".\"adherence_activity\".\"opened_on\" is not null)"
-        },
-        "adherence_activity_source_check": {
-          "name": "adherence_activity_source_check",
-          "value": "(\"clinical\".\"adherence_activity\".\"source_table\" is null) = (\"clinical\".\"adherence_activity\".\"source_id\" is null)"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "clinical.adherence_flags": {
-      "name": "adherence_flags",
-      "schema": "clinical",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "patient_id": {
-          "name": "patient_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "urgency": {
-          "name": "urgency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "side_effect_id": {
-          "name": "side_effect_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reopened_from_id": {
-          "name": "reopened_from_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "raised_at": {
-          "name": "raised_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'open'"
-        },
-        "resolved_at": {
-          "name": "resolved_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "resolved_by": {
-          "name": "resolved_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "outcome": {
-          "name": "outcome",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "adherence_flags_side_effect_key": {
-          "name": "adherence_flags_side_effect_key",
+      "compositePrimaryKeys": {
+        "notification_preferences_pkey": {
+          "name": "notification_preferences_pkey",
           "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "side_effect_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"clinical\".\"adherence_flags\".\"reopened_from_id\" is null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "adherence_flags_reopened_from_key": {
-          "name": "adherence_flags_reopened_from_key",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "reopened_from_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "adherence_flags_side_effect_idx": {
-          "name": "adherence_flags_side_effect_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "side_effect_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "adherence_flags_status_idx": {
-          "name": "adherence_flags_status_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "raised_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "adherence_flags_patient_idx": {
-          "name": "adherence_flags_patient_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "patient_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "adherence_flags_resolved_by_idx": {
-          "name": "adherence_flags_resolved_by_idx",
-          "columns": [
-            {
-              "expression": "resolved_by",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "adherence_flags_resolved_by_users_id_fk": {
-          "name": "adherence_flags_resolved_by_users_id_fk",
-          "tableFrom": "adherence_flags",
-          "tableTo": "users",
-          "schemaTo": "platform",
-          "columnsFrom": [
-            "resolved_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "adherence_flags_patient_fk": {
-          "name": "adherence_flags_patient_fk",
-          "tableFrom": "adherence_flags",
-          "tableTo": "patients",
-          "schemaTo": "clinical",
-          "columnsFrom": [
             "tenant_id",
             "patient_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "adherence_flags_side_effect_fk": {
-          "name": "adherence_flags_side_effect_fk",
-          "tableFrom": "adherence_flags",
-          "tableTo": "side_effects",
-          "schemaTo": "clinical",
-          "columnsFrom": [
-            "tenant_id",
-            "side_effect_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "adherence_flags_reopened_from_fk": {
-          "name": "adherence_flags_reopened_from_fk",
-          "tableFrom": "adherence_flags",
-          "tableTo": "adherence_flags",
-          "schemaTo": "clinical",
-          "columnsFrom": [
-            "tenant_id",
-            "reopened_from_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "adherence_flags_tenant_id_key": {
-          "name": "adherence_flags_tenant_id_key",
-          "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "id"
           ]
         }
       },
+      "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "adherence_flags_kind_check": {
-          "name": "adherence_flags_kind_check",
-          "value": "\"clinical\".\"adherence_flags\".\"kind\" in ('side_effect_reported')"
-        },
-        "adherence_flags_urgency_check": {
-          "name": "adherence_flags_urgency_check",
-          "value": "\"clinical\".\"adherence_flags\".\"urgency\" in ('urgent', 'soon', 'routine')"
-        },
-        "adherence_flags_status_check": {
-          "name": "adherence_flags_status_check",
-          "value": "\"clinical\".\"adherence_flags\".\"status\" in ('open', 'resolved')"
-        },
-        "adherence_flags_outcome_check": {
-          "name": "adherence_flags_outcome_check",
-          "value": "\"clinical\".\"adherence_flags\".\"outcome\" in ('contacted_patient', 'booked_review', 'referred_to_prescriber', 'no_action_needed')"
-        },
-        "adherence_flags_source_check": {
-          "name": "adherence_flags_source_check",
-          "value": "(\"clinical\".\"adherence_flags\".\"kind\" = 'side_effect_reported') = (\"clinical\".\"adherence_flags\".\"side_effect_id\" is not null)"
-        },
-        "adherence_flags_resolution_check": {
-          "name": "adherence_flags_resolution_check",
-          "value": "(\"clinical\".\"adherence_flags\".\"status\" = 'resolved') = (\"clinical\".\"adherence_flags\".\"resolved_at\" is not null) and (\"clinical\".\"adherence_flags\".\"resolved_at\" is null) = (\"clinical\".\"adherence_flags\".\"resolved_by\" is null) and (\"clinical\".\"adherence_flags\".\"resolved_at\" is null) = (\"clinical\".\"adherence_flags\".\"outcome\" is null) and (\"clinical\".\"adherence_flags\".\"status\" = 'resolved' or \"clinical\".\"adherence_flags\".\"note\" is null)"
-        },
-        "adherence_flags_note_check": {
-          "name": "adherence_flags_note_check",
-          "value": "\"clinical\".\"adherence_flags\".\"note\" is null or length(trim(\"clinical\".\"adherence_flags\".\"note\")) between 1 and 1000"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     }
   },

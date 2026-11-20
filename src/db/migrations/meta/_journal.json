@@ -47,8 +47,15 @@
     {
       "idx": 6,
       "version": "7",
-      "when": 1795152376651,
-      "tag": "0006_adherence",
+      "when": 1795151716818,
+      "tag": "0006_notification_preferences",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795190583475,
+      "tag": "0007_adherence",
       "breakpoints": true
     }
   ]
