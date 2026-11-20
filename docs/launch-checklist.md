@@ -18,3 +18,4 @@ ADR 0033. Each line gets a date and a link to its evidence when it is done. The 
 | 12 | Staging has run the release for at least a week with deploy checks green | | |
 | 13 | Field encryption keys sealed by AWS KMS in Sydney, not an environment variable (ADR 0010, `docs/decisions/field-encryption.md` ENC3) | | |
 | 14 | Each protocol template a tenant uses has been reviewed by a medical practitioner engaged by Medora (`docs/decisions/intake.md` INT10) | | |
+| 15 | A scheduled sweep clears unclaimed intakes after 14 days and ends idle ones, for intakes nobody opens (`docs/decisions/intake.md` INT7, INT14) | | |

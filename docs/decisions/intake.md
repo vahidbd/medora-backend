@@ -28,13 +28,13 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid
 
 ### INT5. An intake can start before an account
 
-Decision: a person can start an intake on a brand site before having an account. The first screen is the collection notice with consent to collect health information (the tenant's current privacy document, recorded on the intake by version and time) and a confirmation that they are 18 or older. The date of birth is the first question; under 18 ends the intake there (`ended`, `under_age`), before any health answer is collected. The intake is held by a resume token in an httpOnly, Secure, SameSite=Lax cookie on the brand's host; only the token's SHA-256 hash is stored. Anonymous routes are rate limited per address and per tenant. No attribution or tracking is stored on an intake, and intake pages carry no third-party script (ADR 0022).
+Decision: a person can start an intake on a brand site before having an account. The first screen is the collection notice with consent to collect health information (the tenant's current privacy document, recorded on the intake by version and time) and a confirmation that they are 18 or older. The date of birth is the first question; under 18 ends the intake there (`ended`, `under_age`), before any health answer is collected. The intake is held by a resume token. The API sends it once, in the `x-medora-intake-token` header of the reply that starts the intake and never in a body; the patient app's server moves it into an httpOnly, Secure, SameSite=Lax cookie on the brand's host and sends it back in the same header. Only the token's SHA-256 hash is stored. An anonymous request names its tenant in `x-medora-tenant`, as a patient's does (IDN4). Starting is rate limited per address and per tenant, and wrong tokens per address, so a token can't be guessed. No attribution or tracking is stored on an intake, and intake pages carry no third-party script (ADR 0022).
 Why: the PRD journey is quiz first, then account. Consent on the first screen meets APP 3 and APP 5 before any health information is collected.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid
 
 ### INT6. Signing up claims every intake started in that browser
 
-Decision: when the person signs up or signs in, every intake held by that browser's tokens becomes theirs, including ineligible ones. The privacy consent given on the intake's first screen becomes the patient's privacy consent, with the intake's version and time, so they aren't asked twice. The token hashes are cleared on claim. When the sign-in has no patient record at the tenant yet, the intake's date of birth becomes the record's.
+Decision: when the person signs up or signs in, every intake held by that browser's tokens becomes theirs, including ineligible ones. The privacy consent given on the intake's first screen becomes the patient's privacy consent, with the intake's version and time, so they aren't asked twice. The token hashes are cleared on claim. Claiming needs a patient record, so the account's date of birth is the one the person gives when they create it; when it isn't the intake's, the prescriber's summary says so (INT15).
 Why: otherwise a person could answer until they pass and then sign up, and the prescriber would never see the earlier answers.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid
 
@@ -46,7 +46,7 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid
 
 ### INT8. What an intake's status says, and what leaves the clinical zone
 
-Decision: an intake is `in_progress`, `completed` (submitted), `ineligible` (a hard stop ended it, and the rule is recorded) or `ended` (with a reason: `under_age`, `version_withdrawn`, `expired` or `unclaimed`). Answers overwrite while it is in progress; a completed or ineligible intake never changes, and a correction is a new intake or a note in the consult. Answers are sealed with field encryption (ADR 0010). The events `intake.started`, `intake.completed` and `intake.ended` carry the intake, program and status only: never an answer, a red flag or the rule that stopped it.
+Decision: an intake is `in_progress`, `completed` (submitted), `ineligible` (a hard stop ended it, and the rule is recorded) or `ended` (with a reason: `under_age`, `version_withdrawn`, `expired` or `unclaimed`). Answers overwrite while it is in progress; a completed or ineligible intake never changes, and a correction is a new intake or a note in the consult. Answers are sealed with field encryption (ADR 0010). The events `intake.started`, `intake.completed` and `intake.ended` carry the intake, the program and the status (and why an intake ended, from the reasons above), and `intake.completed` the patient: never an answer, a red flag or the rule that stopped it.
 Why: the stopping rule and red flags are clinical; the acquisition and support modules need to know an intake ended, not why.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid
 
@@ -66,4 +66,28 @@ Decided by: stand-in (Fable 5.2) for the rules, to confirm with Vahid; the file-
 
 Decision: `protocols:read` is held by the owner, the tenant admin, the medical director, prescribers and clinicians. `protocols:manage` (start and edit drafts) by the owner and the medical director. `protocols:sign_off` as in INT4. `programs:manage` by the owner, the tenant admin and the medical director. `intakes:read` (a patient's answers and the prescriber's summary) by the medical director, prescribers and clinicians, and by an owner only with break-glass; support sees an intake's status through `patients:read`, never its answers. Support and finance get no protocol permission. No agent drafts protocols or programs yet; the tenant setup agent will use these same routes (ADR 0012), and no agent ever signs off or withdraws.
 Why: drafts are harmless because nothing goes live unsigned, so the people who run the service may write them; answers are clinical and stay with clinical roles.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### INT12. Steps are saved one at a time, and only a patient submits
+
+Decision: answers are saved a step at a time, and a step can be answered only once every shown step before it is done (409 `step_not_reached`). A step's answers are checked together: a missing required answer, a wrong kind or a number out of range is refused with each question's problem (400 `answer_problems`) and nothing is saved. Going back to change an earlier step keeps the later answers that are still shown, drops the ones it hides, and moves the intake back to the first step that is no longer finished. Only a signed-in patient with their care consents submits; an anonymous intake that is finished waits, ready, for the person to sign up and claim it. Submitting checks the hard stops again with every step done, then records the red flags as they stand. A patient who starts a program they already have an intake in progress for gets that intake back.
+Why: saving each step lets a person stop and come back, and refusing a skipped step keeps every hard stop in front of the questions it guards. A submit is the request for a consult, so it belongs to a person the clinic can identify and has consent from.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### INT13. Age is worked out on the tenant's calendar
+
+Decision: "today" for a date of birth's checks and for `age` in the rules is the date in the tenant's time zone (ADR 0017). The prescriber's summary shows the age on the day the intake was submitted, or ended by a hard stop, so it matches what the rules saw.
+Why: a person who turns 18 today in Perth is still 17 in UTC for part of the day; the rules and the prescriber must agree on which day it is.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### INT14. Lapses happen when an intake is next touched, and a sweep clears the rest
+
+Decision: the 14-day clear, the 30-day expiry and the end of intakes on a withdrawn version (INT4, INT7) are applied whenever an intake is opened, answered, claimed, submitted or summarised, in a transaction of their own before the request's work, so a refusal that follows can't undo them. A scheduled sweep applies them to intakes nobody opens; until the API has a job runner it is a launch gate (`docs/launch-checklist.md`).
+Why: applying a lapse when it is read means nobody ever sees an intake that should have lapsed, without waiting for a job. The sweep is still needed so unclaimed answers are cleared on time even when nobody comes back (APP 11.2).
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### INT15. The prescriber's summary
+
+Decision: a completed intake, and one a hard stop ended, has a summary for whoever holds `intakes:read` (INT11): the protocol and version it was answered on (and whether that version was withdrawn), the outcome (`clear`, `red_flags` or `ineligible`), the answers in question order with the labels the patient saw, the ones behind a red flag marked, the derived numbers, the red flags and stopping rule in the protocol's words for the prescriber, and the patient's earlier ineligible intakes with the rule that stopped each. It is marked stale when answered more than 30 days before today, and says when the date of birth on the intake isn't the one on the patient's record. Every read writes an audit entry. Staff see a patient's intakes and where each stands, without answers, through `patients:read`.
+Why: the prescriber decides in the consult with the whole picture, including what a patient answered before they passed. Thirty days is when a weight or a medicine list is likely to have moved enough to ask again.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid
