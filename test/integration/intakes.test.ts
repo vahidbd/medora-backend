@@ -4,7 +4,7 @@ import type { App } from '../../src/app.js';
 import { closeDatabase } from '../../src/db/health.js';
 import { intakes } from '../../src/db/schema/index.js';
 import { type TenantContext, withTenant } from '../../src/db/tenant.js';
-import { intakeSummaryFor, settleIntakes } from '../../src/modules/intake/index.js';
+import { intakeSummaryFor, latestIntakeFor, settleIntakes } from '../../src/modules/intake/index.js';
 import { headers, patientSignIn, signIn, testApp } from '../support/app.js';
 import { admin, createBrand, createPlatformStaff, tenantWith } from '../support/db.js';
 
@@ -74,10 +74,10 @@ async function begin(c: Clinic, dateOfBirth = '1990-05-01') {
 const step = (c: Clinic, intakeId: string, token: string, key: string, answers: Record<string, unknown>): Promise<Reply> =>
   app.inject({ method: 'PUT', url: `/v1/public/intakes/${intakeId}/steps/${key}`, headers: anon(c.tenantId, token), payload: { answers } });
 
-async function signUp(c: Clinic) {
+async function signUp(c: Clinic, dateOfBirth = '1990-05-01') {
   const subject = `user_${randomUUID()}`;
   const token = await patientSignIn(subject, { email: `${subject}@example.test` });
-  const reply = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, c.tenantId), payload: { brandId: c.brandId, givenName: 'Sam', familyName: 'Sample', dateOfBirth: '1990-05-01', sex: 'not_stated' } });
+  const reply = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, c.tenantId), payload: { brandId: c.brandId, givenName: 'Sam', familyName: 'Sample', dateOfBirth, sex: 'not_stated' } });
   expect(reply.statusCode).toBe(201);
   return { token, patientId: reply.json().patientId as string };
 }
@@ -125,14 +125,23 @@ describe('starting before an account (INT5)', async () => {
     expect((await app.inject({ method: 'GET', url: `/v1/public/intakes/${intake.intakeId}`, headers: anon(c.tenantId, resumeToken) })).json().intakeId).toBe(intake.intakeId);
   });
 
+  it("lists the brand's live programs for its site, and nothing in draft (INT16)", async () => {
+    await staffCall('POST', '/v1/programs', c.director.email, c.tenantId, { brandId: c.brandId, protocolId: c.protocolId, name: 'Not open yet' });
+    const listed = await app.inject({ method: 'GET', url: `/v1/public/brands/${c.brandId}/programs`, headers: anon(c.tenantId) });
+    expect(listed.json()).toEqual({ programs: [{ programId: c.programId, name: 'Made-up program', condition: 'Made-up condition' }] });
+    expect((await app.inject({ method: 'GET', url: `/v1/public/brands/${randomUUID()}/programs`, headers: anon(c.tenantId) })).statusCode).toBe(404);
+  });
+
   it('is closed while the program or its brand is not taking new patients', async () => {
     await staffCall('PATCH', `/v1/programs/${c.programId}`, c.director.email, c.tenantId, { status: 'paused' });
     const paused = await app.inject({ method: 'POST', url: '/v1/public/intakes', headers: anon(c.tenantId), payload: { programId: c.programId, privacyDocumentId: c.privacy.documentId, adult: true, dateOfBirth: '1990-05-01' } });
     expect(paused.json().error.code).toBe('program_unavailable');
+    expect((await app.inject({ method: 'GET', url: `/v1/public/brands/${c.brandId}/programs`, headers: anon(c.tenantId) })).json().programs).toEqual([]);
     await staffCall('PATCH', `/v1/programs/${c.programId}`, c.director.email, c.tenantId, { status: 'live' });
     await admin.query("update platform.brands set status = 'paused' where id = $1", [c.brandId]);
     const brand = await app.inject({ method: 'GET', url: `/v1/public/programs/${c.programId}/intake-start`, headers: anon(c.tenantId) });
     expect(brand.json().error.code).toBe('brand_not_accepting');
+    expect((await app.inject({ method: 'GET', url: `/v1/public/brands/${c.brandId}/programs`, headers: anon(c.tenantId) })).json().error.code).toBe('brand_not_accepting');
     await admin.query("update platform.brands set status = 'live' where id = $1", [c.brandId]);
   });
 });
@@ -253,11 +262,62 @@ describe('claiming, submitting and the prescriber’s summary (INT6, INT15)', as
     expect((await staffCall('GET', `/v1/intakes/${later.intake.intakeId}`, c.owner.email, c.tenantId)).json().error.code).toBe('break_glass_required');
   });
 
+  it('keeps an intake started with another date of birth from the patient, and starts them a new one (INT17)', async () => {
+    const someoneElse = await begin(c, '1970-01-01');
+    await step(c, someoneElse.intake.intakeId, someoneElse.resumeToken, 'body', { height: 160, mass: 80 });
+    const other = await signUp(c, '1991-02-03');
+    for (const document of [c.privacy, c.terms]) await asPatient(c, other.token, 'POST', '/v1/patient/consents', { documentId: document.documentId });
+    await asPatient(c, other.token, 'POST', '/v1/patient/intakes/claim', { tokens: [someoneElse.resumeToken] });
+    const url = `/v1/patient/intakes/${someoneElse.intake.intakeId}`;
+    for (const reply of [await asPatient(c, other.token, 'GET', url), await asPatient(c, other.token, 'PUT', `${url}/steps/status`, { answers: { expecting: false } }), await asPatient(c, other.token, 'POST', `${url}/submit`)]) {
+      expect(reply.statusCode).toBe(409);
+      expect(reply.json().error.code).toBe('date_of_birth_differs');
+      expect(JSON.stringify(reply.json())).not.toContain('160');
+    }
+    const fresh = await asPatient(c, other.token, 'POST', '/v1/patient/intakes', { programId: c.programId });
+    expect(fresh.json().intakeId).not.toBe(someoneElse.intake.intakeId);
+    expect(fresh.json().answers).toEqual({});
+  });
+
   it('lets a signed-in patient start again, picking up the one in progress', async () => {
     const first = await asPatient(c, patient.token, 'POST', '/v1/patient/intakes', { programId: c.programId });
     const again = await asPatient(c, patient.token, 'POST', '/v1/patient/intakes', { programId: c.programId });
     expect(first.json()).toMatchObject({ status: 'in_progress', currentStep: 'body' });
     expect(again.json().intakeId).toBe(first.json().intakeId);
+  });
+});
+
+describe('the newest outcome, for booking a first consult (INT18)', async () => {
+  const c = await clinic();
+  const patient = await agreed(c);
+  const latest = (programId = c.programId) =>
+    withTenant({ tenantId: c.tenantId, actor: { type: 'patient', patientId: patient.patientId }, requestId: 'test' }, (tx) => latestIntakeFor(tx, { patientId: patient.patientId, programId }));
+  const answerAll = async (expecting: boolean) => {
+    const { intakeId } = (await asPatient(c, patient.token, 'POST', '/v1/patient/intakes', { programId: c.programId })).json();
+    const url = `/v1/patient/intakes/${intakeId}`;
+    await asPatient(c, patient.token, 'PUT', `${url}/steps/body`, { answers: { height: 170, mass: 70 } });
+    await asPatient(c, patient.token, 'PUT', `${url}/steps/status`, { answers: { expecting } });
+    if (!expecting) {
+      await asPatient(c, patient.token, 'PUT', `${url}/steps/more`, { answers: {} });
+      expect((await asPatient(c, patient.token, 'POST', `${url}/submit`)).json().status).toBe('completed');
+    }
+    return intakeId as string;
+  };
+
+  let sent = '';
+
+  it('is none before anything is sent, and the sent one after', async () => {
+    expect(await latest()).toBeNull();
+    sent = await answerAll(false);
+    expect(await latest()).toMatchObject({ intakeId: sent, status: 'completed' });
+    expect(await latest(randomUUID())).toBeNull();
+  });
+
+  it('is a later hard stop over an earlier completed intake, and every read is audited', async () => {
+    const stopped = await answerAll(true);
+    expect(await latest()).toMatchObject({ intakeId: stopped, status: 'ineligible' });
+    const { rows } = await admin.query("select details from platform.audit_log where action = 'intake.outcome_read' and record_id = $1 order by at", [patient.patientId]);
+    expect(rows.map((row) => row.details.intakeId)).toEqual([null, sent, null, stopped]);
   });
 });
 
