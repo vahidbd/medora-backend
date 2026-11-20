@@ -194,6 +194,16 @@
                               "active",
                               "suspended"
                             ]
+                          },
+                          "permissions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "staff:read",
+                                "staff:manage"
+                              ]
+                            }
                           }
                         },
                         "required": [
@@ -201,7 +211,8 @@
                           "tenantId",
                           "tenantName",
                           "role",
-                          "status"
+                          "status",
+                          "permissions"
                         ],
                         "additionalProperties": false
                       }

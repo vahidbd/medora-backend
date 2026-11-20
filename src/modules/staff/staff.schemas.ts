@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MEMBERSHIP_STATUSES, ROLES } from '../../db/schema/values.js';
+import { PERMISSIONS } from '../../lib/permissions.js';
 
 export const roleSchema = z.enum(ROLES);
 export const membershipStatusSchema = z.enum(MEMBERSHIP_STATUSES);
@@ -14,6 +15,8 @@ export const meReply = z.object({
       tenantName: z.string(),
       role: roleSchema,
       status: membershipStatusSchema,
+      /** What the role may do there, so the web app shows only what the person can use. The API still checks every call. */
+      permissions: z.array(z.enum(PERMISSIONS)),
     }),
   ),
 });

@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { withTenant } from '../../db/tenant.js';
 import { tenantContextOf } from '../../plugins/auth.js';
 import { UnauthorizedError } from '../../lib/errors.js';
+import { ROLE_PERMISSIONS } from '../../lib/permissions.js';
 import { meReply, membershipChangeBody, membershipParams, staffListReply, staffMember } from './staff.schemas.js';
 import { changeMembership, listStaff } from './staff.service.js';
 
@@ -15,7 +16,11 @@ export const staffRoutes: FastifyPluginAsyncZod = async (app) => {
     async (request) => {
       const auth = request.auth;
       if (!auth) throw new UnauthorizedError();
-      return { userId: auth.userId, email: auth.email, memberships: auth.memberships };
+      return {
+        userId: auth.userId,
+        email: auth.email,
+        memberships: auth.memberships.map((membership) => ({ ...membership, permissions: [...ROLE_PERMISSIONS[membership.role]] })),
+      };
     },
   );
 
