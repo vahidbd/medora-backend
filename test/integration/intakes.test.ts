@@ -125,14 +125,23 @@ describe('starting before an account (INT5)', async () => {
     expect((await app.inject({ method: 'GET', url: `/v1/public/intakes/${intake.intakeId}`, headers: anon(c.tenantId, resumeToken) })).json().intakeId).toBe(intake.intakeId);
   });
 
+  it("lists the brand's live programs for its site, and nothing in draft (INT16)", async () => {
+    await staffCall('POST', '/v1/programs', c.director.email, c.tenantId, { brandId: c.brandId, protocolId: c.protocolId, name: 'Not open yet' });
+    const listed = await app.inject({ method: 'GET', url: `/v1/public/brands/${c.brandId}/programs`, headers: anon(c.tenantId) });
+    expect(listed.json()).toEqual({ programs: [{ programId: c.programId, name: 'Made-up program', condition: 'Made-up condition' }] });
+    expect((await app.inject({ method: 'GET', url: `/v1/public/brands/${randomUUID()}/programs`, headers: anon(c.tenantId) })).statusCode).toBe(404);
+  });
+
   it('is closed while the program or its brand is not taking new patients', async () => {
     await staffCall('PATCH', `/v1/programs/${c.programId}`, c.director.email, c.tenantId, { status: 'paused' });
     const paused = await app.inject({ method: 'POST', url: '/v1/public/intakes', headers: anon(c.tenantId), payload: { programId: c.programId, privacyDocumentId: c.privacy.documentId, adult: true, dateOfBirth: '1990-05-01' } });
     expect(paused.json().error.code).toBe('program_unavailable');
+    expect((await app.inject({ method: 'GET', url: `/v1/public/brands/${c.brandId}/programs`, headers: anon(c.tenantId) })).json().programs).toEqual([]);
     await staffCall('PATCH', `/v1/programs/${c.programId}`, c.director.email, c.tenantId, { status: 'live' });
     await admin.query("update platform.brands set status = 'paused' where id = $1", [c.brandId]);
     const brand = await app.inject({ method: 'GET', url: `/v1/public/programs/${c.programId}/intake-start`, headers: anon(c.tenantId) });
     expect(brand.json().error.code).toBe('brand_not_accepting');
+    expect((await app.inject({ method: 'GET', url: `/v1/public/brands/${c.brandId}/programs`, headers: anon(c.tenantId) })).json().error.code).toBe('brand_not_accepting');
     await admin.query("update platform.brands set status = 'live' where id = $1", [c.brandId]);
   });
 });

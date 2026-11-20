@@ -10,7 +10,7 @@ import { decryptOptional, encryptField } from '../../lib/field-crypto.js';
 import { localDate } from '../../lib/time.js';
 import { assertAcceptingPatients } from '../brands/index.js';
 import { ageOn, assertConsents, currentConsentDocument, DATE_OF_BIRTH_MESSAGES, dateOfBirthProblem, findPatient, givenConsentOf, recordIntakeConsent } from '../patients/index.js';
-import { type Answers, type Definition, firstHardStop, firstUnfinishedStep, getProgram, liveVersionOf, protocolVersionById, readStepAnswers, redFlagsOf, shownFlow } from '../protocols/index.js';
+import { type Answers, type Definition, firstHardStop, firstUnfinishedStep, getProgram, listPrograms, liveVersionOf, protocolVersionById, readStepAnswers, redFlagsOf, shownFlow } from '../protocols/index.js';
 import { settleIntakes } from './upkeep.js';
 
 /**
@@ -144,6 +144,16 @@ async function openProgram(tx: TenantTx, programId: string) {
   const version = program.status === 'live' ? await liveVersionOf(tx, program.protocolId) : null;
   if (!version) throw new BusinessRuleError("This program isn't taking new patients right now", 'program_unavailable');
   return { program, version };
+}
+
+/** The programs a person can start on a brand's site (INT16): live, on a protocol with a live version, while the brand takes new patients. */
+export async function programsOnBrand(tx: TenantTx, brandId: string): Promise<{ programId: string; name: string; condition: string }[]> {
+  await assertAcceptingPatients(tx, brandId);
+  const open = [];
+  for (const program of await listPrograms(tx)) {
+    if (program.brandId === brandId && program.status === 'live' && (await liveVersionOf(tx, program.protocolId))) open.push({ programId: program.programId, name: program.name, condition: program.condition });
+  }
+  return open;
 }
 
 /** What the first screen shows before anything is collected (INT5): the program and the privacy notice to agree to. */

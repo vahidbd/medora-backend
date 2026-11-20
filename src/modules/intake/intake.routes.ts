@@ -8,6 +8,8 @@ import { PATIENT_TENANT_HEADER, patientContextOf, requirePatient } from '../../p
 import { findPatient } from '../patients/index.js';
 import {
   anonymousStartBody,
+  brandParams,
+  brandProgramsReply,
   claimBody,
   claimReply,
   intakeList,
@@ -21,7 +23,7 @@ import {
   stepBody,
   stepParams,
 } from './intake.schemas.js';
-import { claimIntakes, readIntake, saveStep, startAnonymous, startForPatient, startScreen, submitIntake } from './intakes.service.js';
+import { claimIntakes, programsOnBrand, readIntake, saveStep, startAnonymous, startForPatient, startScreen, submitIntake } from './intakes.service.js';
 import { intakeSummary, intakesOf } from './summary.service.js';
 import { settleIntakes } from './upkeep.js';
 
@@ -79,6 +81,15 @@ async function asTokenHolder<T>(request: FastifyRequest, work: (context: TenantC
 }
 
 export const intakeRoutes: FastifyPluginAsyncZod = async (app) => {
+  app.get(
+    '/public/brands/:brandId/programs',
+    {
+      config: { access: 'public' },
+      schema: { tags: ['intakes'], summary: 'The programs a person can start on a brand’s site', params: brandParams, response: { 200: brandProgramsReply } },
+    },
+    async (request) => ({ programs: await withTenant(publicContext(request), (tx) => programsOnBrand(tx, request.params.brandId)) }),
+  );
+
   app.get(
     '/public/programs/:programId/intake-start',
     {

@@ -91,3 +91,9 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid
 Decision: a completed intake, and one a hard stop ended, has a summary for whoever holds `intakes:read` (INT11): the protocol and version it was answered on (and whether that version was withdrawn), the outcome (`clear`, `red_flags` or `ineligible`), the answers in question order with the labels the patient saw, the ones behind a red flag marked, the derived numbers, the red flags and stopping rule in the protocol's words for the prescriber, and the patient's earlier ineligible intakes with the rule that stopped each. It is marked stale when answered more than 30 days before today, and says when the date of birth on the intake isn't the one on the patient's record. Every read writes an audit entry. Staff see a patient's intakes and where each stands, without answers, through `patients:read`.
 Why: the prescriber decides in the consult with the whole picture, including what a patient answered before they passed. Thirty days is when a weight or a medicine list is likely to have moved enough to ask again.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### INT16. A brand's site lists its open programs
+
+Decision: `GET /v1/public/brands/:brandId/programs`, with the tenant in `x-medora-tenant`, lists the brand's programs a person can start now: live, on a protocol with a live version. It answers as an intake's start does while the brand isn't taking new patients (409 `brand_not_accepting` or `tenant_not_ready`). Each program gives its id, name and condition, nothing else; brand copy about a program lives with the brand site's content, not on the program.
+Why: the start screen needs something to offer when a person arrives without a program in the link. Programs are operational and public by nature, so listing them reveals nothing a brand site wouldn't show.
+Decided by: us, at the patient intake screens thread's request, to confirm with Vahid
