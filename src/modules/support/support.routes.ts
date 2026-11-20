@@ -89,7 +89,7 @@ export const supportRoutes: FastifyPluginAsyncZod = async (app) => {
         access: reply,
         audit: CHANGES,
         events: CHANGES,
-        agentTool: 'support.update_ticket',
+        agentTool: 'update_ticket',
       },
       schema: {
         tags: ['support'],
@@ -114,7 +114,9 @@ export const supportRoutes: FastifyPluginAsyncZod = async (app) => {
         access: reply,
         audit: ['message.queued', 'message.recorded', 'ticket.status_changed'],
         events: ['message.queued', 'ticket.replied', 'ticket.status_changed'],
-        agentTool: 'support.reply_to_ticket',
+        agentTool: {
+          none: "An agent's reply arrives as agent_message.created and the helpdesk sends it through replyToTicket, with the same checks (SUP12)",
+        },
       },
       schema: {
         tags: ['support'],
@@ -188,7 +190,7 @@ export const supportRoutes: FastifyPluginAsyncZod = async (app) => {
         access: reply,
         audit: ['ticket.flagged', 'ticket.queue_changed', 'ticket.priority_changed'],
         events: ['ticket.flagged', 'ticket.queue_changed', 'ticket.priority_changed'],
-        agentTool: 'support.flag_ticket',
+        agentTool: 'flag_ticket',
       },
       schema: {
         tags: ['support'],
