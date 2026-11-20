@@ -6,12 +6,13 @@ import type { Permission } from '../lib/permissions.js';
  * What every route must say about itself, checked as it registers, so the
  * app can't start with a route that forgot (ADRs 0008, 0012, 0014, 0016, 0030):
  *
- * - `access`: 'public', 'signed-in', or the permission it needs;
+ * - `access`: 'public', 'signed-in' (staff), 'patient' or 'patient-sign-in'
+ *   (patients, src/plugins/patient-auth.ts), or the permission it needs;
  * - a response schema for its success replies;
  * - if it changes data: the audit actions it writes, the events it emits and
  *   the agent tool that does the same (or, for each, why there is none).
  */
-export type Access = 'public' | 'signed-in' | { permission: Permission };
+export type Access = 'public' | 'signed-in' | 'patient' | 'patient-sign-in' | { permission: Permission };
 
 /** A list of names, or the reason there are none. */
 export type Declared = readonly string[] | { none: string };

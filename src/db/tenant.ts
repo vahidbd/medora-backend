@@ -9,7 +9,12 @@ import { db, type DbTx } from './client.js';
  * the rest: inside, only this tenant's rows exist.
  */
 
-export type Actor = { type: 'person'; userId: string } | { type: 'agent'; agentId: string } | { type: 'system' };
+/** Who is acting: a staff member, a patient on their own record (IDN2), one of Medora's agents, or the system. */
+export type Actor =
+  | { type: 'person'; userId: string }
+  | { type: 'patient'; patientId: string }
+  | { type: 'agent'; agentId: string }
+  | { type: 'system' };
 
 export interface TenantContext {
   tenantId: string;

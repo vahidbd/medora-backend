@@ -22,3 +22,17 @@ export async function signIn(email: string, subject = `dev_${email}`): Promise<s
 export function headers(token: string, tenantId?: string): Record<string, string> {
   return { authorization: `Bearer ${token}`, ...(tenantId ? { [TENANT_HEADER]: tenantId } : {}) };
 }
+
+/**
+ * A development patient sign-in token (ADR 0035): `aud: "patient"`, a session
+ * id, and the verified email or mobile the sign-in proved. Made-up people only.
+ */
+export async function patientSignIn(subject: string, claims: { sessionId?: string; email?: string; phone?: string } = {}): Promise<string> {
+  return new SignJWT({ sid: claims.sessionId ?? `sess_${subject}`, ...(claims.email ? { email: claims.email } : {}), ...(claims.phone ? { phone_number: claims.phone } : {}) })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setSubject(subject)
+    .setAudience('patient')
+    .setIssuedAt()
+    .setExpirationTime('10m')
+    .sign(new TextEncoder().encode(process.env.DEV_JWT_SECRET));
+}

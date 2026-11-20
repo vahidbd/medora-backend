@@ -9,6 +9,7 @@ import { clerkJwksUrl, parseAuthorizedParties, resolveClerkIssuer } from '../lib
 import { BadRequestError, ForbiddenError, TooManyRequestsError, UnauthorizedError } from '../lib/errors.js';
 import { permissionsOf, type Permission } from '../lib/permissions.js';
 import { blockedFor, countAttempt, type Limit } from '../lib/rate-limit.js';
+import { authenticatePatient, isPatientToken } from './patient-auth.js';
 import type { Access } from './route-rules.js';
 
 /**
@@ -58,6 +59,8 @@ interface Identity {
 
 async function verifyDevToken(token: string): Promise<Identity> {
   const { payload } = await jwtVerify(token, new TextEncoder().encode(env.DEV_JWT_SECRET ?? ''), { algorithms: ['HS256'] });
+  // A patient token never opens a staff route (ADR 0035).
+  if (isPatientToken(payload)) throw new UnauthorizedError();
   if (typeof payload.sub !== 'string' || !payload.sub) throw new UnauthorizedError();
   return { clerkUserId: payload.sub, email: typeof payload['email'] === 'string' ? payload['email'] : null };
 }
@@ -111,10 +114,12 @@ function tenantAccess(request: FastifyRequest, memberships: SignInMembership[]):
 
 export const authPlugin = fp(async (app: FastifyInstance) => {
   app.decorateRequest('auth', null);
+  app.decorateRequest('patient', null);
 
   app.addHook('onRequest', async (request) => {
     const access: Access | undefined = request.routeOptions.config?.access;
     if (access === undefined || access === 'public') return;
+    if (access === 'patient' || access === 'patient-sign-in') return authenticatePatient(request, access);
 
     const identity = await identify(request);
     const user = await findSignedInUser(identity, request.id);

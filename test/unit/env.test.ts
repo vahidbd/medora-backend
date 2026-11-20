@@ -3,6 +3,8 @@ import { loadEnv } from '../../src/config/env.js';
 
 const LIVE_KEY = `pk_live_${Buffer.from('clerk.example.com.au$').toString('base64')}`;
 const TEST_KEY = `pk_test_${Buffer.from('example.clerk.accounts.dev$').toString('base64')}`;
+const PATIENT_LIVE_KEY = `pk_live_${Buffer.from('clerk.patients.example.com.au$').toString('base64')}`;
+const PATIENT_TEST_KEY = `pk_test_${Buffer.from('patients.clerk.accounts.dev$').toString('base64')}`;
 
 /** Everything staging needs (ADR 0025). Made-up values. Production also needs the KMS key provider, which doesn't exist yet (ENC3). */
 const production: NodeJS.ProcessEnv = {
@@ -11,6 +13,8 @@ const production: NodeJS.ProcessEnv = {
   AUTH_MODE: 'clerk',
   CLERK_PUBLISHABLE_KEY: LIVE_KEY,
   CLERK_AUTHORIZED_PARTIES: 'https://console.example.com.au',
+  CLERK_PATIENT_PUBLISHABLE_KEY: PATIENT_LIVE_KEY,
+  CLERK_PATIENT_AUTHORIZED_PARTIES: 'https://care.example.com.au',
   STORAGE_MODE: 's3',
   S3_BUCKET: 'medora-files',
   S3_REGION: 'ap-southeast-2',
@@ -54,6 +58,10 @@ describe('production and staging refuse unsafe settings', () => {
     ['a development secret', { DEV_JWT_SECRET: 'x'.repeat(40) }, 'DEV_JWT_SECRET must not be set'],
     ['a Clerk development key', { CLERK_PUBLISHABLE_KEY: TEST_KEY }, 'production instance key'],
     ['no allowed origins', { CLERK_AUTHORIZED_PARTIES: '' }, 'CLERK_AUTHORIZED_PARTIES is required'],
+    ['no patient sign-in instance', { CLERK_PATIENT_PUBLISHABLE_KEY: undefined }, 'CLERK_PATIENT_PUBLISHABLE_KEY is required'],
+    ['a patient Clerk development key', { CLERK_PATIENT_PUBLISHABLE_KEY: PATIENT_TEST_KEY }, 'CLERK_PATIENT_PUBLISHABLE_KEY must be a production instance key'],
+    ['patients on the staff instance', { CLERK_PATIENT_PUBLISHABLE_KEY: LIVE_KEY }, 'must not be the staff instance'],
+    ['no patient app origins', { CLERK_PATIENT_AUTHORIZED_PARTIES: '' }, 'CLERK_PATIENT_AUTHORIZED_PARTIES is required'],
     ['files on local disk', { STORAGE_MODE: 'local' }, 'STORAGE_MODE must be s3'],
     ['storage outside Australia', { S3_REGION: 'us-east-1' }, 'Australian region'],
     ['no client address secret', { FORWARDED_IP_SECRET: undefined }, 'FORWARDED_IP_SECRET'],

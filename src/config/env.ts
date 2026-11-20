@@ -32,6 +32,15 @@ const envSchema = z.object({
   CLERK_ISSUER: optionalText,
   /** The web app origins a token may be issued for, comma-separated. */
   CLERK_AUTHORIZED_PARTIES: optionalText,
+  /**
+   * Patients sign in on their own Clerk instance (ADR 0035): open sign-up,
+   * one-time codes, passkeys. Patient routes accept only its tokens, and staff
+   * routes never do.
+   */
+  CLERK_PATIENT_PUBLISHABLE_KEY: optionalText,
+  CLERK_PATIENT_ISSUER: optionalText,
+  /** The patient app origins a patient token may be issued for, comma-separated. */
+  CLERK_PATIENT_AUTHORIZED_PARTIES: optionalText,
 
   /**
    * Field encryption (ADR 0010, docs/decisions/field-encryption.md ENC3).
@@ -94,6 +103,10 @@ function authProblems(config: Env): string[] {
   const problems: string[] = [];
   try {
     if (!resolveClerkIssuer(config)) problems.push('CLERK_PUBLISHABLE_KEY or CLERK_ISSUER is required when AUTH_MODE=clerk');
+    const patientIssuer = resolveClerkIssuer({ CLERK_ISSUER: config.CLERK_PATIENT_ISSUER, CLERK_PUBLISHABLE_KEY: config.CLERK_PATIENT_PUBLISHABLE_KEY });
+    if (patientIssuer && patientIssuer === resolveClerkIssuer(config)) {
+      problems.push('The patient Clerk instance must not be the staff instance (ADR 0035)');
+    }
   } catch (error) {
     problems.push(error instanceof Error ? error.message : String(error));
   }
@@ -121,6 +134,13 @@ export function deployedProblems(config: Env): string[] {
   }
   if (parseAuthorizedParties(config.CLERK_AUTHORIZED_PARTIES).length === 0) {
     problems.push('CLERK_AUTHORIZED_PARTIES is required (the web app origins, e.g. https://console.example.com.au)');
+  }
+  if (!config.CLERK_PATIENT_PUBLISHABLE_KEY) problems.push('CLERK_PATIENT_PUBLISHABLE_KEY is required (the patient sign-in instance, ADR 0035)');
+  if (config.MEDORA_ENV === 'production' && config.CLERK_PATIENT_PUBLISHABLE_KEY && !config.CLERK_PATIENT_PUBLISHABLE_KEY.startsWith('pk_live_')) {
+    problems.push('CLERK_PATIENT_PUBLISHABLE_KEY must be a production instance key (pk_live_) in production');
+  }
+  if (parseAuthorizedParties(config.CLERK_PATIENT_AUTHORIZED_PARTIES).length === 0) {
+    problems.push('CLERK_PATIENT_AUTHORIZED_PARTIES is required (the patient app origins)');
   }
   if (config.STORAGE_MODE !== 's3') problems.push('STORAGE_MODE must be s3 (a container disk is wiped on every deploy)');
   if (!config.S3_REGION || !AUSTRALIAN_REGIONS.has(config.S3_REGION)) problems.push('S3_REGION must be an Australian region (ap-southeast-2 or ap-southeast-4)');

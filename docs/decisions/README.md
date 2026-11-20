@@ -29,5 +29,6 @@ Prefixes are unique across both repos, so this table lists both.
 | FND | `foundation.md` | `medora-backend` | The platform foundation: tenancy, sign-in, audit, health checks |
 | CON | `console.md` | `medora-front` | The staff console: sign-in gate, tenant switch, shell, page security, preview mode |
 | ENC | `field-encryption.md` | `medora-backend` | Sealing sensitive fields with each tenant's own key |
+| IDN | `patients.md` | `medora-backend` | Patients, patient sign-in, identity and consent |
 
 Add a row in both repos when you add a file. A prefix is two to four capital letters and is never reused.
