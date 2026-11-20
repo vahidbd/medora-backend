@@ -1,6 +1,6 @@
 # Admin and staff access
 
-Rulings for staff access, roles, invitations, two-step sign-in, sign-in history and break-glass (ADM1 to ADM8; PRD ADM-03, ADM-06, ADM-07; ADRs 0011, 0012, 0030 and 0036 set the rules), and for a tenant's set-up: platform staff, companies, brands, domains, settings and the onboarding checklist (ADM14 to ADM20; PRD ADM-01, ADM-02, TEN-03, TEN-08; ADRs 0006, 0017 and 0023). The web app's rulings for the same screens are ADM9 to ADM13 in its own copy of this file.
+Rulings for staff access, roles, invitations, two-step sign-in, sign-in history and break-glass (ADM1 to ADM8; PRD ADM-03, ADM-06, ADM-07; ADRs 0011, 0012, 0030 and 0220 set the rules), and for a tenant's set-up: platform staff, companies, brands, domains, settings and the onboarding checklist (ADM14 to ADM20; PRD ADM-01, ADM-02, TEN-03, TEN-08; ADRs 0006, 0017 and 0023). The web app's rulings for the same screens are ADM9 to ADM13 in its own copy of this file.
 
 Rulings marked "Decided by: stand-in" were made while the product owner was away, by the model the product owner named to stand in, and are to be confirmed with them.
 
