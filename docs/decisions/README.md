@@ -37,5 +37,6 @@ Prefixes are unique across both repos, so this table lists both.
 | APP | `patient-app.md` | `medora-front` | The patient app: brand hosts, patient sign-in screens, the signed-in frame, Home, Progress, check-ins and Account |
 | TRK | `tracking.md` | `medora-backend` | Measurements, side effects and check-ins a patient records |
 | NTF | `notifications.md` | `medora-backend` | How a patient chooses to hear from their care |
+| JOIN | `patient-start.md` | `medora-front` | The patient app's start: intake screens before and after an account, the resume cookie, claiming, account creation |
 
 Add a row in both repos when you add a file. A prefix is two to four capital letters and is never reused.
