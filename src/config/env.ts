@@ -55,6 +55,16 @@ const envSchema = z.object({
   FIELD_KEY_PROVIDER: z.enum(['local']).default('local'),
   FIELD_ENCRYPTION_KEY: optionalText,
 
+  /**
+   * Outside checks of a patient's identity (docs/decisions/patients.md IDN16,
+   * IDN19). `fake` answers from the document number and the name, for
+   * development, tests and staging; `none` turns online checks off, leaving
+   * manual verification. Production refuses `fake`. A real gateway and the HI
+   * Service each arrive with their own value, provider row and ADR.
+   */
+  IDENTITY_GATEWAY: z.enum(['none', 'fake']).default('fake'),
+  HI_SERVICE: z.enum(['none', 'fake']).default('fake'),
+
   /** Files (none yet): S3-compatible storage in an Australian region once deployed (ADRs 0005, 0025). */
   STORAGE_MODE: z.enum(['local', 's3']).default('local'),
   S3_BUCKET: optionalText,
@@ -161,6 +171,8 @@ export function deployedProblems(config: Env): string[] {
   if (config.MEDORA_ENV === 'production' && config.FIELD_KEY_PROVIDER === 'local') {
     problems.push('FIELD_KEY_PROVIDER must be a KMS provider in production: a key in an environment variable is not enough for patient data (ADR 0010)');
   }
+  if (config.MEDORA_ENV === 'production' && config.IDENTITY_GATEWAY === 'fake') problems.push('IDENTITY_GATEWAY must not be fake in production (none leaves manual checks)');
+  if (config.MEDORA_ENV === 'production' && config.HI_SERVICE === 'fake') problems.push('HI_SERVICE must not be fake in production');
   if ((config.FORWARDED_IP_SECRET ?? '').length < 32) problems.push('FORWARDED_IP_SECRET of at least 32 characters is required');
   if (!/^[0-9a-f]{40}$/.test(config.RELEASE_SHA ?? '')) problems.push('the release commit is unknown (build with scripts/build.mjs, or set RELEASE_SHA)');
   return problems;

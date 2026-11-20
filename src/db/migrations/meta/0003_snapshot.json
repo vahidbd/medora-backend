@@ -1,5 +1,5 @@
 {
-  "id": "e85a768c-9c7d-430c-99e3-e6330dd93c48",
+  "id": "bf5be592-2f57-4092-8feb-20d5978b9154",
   "prevId": "ab544e95-1f0d-4c84-962b-f8682259f180",
   "version": "7",
   "dialect": "postgresql",
@@ -1663,9 +1663,40 @@
           "notNull": true,
           "default": "'unverified'"
         },
+        "identity_failures": {
+          "name": "identity_failures",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "medicare": {
           "name": "medicare",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ihi": {
+          "name": "ihi",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ihi_status": {
+          "name": "ihi_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ihi_record_status": {
+          "name": "ihi_record_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ihi_checked_at": {
+          "name": "ihi_checked_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -1765,6 +1796,22 @@
         "patients_identity_status_check": {
           "name": "patients_identity_status_check",
           "value": "\"clinical\".\"patients\".\"identity_status\" in ('unverified', 'verified', 'failed')"
+        },
+        "patients_identity_failures_check": {
+          "name": "patients_identity_failures_check",
+          "value": "\"clinical\".\"patients\".\"identity_failures\" between 0 and 3"
+        },
+        "patients_ihi_status_check": {
+          "name": "patients_ihi_status_check",
+          "value": "\"clinical\".\"patients\".\"ihi_status\" in ('active', 'deceased', 'retired', 'expired', 'resolved')"
+        },
+        "patients_ihi_record_status_check": {
+          "name": "patients_ihi_record_status_check",
+          "value": "\"clinical\".\"patients\".\"ihi_record_status\" in ('verified', 'unverified', 'provisional')"
+        },
+        "patients_ihi_check": {
+          "name": "patients_ihi_check",
+          "value": "(\"clinical\".\"patients\".\"ihi\" is null) = (\"clinical\".\"patients\".\"ihi_status\" is null) and (\"clinical\".\"patients\".\"ihi\" is null) = (\"clinical\".\"patients\".\"ihi_record_status\" is null)"
         },
         "patients_names_check": {
           "name": "patients_names_check",
@@ -2152,6 +2199,172 @@
         "patient_consents_staff_reason_check": {
           "name": "patient_consents_staff_reason_check",
           "value": "(\"clinical\".\"patient_consents\".\"recorded_by\" is null) or (\"clinical\".\"patient_consents\".\"reason\" is not null and length(trim(\"clinical\".\"patient_consents\".\"reason\")) > 0)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "clinical.identity_checks": {
+      "name": "identity_checks",
+      "schema": "clinical",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "method": {
+          "name": "method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "document_type": {
+          "name": "document_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_reference": {
+          "name": "provider_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checked_by": {
+          "name": "checked_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "at": {
+          "name": "at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "identity_checks_patient_idx": {
+          "name": "identity_checks_patient_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "identity_checks_checked_by_idx": {
+          "name": "identity_checks_checked_by_idx",
+          "columns": [
+            {
+              "expression": "checked_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "identity_checks_checked_by_users_id_fk": {
+          "name": "identity_checks_checked_by_users_id_fk",
+          "tableFrom": "identity_checks",
+          "tableTo": "users",
+          "schemaTo": "platform",
+          "columnsFrom": [
+            "checked_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "identity_checks_patient_fk": {
+          "name": "identity_checks_patient_fk",
+          "tableFrom": "identity_checks",
+          "tableTo": "patients",
+          "schemaTo": "clinical",
+          "columnsFrom": [
+            "tenant_id",
+            "patient_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "identity_checks_method_check": {
+          "name": "identity_checks_method_check",
+          "value": "\"clinical\".\"identity_checks\".\"method\" in ('document', 'manual')"
+        },
+        "identity_checks_document_type_check": {
+          "name": "identity_checks_document_type_check",
+          "value": "\"clinical\".\"identity_checks\".\"document_type\" in ('driver_licence', 'passport', 'medicare_card')"
+        },
+        "identity_checks_outcome_check": {
+          "name": "identity_checks_outcome_check",
+          "value": "\"clinical\".\"identity_checks\".\"outcome\" in ('verified', 'not_matched', 'unavailable')"
+        },
+        "identity_checks_manual_check": {
+          "name": "identity_checks_manual_check",
+          "value": "(\"clinical\".\"identity_checks\".\"method\" = 'document' and \"clinical\".\"identity_checks\".\"checked_by\" is null) or (\"clinical\".\"identity_checks\".\"method\" = 'manual' and \"clinical\".\"identity_checks\".\"checked_by\" is not null and \"clinical\".\"identity_checks\".\"outcome\" = 'verified' and length(trim(coalesce(\"clinical\".\"identity_checks\".\"reason\", ''))) > 0)"
         }
       },
       "isRLSEnabled": false

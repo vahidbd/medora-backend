@@ -84,6 +84,24 @@ export type ConsentDecision = (typeof CONSENT_DECISIONS)[number];
 export const CONSENT_CHANNELS = ['web', 'phone', 'in_person'] as const;
 export type ConsentChannel = (typeof CONSENT_CHANNELS)[number];
 
+/** The documents a patient's identity can be checked against (IDN-02, docs/decisions/patients.md IDN16). */
+export const IDENTITY_DOCUMENTS = ['driver_licence', 'passport', 'medicare_card'] as const;
+export type IdentityDocument = (typeof IDENTITY_DOCUMENTS)[number];
+
+/** How an identity check was done: online against the document, or by staff who sighted it (IDN17). */
+export const IDENTITY_METHODS = ['document', 'manual'] as const;
+export type IdentityMethod = (typeof IDENTITY_METHODS)[number];
+
+/** `unavailable` is the gateway failing to answer; it doesn't count as a failed attempt. */
+export const IDENTITY_OUTCOMES = ['verified', 'not_matched', 'unavailable'] as const;
+export type IdentityOutcome = (typeof IDENTITY_OUTCOMES)[number];
+
+/** An IHI's number status and record status, as the HI Service returns them (IDN19). */
+export const IHI_STATUSES = ['active', 'deceased', 'retired', 'expired', 'resolved'] as const;
+export type IhiStatus = (typeof IHI_STATUSES)[number];
+export const IHI_RECORD_STATUSES = ['verified', 'unverified', 'provisional'] as const;
+export type IhiRecordStatus = (typeof IHI_RECORD_STATUSES)[number];
+
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
   { table: 'platform.memberships', column: 'role', values: MEMBERSHIP_ROLES },
@@ -100,4 +118,9 @@ export const CHECKED_VALUES = [
   { table: 'clinical.patient_consents', column: 'kind', values: CONSENT_KINDS },
   { table: 'clinical.patient_consents', column: 'decision', values: CONSENT_DECISIONS },
   { table: 'clinical.patient_consents', column: 'channel', values: CONSENT_CHANNELS },
+  { table: 'clinical.patients', column: 'ihi_status', values: IHI_STATUSES },
+  { table: 'clinical.patients', column: 'ihi_record_status', values: IHI_RECORD_STATUSES },
+  { table: 'clinical.identity_checks', column: 'method', values: IDENTITY_METHODS },
+  { table: 'clinical.identity_checks', column: 'document_type', values: IDENTITY_DOCUMENTS },
+  { table: 'clinical.identity_checks', column: 'outcome', values: IDENTITY_OUTCOMES },
 ] as const;

@@ -39,6 +39,8 @@ One word per thing (ADR 0032). Use these words in table names, API fields, route
 | A clinical record of a consult or review | **Note** | encounter, chart entry |
 | A tenant's published text a patient agrees to, in numbered versions | **Consent document** | policy, form, terms (as a record) |
 | A patient's recorded decision on one version of a consent document | **Consent** | agreement, opt-in, acceptance |
+| Checking a patient is who they say, against a document | **Identity check** | KYC, ID verification, DVS check |
+| The national Individual Healthcare Identifier | **IHI** | health ID, healthcare number |
 
 ## Platform
 

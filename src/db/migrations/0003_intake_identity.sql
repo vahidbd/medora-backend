@@ -56,12 +56,21 @@ CREATE TABLE "clinical"."patients" (
 	"sex" text NOT NULL,
 	"time_zone" text,
 	"identity_status" text DEFAULT 'unverified' NOT NULL,
+	"identity_failures" smallint DEFAULT 0 NOT NULL,
 	"medicare" text,
+	"ihi" text,
+	"ihi_status" text,
+	"ihi_record_status" text,
+	"ihi_checked_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "patients_tenant_id_key" UNIQUE("tenant_id","id"),
 	CONSTRAINT "patients_sex_check" CHECK ("clinical"."patients"."sex" in ('female', 'male', 'intersex', 'not_stated')),
 	CONSTRAINT "patients_identity_status_check" CHECK ("clinical"."patients"."identity_status" in ('unverified', 'verified', 'failed')),
+	CONSTRAINT "patients_identity_failures_check" CHECK ("clinical"."patients"."identity_failures" between 0 and 3),
+	CONSTRAINT "patients_ihi_status_check" CHECK ("clinical"."patients"."ihi_status" in ('active', 'deceased', 'retired', 'expired', 'resolved')),
+	CONSTRAINT "patients_ihi_record_status_check" CHECK ("clinical"."patients"."ihi_record_status" in ('verified', 'unverified', 'provisional')),
+	CONSTRAINT "patients_ihi_check" CHECK (("clinical"."patients"."ihi" is null) = ("clinical"."patients"."ihi_status" is null) and ("clinical"."patients"."ihi" is null) = ("clinical"."patients"."ihi_record_status" is null)),
 	CONSTRAINT "patients_names_check" CHECK (length(trim("clinical"."patients"."given_name")) > 0 and length(trim("clinical"."patients"."family_name")) > 0)
 );
 --> statement-breakpoint
@@ -98,6 +107,23 @@ CREATE TABLE "clinical"."patient_consents" (
 	CONSTRAINT "patient_consents_staff_reason_check" CHECK (("clinical"."patient_consents"."recorded_by" is null) or ("clinical"."patient_consents"."reason" is not null and length(trim("clinical"."patient_consents"."reason")) > 0))
 );
 --> statement-breakpoint
+CREATE TABLE "clinical"."identity_checks" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"patient_id" uuid NOT NULL,
+	"method" text NOT NULL,
+	"document_type" text NOT NULL,
+	"outcome" text NOT NULL,
+	"provider_reference" text,
+	"checked_by" uuid,
+	"reason" text,
+	"at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "identity_checks_method_check" CHECK ("clinical"."identity_checks"."method" in ('document', 'manual')),
+	CONSTRAINT "identity_checks_document_type_check" CHECK ("clinical"."identity_checks"."document_type" in ('driver_licence', 'passport', 'medicare_card')),
+	CONSTRAINT "identity_checks_outcome_check" CHECK ("clinical"."identity_checks"."outcome" in ('verified', 'not_matched', 'unavailable')),
+	CONSTRAINT "identity_checks_manual_check" CHECK (("clinical"."identity_checks"."method" = 'document' and "clinical"."identity_checks"."checked_by" is null) or ("clinical"."identity_checks"."method" = 'manual' and "clinical"."identity_checks"."checked_by" is not null and "clinical"."identity_checks"."outcome" = 'verified' and length(trim(coalesce("clinical"."identity_checks"."reason", ''))) > 0))
+);
+--> statement-breakpoint
 ALTER TABLE "platform"."audit_log" DROP CONSTRAINT "audit_log_actor_type_check";--> statement-breakpoint
 ALTER TABLE "platform"."tenant_keys" ADD CONSTRAINT "tenant_keys_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "platform"."tenants"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clinical"."patient_addresses" ADD CONSTRAINT "patient_addresses_patient_fk" FOREIGN KEY ("tenant_id","patient_id") REFERENCES "clinical"."patients"("tenant_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -109,6 +135,8 @@ ALTER TABLE "clinical"."consent_documents" ADD CONSTRAINT "consent_documents_pub
 ALTER TABLE "clinical"."patient_consents" ADD CONSTRAINT "patient_consents_recorded_by_users_id_fk" FOREIGN KEY ("recorded_by") REFERENCES "platform"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clinical"."patient_consents" ADD CONSTRAINT "patient_consents_patient_fk" FOREIGN KEY ("tenant_id","patient_id") REFERENCES "clinical"."patients"("tenant_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clinical"."patient_consents" ADD CONSTRAINT "patient_consents_document_fk" FOREIGN KEY ("tenant_id","document_id","kind") REFERENCES "clinical"."consent_documents"("tenant_id","id","kind") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "clinical"."identity_checks" ADD CONSTRAINT "identity_checks_checked_by_users_id_fk" FOREIGN KEY ("checked_by") REFERENCES "platform"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "clinical"."identity_checks" ADD CONSTRAINT "identity_checks_patient_fk" FOREIGN KEY ("tenant_id","patient_id") REFERENCES "clinical"."patients"("tenant_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "tenant_keys_tenant_key" ON "platform"."tenant_keys" USING btree ("tenant_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "patient_addresses_patient_kind_key" ON "clinical"."patient_addresses" USING btree ("tenant_id","patient_id","kind");--> statement-breakpoint
 CREATE UNIQUE INDEX "patient_contacts_patient_kind_key" ON "clinical"."patient_contacts" USING btree ("tenant_id","patient_id","kind");--> statement-breakpoint
@@ -122,6 +150,8 @@ CREATE INDEX "consent_documents_published_by_idx" ON "clinical"."consent_documen
 CREATE INDEX "patient_consents_patient_idx" ON "clinical"."patient_consents" USING btree ("tenant_id","patient_id","kind","at");--> statement-breakpoint
 CREATE INDEX "patient_consents_document_idx" ON "clinical"."patient_consents" USING btree ("tenant_id","document_id","kind");--> statement-breakpoint
 CREATE INDEX "patient_consents_recorded_by_idx" ON "clinical"."patient_consents" USING btree ("recorded_by");--> statement-breakpoint
+CREATE INDEX "identity_checks_patient_idx" ON "clinical"."identity_checks" USING btree ("tenant_id","patient_id","at");--> statement-breakpoint
+CREATE INDEX "identity_checks_checked_by_idx" ON "clinical"."identity_checks" USING btree ("checked_by");--> statement-breakpoint
 ALTER TABLE "platform"."audit_log" ADD CONSTRAINT "audit_log_actor_type_check" CHECK ("platform"."audit_log"."actor_type" in ('person', 'patient', 'agent', 'system'));--> statement-breakpoint
 
 -- Field encryption keys (ADR 0010, docs/decisions/field-encryption.md).
@@ -159,7 +189,7 @@ CREATE TRIGGER tenant_keys_no_truncate BEFORE TRUNCATE ON platform.tenant_keys
 -- deleted (ADR 0028), so the API gets no DELETE.
 GRANT SELECT, INSERT ON clinical.patients TO medora_app;
 --> statement-breakpoint
-GRANT UPDATE (given_name, family_name, preferred_name, date_of_birth, sex, time_zone, identity_status, medicare, updated_at) ON clinical.patients TO medora_app;
+GRANT UPDATE (given_name, family_name, preferred_name, date_of_birth, sex, time_zone, identity_status, identity_failures, medicare, ihi, ihi_status, ihi_record_status, ihi_checked_at, updated_at) ON clinical.patients TO medora_app;
 --> statement-breakpoint
 GRANT SELECT, INSERT ON clinical.patient_contacts, clinical.patient_addresses, clinical.patient_sign_ins TO medora_app;
 --> statement-breakpoint
@@ -221,4 +251,21 @@ CREATE TRIGGER patient_consents_keep BEFORE UPDATE OR DELETE ON clinical.patient
   FOR EACH ROW EXECUTE FUNCTION platform.refuse_change();
 --> statement-breakpoint
 CREATE TRIGGER patient_consents_no_truncate BEFORE TRUNCATE ON clinical.patient_consents
+  FOR EACH STATEMENT EXECUTE FUNCTION platform.refuse_change();
+--> statement-breakpoint
+
+-- Identity checks (docs/decisions/patients.md IDN16, IDN17). The tenant's
+-- alone (ADR 0006) and insert-only, like consents: a check is evidence.
+GRANT SELECT, INSERT ON clinical.identity_checks TO medora_app;
+--> statement-breakpoint
+ALTER TABLE clinical.identity_checks ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+CREATE POLICY tenant_isolation ON clinical.identity_checks
+  USING (tenant_id = medora.current_tenant())
+  WITH CHECK (tenant_id = medora.current_tenant());
+--> statement-breakpoint
+CREATE TRIGGER identity_checks_keep BEFORE UPDATE OR DELETE ON clinical.identity_checks
+  FOR EACH ROW EXECUTE FUNCTION platform.refuse_change();
+--> statement-breakpoint
+CREATE TRIGGER identity_checks_no_truncate BEFORE TRUNCATE ON clinical.identity_checks
   FOR EACH STATEMENT EXECUTE FUNCTION platform.refuse_change();

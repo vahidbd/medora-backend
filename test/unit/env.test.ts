@@ -47,6 +47,13 @@ describe('production and staging refuse unsafe settings', () => {
     expect(refusal(production)).toContain('FIELD_KEY_PROVIDER must be a KMS provider in production');
   });
 
+  it('refuses the fake identity checks in production, and allows them in staging (IDN16, IDN19)', () => {
+    expect(refusal(production)).toContain('IDENTITY_GATEWAY must not be fake in production');
+    expect(refusal(production)).toContain('HI_SERVICE must not be fake in production');
+    expect(refusal({ ...production, IDENTITY_GATEWAY: 'none', HI_SERVICE: 'none' })).not.toContain('must not be fake');
+    expect(loadEnv(staging).IDENTITY_GATEWAY).toBe('fake');
+  });
+
   it.each([
     ['no field key', { FIELD_ENCRYPTION_KEY: undefined }, 'FIELD_ENCRYPTION_KEY must be base64 of 32 random bytes'],
     ['a short field key', { FIELD_ENCRYPTION_KEY: Buffer.alloc(16, 1).toString('base64') }, 'FIELD_ENCRYPTION_KEY must be base64 of 32 random bytes'],

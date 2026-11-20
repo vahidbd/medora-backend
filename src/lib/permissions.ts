@@ -22,6 +22,8 @@ export const PERMISSIONS = [
   'patients:manage',
   // Publish the tenant's consent documents (IDN14).
   'consents:manage',
+  // Mark a patient's identity verified after sighting their document (IDN17).
+  'patients:verify_identity',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -39,6 +41,7 @@ export const PERMISSION_ZONES: Record<Permission, DataZone> = {
   'patients:read': 'operational',
   'patients:manage': 'operational',
   'consents:manage': 'platform',
+  'patients:verify_identity': 'operational',
 };
 
 const ALL: readonly Permission[] = PERMISSIONS;
@@ -47,7 +50,7 @@ const ALL: readonly Permission[] = PERMISSIONS;
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   owner: ALL,
   admin: ['staff:read', 'staff:manage', 'roles:manage', 'patients:read', 'patients:manage', 'consents:manage'],
-  medical_director: ['staff:read', 'break_glass:review', 'patients:read'],
+  medical_director: ['staff:read', 'break_glass:review', 'patients:read', 'patients:verify_identity'],
   prescriber: ['staff:read', 'patients:read'],
   clinician: ['staff:read', 'patients:read'],
   support: ['staff:read', 'patients:read', 'patients:manage'],

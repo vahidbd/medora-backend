@@ -88,3 +88,27 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid
 Decision: `patients:read` and `patients:manage` are `operational`-zone permissions, although the rows they show are in the `clinical` schema: they show who the patient is, how to reach them and their consent decisions, which support, orders and billing need without break-glass. Every key that shows clinical content (intake answers, protocols' patient results, notes, scripts, care plans) is a separate key in the `clinical` zone, so it works only for a clinical role or under break-glass. `consents:manage` is `platform`: it publishes the tenant's own text and shows no patient.
 Why: the data zone of a permission decides who may use it without break-glass (admin rulings); marking identity clinical would put every support call behind break-glass, while the rows staying in the clinical schema still keeps marketing code from reaching them (ADR 0007, IDN10).
 Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN16. A patient checks one document online; three that don't match go to support
+
+Decision: the patient enters one document (driver licence, passport or Medicare card) and the check runs through an identity gateway behind an interface (`src/modules/patients/identity-gateway.ts`), after the patient has given the `identity_check` consent. The document must match the legal name and date of birth on the record. The document number goes to the gateway only and is never stored or returned; the check keeps the document type, the outcome and the gateway's reference (`clinical.identity_checks`, insert-only). Three checks that don't match set the status to `failed` and emit `patient.identity_failed`; online checks then stay locked until support reopens them with a reason. The gateway being down doesn't count as an attempt. Once verified, the legal name, date of birth and sex lock (IDN6); support corrects them with a reason (`POST /v1/patients/:patientId/legal-details`), which sets the status back to unverified and clears the IHI, so the patient is checked again. The real gateway is a new provider: its row in `docs/providers.md`, an ADR and a data processing agreement come before it is switched on. Until then development, tests and staging use the fake (`IDENTITY_GATEWAY=fake`), and production can't start with the fake.
+Why: IDN-02 needs a verified identity before a script; storing the document number would add a breach risk for no use, and a cap on attempts stops someone trying documents until one fits.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN17. Staff verify by sighting the document, with a reason
+
+Decision: a staff member holding `patients:verify_identity` (owner and medical director) may mark a patient verified after sighting their document, with the document type and a reason. It is recorded as a `manual` check with who did it, audited, never done by an agent, and prescribers see "verified manually" (`identityVerification.method` in `getPatientForPrescribing`). It is the launch fallback if the gateway's contract is late (`IDENTITY_GATEWAY=none`). The permission is `operational`: it shows no clinical content.
+Why: some patients can't pass an online check (a new name, an overseas document), and the clinic must still be able to treat them; a named person with a reason is accountable for it.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN18. Identity is checked before the first script, and by default before booking
+
+Decision: the platform floor is a verified identity before the first script: prescribing calls `assertIdentityVerified(tx, patientId)` (or `isIdentityVerified`) from the front door, which refuses with 409 `identity_not_verified`. Booking a consult calls the same check by default; a tenant setting "verify before booking" (default on) will let a tenant turn that off, down to the floor and never below it, when tenant settings land.
+Why: an unverified patient wastes a prescriber's consult; the script is the line that must never be crossed.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN19. The IHI is looked up after verification, under the tenant's own HI Service details
+
+Decision: once a patient is verified, Medora looks up their Individual Healthcare Identifier through the HI Service, behind an interface (`src/modules/patients/hi-service.ts`) that takes the tenant: the tenant is the healthcare provider, so a real lookup runs under the tenant's HPI-O and certificate, with Medora as its contracted service provider. It sends the legal name, date of birth, sex (stored with the HI Service's values) and the Medicare number if given. The IHI is sealed (ADR 0010), stays in the clinical zone, is opened only for prescribing (`getPatientForPrescribing`, audited) and never appears in an event, log, prompt or staff screen; staff see whether one was found and its status. Not finding one never blocks care in v1; prescribers see it. Staff with `patients:manage` can look again. It is not a launch gate from this side: the fake ships (`HI_SERVICE=fake`, refused in production), and the real client needs a NASH certificate and conformance first.
+Why: IDN-04 asks for the IHI; it is the national identifier, so it is protected like Medicare. Vahid should confirm the launch position, because IDN-04 is P0 in the PRD; the prescribing thread decides whether Parchment needs an IHI.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
