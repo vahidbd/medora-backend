@@ -24,6 +24,11 @@ export const PERMISSIONS = [
   'consents:manage',
   'tenant:manage',
   'brands:manage',
+  // The helpdesk (docs/decisions/support.md SUP11). support:clinical reads
+  // tickets in the clinical queue; everything else there is hidden without it.
+  'support:read',
+  'support:reply',
+  'support:clinical',
   // A brand's email addresses and numbers (docs/decisions/messaging.md CRM5).
   'messaging:manage',
 ] as const;
@@ -45,6 +50,11 @@ export const PERMISSION_ZONES: Record<Permission, DataZone> = {
   'consents:manage': 'platform',
   'tenant:manage': 'platform',
   'brands:manage': 'platform',
+  // The helpdesk (docs/decisions/support.md SUP11): the support queue is
+  // operational; the clinical queue's text needs a clinical role or break-glass.
+  'support:read': 'operational',
+  'support:reply': 'operational',
+  'support:clinical': 'clinical',
   'messaging:manage': 'operational',
 };
 
@@ -53,11 +63,24 @@ const ALL: readonly Permission[] = PERMISSIONS;
 /** The starting roles' permissions (ADM2). Tenants can't edit these; they copy one into a custom role instead. */
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   owner: ALL,
-  admin: ['staff:read', 'staff:manage', 'roles:manage', 'tenant:manage', 'brands:manage', 'patients:read', 'patients:manage', 'consents:manage', 'messaging:manage'],
-  medical_director: ['staff:read', 'break_glass:review', 'patients:read'],
-  prescriber: ['staff:read', 'patients:read'],
-  clinician: ['staff:read', 'patients:read'],
-  support: ['staff:read', 'patients:read', 'patients:manage'],
+  // Admin holds the support queue's keys so it can give and take the support role (ADM4), never support:clinical (SUP11).
+  admin: [
+    'staff:read',
+    'staff:manage',
+    'roles:manage',
+    'tenant:manage',
+    'brands:manage',
+    'patients:read',
+    'patients:manage',
+    'consents:manage',
+    'support:read',
+    'support:reply',
+    'messaging:manage',
+  ],
+  medical_director: ['staff:read', 'break_glass:review', 'patients:read', 'support:read', 'support:reply', 'support:clinical'],
+  prescriber: ['staff:read', 'patients:read', 'support:read', 'support:reply', 'support:clinical'],
+  clinician: ['staff:read', 'patients:read', 'support:read', 'support:reply', 'support:clinical'],
+  support: ['staff:read', 'patients:read', 'patients:manage', 'support:read', 'support:reply'],
   finance: ['staff:read'],
   operations: ['staff:read'],
   marketing: ['staff:read'],
@@ -75,7 +98,8 @@ export const AGENT_FORBIDDEN_PERMISSIONS: ReadonlySet<Permission> = new Set<Perm
   'staff:manage',
   'roles:manage',
   'break_glass:review',
-  // Agents never change where a brand sends from (CRM5).
+  // Agents never work the clinical queue (SUP12) or change where a brand sends from (CRM5).
+  'support:clinical',
   'messaging:manage',
 ]);
 

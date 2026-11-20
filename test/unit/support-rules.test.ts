@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { AGENT_FORBIDDEN_PERMISSIONS, PERMISSION_ZONES, ROLE_PERMISSIONS, usablePermissions, type Permission } from '../../src/lib/permissions.js';
+import { replyRefusal, type Viewer } from '../../src/modules/support/access.js';
 import { isStopKeyword } from '../../src/modules/support/inbound.service.js';
 import { countsAsFirstResponse, firstResponseDue } from '../../src/modules/support/sla.js';
 import { triage } from '../../src/modules/support/triage.js';
@@ -51,5 +53,49 @@ describe('first response (SUP5)', () => {
     expect(countsAsFirstResponse({ queue: 'support', priority: 'normal', authorType: 'agent', automated: true })).toBe(true);
     expect(countsAsFirstResponse({ queue: 'clinical', priority: 'normal', authorType: 'agent', automated: true })).toBe(false);
     expect(countsAsFirstResponse({ queue: 'clinical', priority: 'urgent', authorType: 'person', automated: false })).toBe(true);
+  });
+});
+
+describe('who may reply (SUP2, SUP12)', () => {
+  const viewer = (type: 'person' | 'agent', permissions: Permission[]): Viewer => ({
+    actor: type === 'person' ? { type, userId: 'u' } : { type, agentId: 'a' },
+    permissions: new Set(permissions),
+    membershipId: null,
+  });
+
+  it('refuses the clinical queue to anyone without support:clinical', () => {
+    expect(replyRefusal(viewer('person', ['support:read', 'support:reply']), { queue: 'clinical', flags: [] })).toBe('This ticket is in the clinical queue');
+    expect(replyRefusal(viewer('person', ['support:read', 'support:reply', 'support:clinical']), { queue: 'clinical', flags: [] })).toBeNull();
+  });
+
+  it('keeps agents off the clinical queue and off anything a person must answer', () => {
+    const agent = viewer('agent', ['support:read', 'support:reply', 'support:clinical']);
+    expect(replyRefusal(agent, { queue: 'clinical', flags: [] })).toBe('Agents never reply in the clinical queue');
+    expect(replyRefusal(agent, { queue: 'support', flags: ['possible_complaint'] })).toBe('This ticket is for staff to answer');
+    expect(replyRefusal(agent, { queue: 'support', flags: [] })).toBeNull();
+  });
+});
+
+describe('helpdesk permissions (SUP11)', () => {
+  it('opens the support queue without break-glass, and the clinical queue only for a clinical role', () => {
+    expect(PERMISSION_ZONES['support:read']).toBe('operational');
+    expect(PERMISSION_ZONES['support:clinical']).toBe('clinical');
+    expect(usablePermissions({ role: 'support' }, false).has('support:read')).toBe(true);
+    expect(usablePermissions({ role: 'owner' }, false).has('support:clinical')).toBe(false);
+    expect(usablePermissions({ role: 'clinician' }, false).has('support:clinical')).toBe(true);
+  });
+
+  it('gives support no clinical key, and finance nothing of the helpdesk', () => {
+    expect(ROLE_PERMISSIONS.support.filter((key) => PERMISSION_ZONES[key] === 'clinical')).toEqual([]);
+    expect(ROLE_PERMISSIONS.finance.filter((key) => key.startsWith('support:'))).toEqual([]);
+  });
+
+  it('lets admin give the support role, since it holds every key of it, but never the clinical queue', () => {
+    expect(ROLE_PERMISSIONS.support.every((key) => ROLE_PERMISSIONS.admin.includes(key))).toBe(true);
+    expect(ROLE_PERMISSIONS.admin).not.toContain('support:clinical');
+  });
+
+  it.each(['support:clinical', 'messaging:manage'] as const)('never lets an agent use %s', (key) => {
+    expect(AGENT_FORBIDDEN_PERMISSIONS.has(key)).toBe(true);
   });
 });

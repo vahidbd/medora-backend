@@ -73,8 +73,8 @@ describe('clinical permissions need a clinical role or break-glass (ADM3)', () =
     expect([...CLINICAL_ROLES].sort()).toEqual(['clinician', 'medical_director', 'prescriber']);
   });
 
-  it('needs no break-glass while no clinical key exists', () => {
-    for (const role of ROLES) expect(needsBreakGlass({ role })).toBe(false);
+  it('needs break-glass only for the owner, the one starting role holding a clinical key it cannot use', () => {
+    expect(ROLES.filter((role) => needsBreakGlass({ role }))).toEqual(['owner']);
   });
 });
 

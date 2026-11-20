@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { messages } from '../../db/schema/index.js';
 import type { Channel, MessageDirection, MessageKind, MessageStatus, SenderChannel } from '../../db/schema/values.js';
 import type { TenantTx } from '../../db/tenant.js';
@@ -159,6 +159,27 @@ export async function recordMessage(tx: TenantTx, input: RecordInput): Promise<M
     },
   });
   return message;
+}
+
+/** A ticket's messages, oldest first. The caller audits the read (it knows why it reads). */
+export async function messagesOfTickets(tx: TenantTx, ticketIds: string[]): Promise<MessageRow[]> {
+  if (ticketIds.length === 0) return [];
+  return tx.db
+    .select()
+    .from(messages)
+    .where(and(eq(messages.tenantId, tx.context.tenantId), inArray(messages.ticketId, ticketIds)))
+    .orderBy(asc(messages.createdAt), asc(messages.id));
+}
+
+/** The newest message on each ticket, for list previews. */
+export async function latestMessages(tx: TenantTx, ticketIds: string[]): Promise<Map<string, MessageRow>> {
+  if (ticketIds.length === 0) return new Map();
+  const rows = await tx.db
+    .selectDistinctOn([messages.ticketId])
+    .from(messages)
+    .where(and(eq(messages.tenantId, tx.context.tenantId), inArray(messages.ticketId, ticketIds)))
+    .orderBy(messages.ticketId, desc(messages.createdAt), desc(messages.id));
+  return new Map(rows.map((row) => [row.ticketId as string, row]));
 }
 
 export async function findMessage(tx: TenantTx, messageId: string): Promise<MessageRow | null> {

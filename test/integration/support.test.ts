@@ -4,8 +4,8 @@ import type { App } from '../../src/app.js';
 import { closeDatabase } from '../../src/db/health.js';
 import { type TenantContext, withTenant } from '../../src/db/tenant.js';
 import { fakeEmail, queueMessage } from '../../src/modules/messaging/index.js';
-import { markOverdue, receiveMessage, type InboundMessage } from '../../src/modules/support/index.js';
-import { testApp } from '../support/app.js';
+import { logCall, markOverdue, receiveMessage, replyToTicket, type InboundMessage } from '../../src/modules/support/index.js';
+import { headers, signIn, testApp } from '../support/app.js';
 import { admin, createBrand, tenantWith } from '../support/db.js';
 import { postTwilioWebhook } from '../support/twilio.js';
 
@@ -24,15 +24,16 @@ beforeEach(() => fakeEmail.reset());
 const system = (tenantId: string): TenantContext => ({ tenantId, actor: { type: 'system' }, requestId: 'test' });
 
 async function setUp() {
-  const { tenantId, members } = await tenantWith('owner');
-  const owner = members[0]!;
+  const { tenantId, members } = await tenantWith('owner', 'support', 'clinician', 'admin');
+  const [owner, support, clinician] = members;
   const { brandId } = await createBrand(tenantId, { status: 'live' });
   await admin.query(
     `insert into operational.senders (tenant_id, brand_id, channel, purpose, address, updated_by_user_id)
      values ($1, $2, 'email', 'service', 'care@kestrel.example', $3), ($1, $2, 'sms', 'service', '+61400000100', $3)`,
-    [tenantId, brandId, owner.id],
+    [tenantId, brandId, owner!.id],
   );
-  return { tenantId, brandId, owner };
+  const as = async (member: { email: string }) => headers(await signIn(member.email), tenantId);
+  return { tenantId, brandId, owner: owner!, support: support!, clinician: clinician!, as };
 }
 
 async function createPatient(tenantId: string, contact: { email?: string; mobile?: string }, givenName = 'Alex'): Promise<string> {
@@ -140,6 +141,109 @@ describe('an emergency (SUP3, SUP4)', async () => {
   });
 });
 
+describe('what each role sees (SUP2, SUP11)', async () => {
+  const t = await setUp();
+  const patientId = await createPatient(t.tenantId, { email: 'seen@example.test' });
+  const clinical = await receive(t.tenantId, email(t.brandId, 'seen@example.test', 'I have a rash since my injection'));
+  const plain = await receive(t.tenantId, email(t.brandId, 'other@example.test', 'Can I update my card?'));
+
+  it('shows support that a clinical ticket exists, never its text', async () => {
+    const list = await app.inject({ method: 'GET', url: '/v1/tickets?status=active', headers: await t.as(t.support) });
+    const rows = list.json().tickets as { ticketId: string; preview: unknown; textHidden: boolean }[];
+    expect(rows.find((row) => row.ticketId === clinical.ticket.id)).toMatchObject({ preview: null, textHidden: true });
+    expect(rows.find((row) => row.ticketId === plain.ticket.id)).toMatchObject({ preview: { snippet: 'Can I update my card?' }, textHidden: false });
+    const detail = await app.inject({ method: 'GET', url: `/v1/tickets/${clinical.ticket.id}`, headers: await t.as(t.support) });
+    expect(detail.json()).toMatchObject({ messages: null, comments: null, reply: { allowed: false, refusal: 'This ticket is in the clinical queue' } });
+  });
+
+  it('shows the clinical team the text, and audits the read as clinical', async () => {
+    const detail = await app.inject({ method: 'GET', url: `/v1/tickets/${clinical.ticket.id}`, headers: await t.as(t.clinician) });
+    expect(detail.json().messages[0].body).toBe('I have a rash since my injection');
+    const audit = await admin.query("select zone, details from platform.audit_log where action = 'ticket.viewed' and record_id = $1 and actor_id = $2", [
+      clinical.ticket.id,
+      t.clinician.id,
+    ]);
+    expect(audit.rows).toEqual([{ zone: 'clinical', details: { messages: 1, comments: 0 } }]);
+  });
+
+  it('shows the owner the support queue but not the clinical text without break-glass', async () => {
+    const detail = await app.inject({ method: 'GET', url: `/v1/tickets/${clinical.ticket.id}`, headers: await t.as(t.owner) });
+    expect(detail.json().messages).toBeNull();
+  });
+
+  it('shows only the name and date of birth until identity is confirmed, then the contact details', async () => {
+    const before = await app.inject({ method: 'GET', url: `/v1/tickets/${clinical.ticket.id}`, headers: await t.as(t.clinician) });
+    expect(before.json().patientPanel).toEqual({ patientId, displayName: 'Alex Example', dateOfBirth: '1990-04-12', email: null, mobile: null });
+    const verified = await app.inject({ method: 'POST', url: `/v1/tickets/${clinical.ticket.id}/verify`, headers: await t.as(t.clinician), payload: { method: 'date_of_birth' } });
+    expect(verified.json().patientPanel.email).toBe('seen@example.test');
+    expect(verified.json().verification).toMatchObject({ method: 'date_of_birth', byUserId: t.clinician.id });
+  });
+});
+
+describe('replying and moving tickets (SUP2, SUP5, SUP8)', async () => {
+  const t = await setUp();
+
+  it('replies to the address the person wrote from, counts the first response and waits for them', async () => {
+    const { ticket } = await receive(t.tenantId, email(t.brandId, 'reply@example.test', 'Do you ship to Hobart?', { subject: 'Shipping' }));
+    const reply = await app.inject({ method: 'POST', url: `/v1/tickets/${ticket.id}/replies`, headers: await t.as(t.support), payload: { body: 'Yes, we do.' } });
+    expect(reply.statusCode).toBe(201);
+    expect(reply.json()).toMatchObject({ status: 'waiting', firstRespondedAt: expect.any(String) });
+    const sent = await admin.query("select to_address, from_address, subject, status from clinical.messages where ticket_id = $1 and direction = 'outbound'", [ticket.id]);
+    expect(sent.rows).toEqual([{ to_address: 'reply@example.test', from_address: 'care@kestrel.example', subject: 'Re: Shipping', status: 'queued' }]);
+  });
+
+  it('lets support send a ticket to the clinical queue, and only the clinical team send it back', async () => {
+    const { ticket } = await receive(t.tenantId, email(t.brandId, 'move@example.test', 'A question about my plan'));
+    const toClinical = await app.inject({ method: 'PATCH', url: `/v1/tickets/${ticket.id}`, headers: await t.as(t.support), payload: { queue: 'clinical' } });
+    expect(toClinical.json()).toMatchObject({ queue: 'clinical', textHidden: true });
+    const back = await app.inject({ method: 'PATCH', url: `/v1/tickets/${ticket.id}`, headers: await t.as(t.support), payload: { queue: 'support' } });
+    expect(back.statusCode).toBe(403);
+    const byClinician = await app.inject({ method: 'PATCH', url: `/v1/tickets/${ticket.id}`, headers: await t.as(t.clinician), payload: { queue: 'support' } });
+    expect(byClinician.json()).toMatchObject({ queue: 'support' });
+    const audit = await admin.query("select details from platform.audit_log where action = 'ticket.queue_changed' and record_id = $1 order by at", [ticket.id]);
+    expect(audit.rows.map((row) => row.details)).toEqual([
+      { from: 'support', to: 'clinical' },
+      { from: 'clinical', to: 'support' },
+    ]);
+  });
+
+  it('refuses an agent a reply in the clinical queue, in the service, not only on screen (SUP12)', async () => {
+    const { ticket } = await receive(t.tenantId, email(t.brandId, 'agent@example.test', 'my injection site is swollen'));
+    const agent = { actor: { type: 'agent' as const, agentId: 'support-agent' }, permissions: new Set(['support:read', 'support:reply'] as const), membershipId: null };
+    await expect(withTenant({ tenantId: t.tenantId, actor: agent.actor, requestId: 'test' }, (tx) => replyToTicket(tx, agent, ticket.id, { body: 'Hello' }))).rejects.toMatchObject(
+      { code: 'reply_refused' },
+    );
+  });
+});
+
+describe('flags (SUP6)', async () => {
+  const t = await setUp();
+
+  it('lets a person dismiss a possible complaint, and keeps clinical flags for the clinical team', async () => {
+    const { ticket } = await receive(t.tenantId, email(t.brandId, 'unhappy@example.test', 'I want to make a complaint'));
+    const dismissed = await app.inject({ method: 'DELETE', url: `/v1/tickets/${ticket.id}/flags/possible_complaint`, headers: await t.as(t.support) });
+    expect(dismissed.json().flags).toEqual([]);
+    const audit = await admin.query("select details from platform.audit_log where action = 'ticket.flag_cleared' and record_id = $1", [ticket.id]);
+    expect(audit.rowCount).toBe(1);
+    const flagged = await app.inject({ method: 'POST', url: `/v1/tickets/${ticket.id}/flags`, headers: await t.as(t.support), payload: { flag: 'possible_adverse_event' } });
+    expect(flagged.json().flags).toEqual(['possible_adverse_event']);
+    const bySupport = await app.inject({ method: 'DELETE', url: `/v1/tickets/${ticket.id}/flags/possible_adverse_event`, headers: await t.as(t.support) });
+    expect(bySupport.statusCode).toBe(403);
+    const byClinician = await app.inject({ method: 'DELETE', url: `/v1/tickets/${ticket.id}/flags/possible_adverse_event`, headers: await t.as(t.clinician) });
+    expect(byClinician.json().flags).toEqual([]);
+  });
+
+  it('never lets a flag lower a ticket, and refuses one triage alone sets', async () => {
+    const { ticket } = await receive(t.tenantId, email(t.brandId, 'ae@example.test', 'Can I change my delivery day?'));
+    const raised = await app.inject({ method: 'POST', url: `/v1/tickets/${ticket.id}/flags`, headers: await t.as(t.support), payload: { flag: 'emergency' } });
+    expect(raised.json().flags).toEqual(['emergency']);
+    const row = await admin.query('select queue, priority from operational.tickets where id = $1', [ticket.id]);
+    expect(row.rows[0]).toEqual({ queue: 'clinical', priority: 'urgent' });
+    const clinicalOnly = await app.inject({ method: 'POST', url: `/v1/tickets/${ticket.id}/flags`, headers: await t.as(t.clinician), payload: { flag: 'clinical' } });
+    expect(clinicalOnly.statusCode).toBe(400);
+  });
+});
+
 describe('the first-response clock (SUP5)', async () => {
   const t = await setUp();
 
@@ -154,18 +258,48 @@ describe('the first-response clock (SUP5)', async () => {
   });
 });
 
+describe('logging a call (SUP7)', async () => {
+  const t = await setUp();
+
+  it('triages a written-up call like any message, and refuses an agent', async () => {
+    const { ticket } = await receive(t.tenantId, email(t.brandId, 'caller@example.test', 'Please call me about my order'));
+    const logged = await app.inject({
+      method: 'POST',
+      url: `/v1/tickets/${ticket.id}/calls`,
+      headers: await t.as(t.support),
+      payload: { direction: 'inbound', summary: 'Said they collapsed this morning, now feeling better' },
+    });
+    expect(logged.statusCode).toBe(201);
+    const row = await admin.query('select queue, priority from operational.tickets where id = $1', [ticket.id]);
+    expect(row.rows[0]).toEqual({ queue: 'clinical', priority: 'urgent' });
+    const agent = { actor: { type: 'agent' as const, agentId: 'support-agent' }, permissions: new Set(['support:read', 'support:reply'] as const), membershipId: null };
+    await expect(
+      withTenant({ tenantId: t.tenantId, actor: agent.actor, requestId: 'test' }, (tx) => logCall(tx, agent, ticket.id, { direction: 'outbound', summary: 'x' })),
+    ).rejects.toMatchObject({ code: 'person_only' });
+  });
+});
+
 describe('tenancy of tickets (ADR 0006)', async () => {
   const a = await setUp();
   const b = await setUp();
 
-  it("never shows, changes or deletes another tenant's tickets, flags or sender addresses", async () => {
-    await receive(b.tenantId, email(b.brandId, 'b@example.test', 'I want to make a complaint'));
-    for (const table of ['operational.tickets', 'operational.ticket_flags', 'operational.senders']) {
+  it("never shows another tenant's ticket, or lets one be changed", async () => {
+    const { ticket } = await receive(b.tenantId, email(b.brandId, 'b@example.test', 'Hello'));
+    const reply = await app.inject({ method: 'GET', url: `/v1/tickets/${ticket.id}`, headers: await a.as(a.clinician) });
+    expect(reply.statusCode).toBe(404);
+    const changed = await withTenant(system(a.tenantId), (tx) => tx.db.execute(`update operational.tickets set status = 'solved', solved_at = now() where id = '${ticket.id}'`));
+    expect(changed.rowCount).toBe(0);
+  });
+
+  it("never shows, changes or deletes another tenant's tickets, flags, comments or sender addresses", async () => {
+    const { ticket } = await receive(b.tenantId, email(b.brandId, 'b2@example.test', 'I want to make a complaint'));
+    await app.inject({ method: 'POST', url: `/v1/tickets/${ticket.id}/comments`, headers: await b.as(b.support), payload: { body: 'Called back, no answer' } });
+    for (const table of ['operational.tickets', 'operational.ticket_flags', 'clinical.ticket_comments', 'operational.senders']) {
       const owned = await admin.query(`select count(*)::int as n from ${table} where tenant_id = $1`, [b.tenantId]);
       expect(owned.rows[0].n, table).toBeGreaterThan(0);
       const seen = await withTenant(system(a.tenantId), (tx) => tx.db.execute(`select 1 from ${table} where tenant_id = '${b.tenantId}'`));
       expect(seen.rows, table).toEqual([]);
-      const column = table === 'operational.ticket_flags' ? 'cleared_at = now()' : 'updated_at = now()';
+      const column = table === 'operational.ticket_flags' ? 'cleared_at = now()' : table === 'clinical.ticket_comments' ? 'body = body' : 'updated_at = now()';
       const changed = await withTenant(system(a.tenantId), (tx) => tx.db.execute(`update ${table} set ${column} where tenant_id = '${b.tenantId}'`)).catch(() => ({ rowCount: 0 }));
       expect(changed.rowCount, table).toBe(0);
       const removed = await withTenant(system(a.tenantId), (tx) => tx.db.execute(`delete from ${table} where tenant_id = '${b.tenantId}'`)).catch(() => ({ rowCount: 0 }));

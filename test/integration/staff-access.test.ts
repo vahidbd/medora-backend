@@ -189,9 +189,9 @@ describe('sign-in history (ADM6)', () => {
 });
 
 describe('break-glass (ADM3)', () => {
-  it('is not needed while no role holds a clinical permission it cannot use', async () => {
-    const { tenantId, members } = await tenantWith('owner');
-    const reply = await call('POST', '/v1/break-glass', members[0]!.email, tenantId, { reason: 'Checking a reported incident' });
+  it('is not needed by a role that holds no clinical permission', async () => {
+    const { tenantId, members } = await tenantWith('owner', 'admin');
+    const reply = await call('POST', '/v1/break-glass', members[1]!.email, tenantId, { reason: 'Checking a reported incident' });
     expect(reply.json().error.code).toBe('break_glass_not_needed');
   });
 
