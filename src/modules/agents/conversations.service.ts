@@ -29,6 +29,8 @@ export interface ConversationStart {
   channel: AgentChannel;
   /** The patient it is pinned to (AGT9); null when there is none yet. */
   patientId?: string | null;
+  /** The brand the patient came through, for tools that act for a brand (AGT9). */
+  brandId?: string | null;
   /** True only for a signed-in patient chat. */
   verified?: boolean;
   subjectTable?: string | null;
@@ -55,6 +57,7 @@ export async function openConversation(tx: TenantTx, start: ConversationStart): 
       agentId: switches.settings.id,
       channel: start.channel,
       patientId: start.patientId ?? null,
+      brandId: start.brandId ?? null,
       verified,
       subjectTable: start.subjectTable ?? null,
       subjectId: start.subjectId ?? null,

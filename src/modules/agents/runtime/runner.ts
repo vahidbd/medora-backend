@@ -18,7 +18,7 @@ import { costCents, type Usage } from './cost.js';
 import { type EngineResult, type ToolOutcome, runEngine } from './engine.js';
 import type { HandoffReason } from './hand-off.js';
 import { maskToolResult } from './masking.js';
-import { ToolRefused, callTool } from './tools.js';
+import { ToolRefused, callTool, pinnedOf } from './tools.js';
 
 /**
  * One claimed run, with the database (docs/decisions/agents.md AGT8): short
@@ -112,10 +112,12 @@ export async function runAgentRun(deps: RunnerDeps, claimed: { runId: string; te
       tx.db.update(agentRuns).set({ agentVersion: version, model: definition.model }).where(and(eq(agentRuns.tenantId, tenantId), eq(agentRuns.id, runId))),
     );
 
+    const pinned = pinnedOf(conversation);
     const tools = toolsOf(agent, app.agentTools).filter((tool) => {
       const policy = TOOL_POLICY[tool.name]!;
       if (policy.patientRecord && !(conversation.verified && conversation.patientId)) return false;
-      return !(Object.values(policy.pins).includes('subjectId') && !conversation.subjectId);
+      // A tool is offered only where the conversation has everything it pins (AGT9).
+      return Object.values(policy.pins).every((from) => pinned[from]);
     });
 
     const runTool = async (name: string, toolUseId: string, input: Record<string, unknown>): Promise<ToolOutcome> => {
@@ -136,7 +138,7 @@ export async function runAgentRun(deps: RunnerDeps, claimed: { runId: string; te
           runId,
           tool,
           input,
-          pinned: { patientId: conversation.patientId, subjectId: conversation.subjectId },
+          pinned,
           person: start.person,
           approvedBy: null,
           idempotencyKey,

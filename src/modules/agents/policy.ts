@@ -19,7 +19,7 @@ export interface ToolPolicy {
   /** Reads or changes one patient's record: only in a signed-in patient conversation, pinned to that patient (AGT9). */
   patientRecord: boolean;
   /** Input fields the runtime fills from the conversation; the model never sees or sets them. */
-  pins: Readonly<Record<string, 'patientId' | 'subjectId'>>;
+  pins: Readonly<Record<string, PinSource>>;
   /** A change that may be auto only up to a tenant limit: the input field with its amount in cents, and the setting that caps it. Over the cap it goes on a card (AGT7). */
   autoLimit?: { field: string; setting: AutoLimitSetting };
   /** The feature thread whose route this will be, while it doesn't exist. */
@@ -28,11 +28,15 @@ export interface ToolPolicy {
 
 export type AutoLimitSetting = 'refundCapCents';
 
+/** Where a pinned field's value comes from: the conversation's patient, its subject record, or the brand the patient came through. */
+export type PinSource = 'patientId' | 'subjectId' | 'brandId';
+
 const line = (waitingOn: string, extra: Partial<ToolPolicy> = {}): ToolPolicy => ({ ceiling: 'approve', patientRecord: false, pins: {}, waitingOn, ...extra });
 const patient = { patientRecord: true, pins: { patientId: 'patientId' } } as const;
 
 export const TOOL_POLICY: Readonly<Record<string, ToolPolicy>> = {
-  search_help_centre: line('support and CRM'),
+  /** The brand's own help centre (AGT9). */
+  search_help_centre: line('support and CRM', { pins: { brandId: 'brandId' } }),
   get_order_status: line('Parchment prescribing and orders', patient),
   get_next_consult: line('EMR and consults', patient),
   /**
@@ -44,7 +48,7 @@ export const TOOL_POLICY: Readonly<Record<string, ToolPolicy>> = {
   get_intake_progress: line('intake and protocol engine', patient),
   list_consult_times: line('EMR and consults'),
   /** The patient's own consult, first (intake) or review (care coordinator), may be raised to auto (AGT7). */
-  book_consult: line('EMR and consults', { ...patient, ceiling: 'auto' }),
+  book_consult: line('EMR and consults', { ...patient, pins: { patientId: 'patientId', brandId: 'brandId' }, ceiling: 'auto' }),
   /** Always on a card, and no agent has them at launch (AGT7). */
   reschedule_consult: line('EMR and consults', patient),
   cancel_consult: line('EMR and consults', patient),

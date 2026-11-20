@@ -38,18 +38,19 @@ async function runAll(steps: ScriptStep[]) {
   return model;
 }
 
-async function setUp(agent: 'intake' | 'support', settings: object = {}) {
+async function setUp(agent: 'intake' | 'support', settings: object = {}, { withBrand = true } = {}) {
   const { tenantId, members } = await tenantWith('owner', 'clinician', 'finance');
   const owner = members[0]!;
   const token = await signIn(owner.email);
   const enabled = await app.inject({ method: 'PATCH', url: `/v1/agents/${agent}`, headers: headers(token, tenantId), payload: { enabled: true, ...settings } });
   expect(enabled.statusCode).toBe(200);
   const patientId = crypto.randomUUID();
-  const opened = await withTenant(system(tenantId), (tx) => openConversation(tx, { agent, channel: 'chat', patientId, verified: true }));
+  const brandId = withBrand ? crypto.randomUUID() : null;
+  const opened = await withTenant(system(tenantId), (tx) => openConversation(tx, { agent, channel: 'chat', patientId, brandId, verified: true }));
   if (!('conversationId' in opened)) throw new Error('the agent should be on');
   const send = (text: string): Promise<Received> =>
     withTenant(system(tenantId), (tx) => receiveMessage(tx, { conversationId: opened.conversationId, text, from: 'patient' }));
-  return { tenantId, members, owner, token, patientId, conversationId: opened.conversationId, send };
+  return { tenantId, members, owner, token, patientId, brandId, conversationId: opened.conversationId, send };
 }
 
 const runOf = async (runId: string) => (await admin.query('select * from platform.agent_runs where id = $1', [runId])).rows[0];
@@ -95,7 +96,7 @@ describe('a run', () => {
     const [first, second] = await Promise.all([approve(), approve()]);
     expect([first.statusCode, second.statusCode].sort()).toEqual([200, 409]);
     expect(toolCalls).toHaveLength(1);
-    expect(toolCalls[0]).toMatchObject({ input: { patientId: s.patientId, startsAt: later }, idempotencyKey: expect.stringContaining(card.runId) });
+    expect(toolCalls[0]).toMatchObject({ input: { patientId: s.patientId, brandId: s.brandId, startsAt: later }, idempotencyKey: expect.stringContaining(card.runId) });
     const done = [first, second].find((r) => r.statusCode === 200)!.json();
     expect(done).toMatchObject({ status: 'executed', resultStatus: 201, decidedBy: finance!.id });
 
@@ -104,11 +105,21 @@ describe('a run', () => {
     expect(rows).toEqual([{ actor_type: 'agent', details: expect.objectContaining({ agentRunId: card.runId, approvedBy: finance!.id }) }]);
   });
 
+  it('offers a tool only where the conversation has everything it pins (AGT9)', async () => {
+    const s = await setUp('intake', {}, { withBrand: false });
+    await s.send('Book me in please');
+    const model = await runAll([scripted.text('A person will help you book.')]);
+    const offered = (model.requests[0]!.tools ?? []).map((tool) => ('name' in tool ? tool.name : ''));
+    expect(offered).not.toContain('book_consult');
+    expect(offered).toContain('hand_off');
+  });
+
   it('runs a change without a card once the tenant raised it to auto', async () => {
     const s = await setUp('intake', { autoTools: ['book_consult'] });
     await s.send('Book me for 1 December at 9 please');
-    await runAll([scripted.tool('book_consult', { startsAt: later }), scripted.text('Booked.')]);
-    expect(toolCalls).toHaveLength(1);
+    // The model can't choose the patient or the brand: both come from the conversation (AGT9).
+    await runAll([scripted.tool('book_consult', { startsAt: later, brandId: crypto.randomUUID() }), scripted.text('Booked.')]);
+    expect(toolCalls).toEqual([{ tool: 'book_consult', input: { patientId: s.patientId, brandId: s.brandId, startsAt: later }, idempotencyKey: expect.any(String) }]);
     const { rows } = await admin.query('select count(*)::int as n from clinical.agent_proposals where tenant_id = $1', [s.tenantId]);
     expect(rows[0].n).toBe(0);
   });

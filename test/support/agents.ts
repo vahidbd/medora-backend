@@ -28,7 +28,7 @@ const testTools: FastifyPluginAsyncZod = async (app) => {
       schema: {
         summary: 'Book a consult for the patient at one of the offered times',
         params: z.object({ patientId: z.uuid() }),
-        body: z.object({ startsAt: z.iso.datetime({ offset: true }) }),
+        body: z.object({ brandId: z.uuid(), startsAt: z.iso.datetime({ offset: true }) }),
         response: { 201: z.object({ booked: z.literal(true) }) },
       },
     },

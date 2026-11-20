@@ -65,6 +65,7 @@ CREATE TABLE "clinical"."agent_conversations" (
 	"agent_id" uuid NOT NULL,
 	"channel" text NOT NULL,
 	"patient_id" uuid,
+	"brand_id" uuid,
 	"verified" boolean DEFAULT false NOT NULL,
 	"subject_table" text,
 	"subject_id" text,

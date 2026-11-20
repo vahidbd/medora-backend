@@ -4,7 +4,7 @@ import { mintAgentCredential } from '../../../lib/agent-credential.js';
 import type { Permission } from '../../../lib/permissions.js';
 import { type AgentToolRoute, requestFor } from '../../../plugins/agent-tools.js';
 import { TENANT_HEADER } from '../../../plugins/auth.js';
-import { TOOL_POLICY, agentRolePermissions } from '../policy.js';
+import { type PinSource, TOOL_POLICY, agentRolePermissions } from '../policy.js';
 
 /**
  * Running a tool: calling its route in-process as the agent (docs/decisions/
@@ -22,7 +22,7 @@ export interface ToolCall {
   /** As the model or the approver gave it; pinned fields are filled here. */
   input: Record<string, unknown>;
   /** The conversation's patient and subject, for pinned fields (AGT9). */
-  pinned: { patientId: string | null; subjectId: string | null };
+  pinned: Pinned;
   /** The usable permissions of the person it works for or who approved it; null when no person is involved. */
   person: ReadonlySet<Permission> | null;
   approvedBy: string | null;
@@ -41,13 +41,24 @@ export class ToolRefused extends Error {
   }
 }
 
+export type Pinned = Readonly<Record<PinSource, string | null>>;
+
+/** What a conversation pins its tools to (AGT9). */
+export const pinnedOf = (conversation: { patientId: string | null; subjectId: string | null; brandId: string | null }): Pinned => ({
+  patientId: conversation.patientId,
+  subjectId: conversation.subjectId,
+  brandId: conversation.brandId,
+});
+
+const PIN_NOUNS: Record<PinSource, string> = { patientId: 'patient', subjectId: 'record', brandId: 'brand' };
+
 /** The input with every pinned field set from the conversation, whatever the model sent. */
 export function withPins(tool: AgentToolRoute, input: Record<string, unknown>, pinned: ToolCall['pinned']): Record<string, unknown> {
   const pins = TOOL_POLICY[tool.name]?.pins ?? {};
   const result = { ...input };
   for (const [field, from] of Object.entries(pins)) {
     const value = pinned[from];
-    if (!value) throw new ToolRefused('pin_missing', `This conversation has no ${from === 'patientId' ? 'patient' : 'record'} for ${tool.name}`);
+    if (!value) throw new ToolRefused('pin_missing', `This conversation has no ${PIN_NOUNS[from]} for ${tool.name}`);
     result[field] = value;
   }
   return result;

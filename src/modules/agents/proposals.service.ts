@@ -7,6 +7,7 @@ import { BusinessRuleError, NotFoundError } from '../../lib/errors.js';
 import { emitEvent } from '../../lib/events.js';
 import type { Permission } from '../../lib/permissions.js';
 import type { AgentToolRoute } from '../../plugins/agent-tools.js';
+import { type Pinned, pinnedOf } from './runtime/tools.js';
 import { agentRolePermissions } from './policy.js';
 import { offReason, readSwitches } from './settings.service.js';
 import { appendMessage, findConversation, textContent } from './transcript.js';
@@ -146,7 +147,7 @@ export async function getProposal(tx: TenantTx, proposalId: string, viewer: Read
 }
 
 export type Approval =
-  | { kind: 'run'; proposal: Proposal; agentId: string; tool: AgentToolRoute; input: Record<string, unknown>; pinned: { patientId: string | null; subjectId: string | null }; idempotencyKey: string }
+  | { kind: 'run'; proposal: Proposal; agentId: string; tool: AgentToolRoute; input: Record<string, unknown>; pinned: Pinned; idempotencyKey: string }
   | { kind: 'refused'; proposal: Proposal; code: 'expired' | 'agent_off' | 'tool_changed' | 'already_decided' };
 
 /**
@@ -193,7 +194,7 @@ export async function approveProposal(
     agentId: row.agentId,
     tool,
     input: finalInput ?? (row.input as Record<string, unknown>),
-    pinned: { patientId: conversation.patientId, subjectId: conversation.subjectId },
+    pinned: pinnedOf(conversation),
     idempotencyKey: row.idempotencyKey,
   };
 }

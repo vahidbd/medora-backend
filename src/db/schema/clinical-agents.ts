@@ -28,6 +28,8 @@ export const agentConversations = clinical.table(
     channel: text('channel').notNull(),
     /** The patient the conversation is pinned to (AGT9). Null for a job about no patient, and before a patient exists. */
     patientId: uuid('patient_id'),
+    /** The brand the patient reached the clinic through, filled into tools that act for a brand (AGT9). Null for a job, or a channel with no brand. */
+    brandId: uuid('brand_id'),
     /** True only for a signed-in patient chat: other channels get no patient-record tools. */
     verified: boolean('verified').notNull().default(false),
     /** The record the work is about, when there is one (`clinical.intakes`, an id). */
