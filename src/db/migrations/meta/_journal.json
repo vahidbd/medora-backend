@@ -43,6 +43,13 @@
       "when": 1795149848262,
       "tag": "0005_prices",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795150530033,
+      "tag": "0006_subscriptions",
+      "breakpoints": true
     }
   ]
 }

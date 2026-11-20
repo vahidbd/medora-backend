@@ -26,7 +26,7 @@ Why: the ledger shows the mistake and its fix (ADR 0016). A partial refund is no
 
 ### BIL5. Columns that will point at another feature's table wait for it, and a test says so
 
-Decision: `patient_id` and `partner_pharmacy_id` on ledger accounts, `company_id` on payment accounts, `program_id` on prices and `product_id` on price fees are uuids without a foreign key until those tables merge (patients and programs from intake, partner pharmacies from orders, companies and products from tenant settings and the catalogue). `payment_account_id` got its foreign key, through the tenant, when payment accounts arrived. `FOREIGN_KEYS_OWED` in `test/integration/schema-rules.test.ts` lists each with the table it will reference; the test fails as soon as that table exists, so the foreign key is added in the next migration and the column leaves the list.
+Decision: `patient_id` and `partner_pharmacy_id` on ledger accounts, `company_id` on payment accounts, `program_id` on prices, `product_id` on price fees and `patient_id` on subscriptions are uuids without a foreign key until those tables merge (patients and programs from intake, partner pharmacies from orders, companies and products from tenant settings and the catalogue). `payment_account_id` got its foreign key, through the tenant, when payment accounts arrived. `FOREIGN_KEYS_OWED` in `test/integration/schema-rules.test.ts` lists each with the table it will reference; the test fails as soon as that table exists, so the foreign key is added in the next migration and the column leaves the list.
 Why: billing is built alongside those features; waiting for them would stall it, and a forgotten foreign key is exactly what ADR 0028 forbids. The tenant id's foreign key and row-level security are real from the start.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 
@@ -97,3 +97,33 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 
 Decision: every price route needs `prices:manage`, held by finance and the owner. No agent tool creates, publishes or retires a price. Creating, publishing and retiring write an audit entry and an event (`price.created`, `price.published`, `price.retired`); editing a draft is audited but emits nothing, as nobody outside the staff editing it sees a draft.
 Why: what patients are charged is a person's decision (ADR 0012), and the PRD gives money to finance.
+
+### BIL18. One live subscription per patient per program, fixed at checkout
+
+Decision: checkout starts a subscription on a live price for the patient. It keeps the price version (BIL14), the payment account (the price's, or else the tenant's default, which must be active, BIL11) and the patient's time zone at that moment, which sets every period date and the 10:00 renewal (ADR 0017). A patient has at most one subscription per program that hasn't ended; the database refuses a second, even from two checkouts at once, and the subscription's program is held to its price's by a foreign key. Once one ends, the patient can start another.
+Why: two live subscriptions to one program would charge twice for the same care.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### BIL19. Pending, active, paused, cancelled; the first period starts when it is released
+
+Decision: a subscription waits as `pending` until its first billing period's invoice is released after the clinician accepts, and that day starts period 1 and sets the anchor day. A period that starts off its schedule (released late, overdue on resume, or on a pause's resume date) starts on its release date and sets a new anchor day from it, as there is no proration (P8b) and every period is a full one. An anchor on the 29th to 31st falls on a shorter month's last day without changing the anchor. Invoices, the renewal job and the re-anchoring arrive with invoices; this part holds the dates.
+Why: the patient pays for care from the day it is approved, not from checkout.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### BIL20. Pauses and skips put the next period off by three months at most
+
+Decision: a pause names the date the next period starts: after today in the patient's time zone, no earlier than the current period's end, and at most three months after it. Resuming sets the next period back to the current period's end; if that has passed, the period is due now and goes through the same late release and clinical gate as any overdue renewal. A skip moves the next period one interval on along the anchor day, only before that period's invoice is released (enforced with invoices). A paused subscription changes its resume date instead of skipping. Pauses and skips share the same three months, which the database also checks. Pausing will void a held, unreleased invoice, and resuming makes a fresh one through the gate.
+Why: a short break shouldn't need a cancel and a new checkout, and a longer one should; a single cap is easy to explain.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### BIL21. Cancel at the period's end or now; reasons are codes; nothing is refunded by itself
+
+Decision: cancelling at the period's end keeps the subscription running until the current period ends, with the reason kept beside it, and reinstating before then clears both. Cancelling now ends it today. With no paid days left (still pending, or the current period already over) a cancel at the period's end ends it today too, and will void any held invoice in the same transaction. A reason is a code: `patient_request`, `staff_decision` or `other` from staff, and `clinician_declined` only from the consult's outcome, which the staff route refuses. Cancelling never prorates or refunds; a refund is its own action. An ended subscription is never changed or deleted.
+Why: codes keep patient details out of billing records (ADR 0008), and a refund is a money decision a person makes on purpose.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### BIL22. Support, finance and the owner manage subscriptions; no agent does yet
+
+Decision: `subscriptions:read` and `subscriptions:manage` are held by support, finance and the owner. Clinicians hold neither; a clinician declining cancels the subscription as part of the consult outcome, without a subscription permission. Every change writes an audit entry and an event (`subscription.started`, `activated`, `paused`, `resumed`, `skipped`, `cancellation_scheduled`, `reinstated`, `cancelled`) with the program, never patient details. No agent tool changes a subscription yet: the support agent's tools and their limits are decided when that agent is built (ADR 0012).
+Why: support handles a patient's request to pause or stop, and finance answers for the money.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
