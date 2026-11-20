@@ -5,6 +5,7 @@ import type { App } from '../../src/app.js';
 import { closeDatabase } from '../../src/db/health.js';
 import { type TenantContext, withTenant } from '../../src/db/tenant.js';
 import { startSubscription } from '../../src/modules/billing/index.js';
+import { dayOfMonth, nextStart } from '../../src/modules/billing/periods.js';
 import { beginPeriod } from '../../src/modules/billing/subscriptions.service.js';
 import { headers, signIn, testApp } from '../support/app.js';
 import { admin, createPaymentAccount, tenantWith } from '../support/db.js';
@@ -60,11 +61,14 @@ async function livePrice(options: { paymentAccountId?: string | null; programId?
 
 const start = (priceId: string, patientId: string = randomUUID(), timeZone = 'Australia/Sydney') => inClinic((tx) => startSubscription(tx, { patientId, priceId, timeZone }));
 
-/** A monthly subscription whose first period was released on `startsOn`. */
+/** A monthly period starting on `startsOn`, as its paid invoice names it. */
+const monthFrom = (startsOn: string) => ({ startsOn, endsOn: nextStart(startsOn, { unit: 'month', count: 1 }, dayOfMonth(startsOn)) });
+
+/** A monthly subscription whose first period was paid for from `startsOn`. */
 async function running(startsOn: string) {
   const price = await livePrice();
   const started = await start(price.priceId);
-  return inClinic((tx) => beginPeriod(tx, started.subscriptionId, startsOn));
+  return inClinic((tx) => beginPeriod(tx, started.subscriptionId, monthFrom(startsOn)));
 }
 
 const trail = (recordId: string) =>
@@ -115,9 +119,9 @@ describe('starting (BIL18, BIL19)', () => {
   it('starts the first period on the day it is released, and keeps a month-end anchor', async () => {
     const price = await livePrice();
     const started = await start(price.priceId);
-    const active = await inClinic((tx) => beginPeriod(tx, started.subscriptionId, '2027-01-31'));
+    const active = await inClinic((tx) => beginPeriod(tx, started.subscriptionId, monthFrom('2027-01-31')));
     expect(active).toMatchObject({ status: 'active', currentPeriod: { startsOn: '2027-01-31', endsOn: '2027-02-28' }, nextPeriodStartsOn: '2027-02-28' });
-    expect(await code(inClinic((tx) => beginPeriod(tx, started.subscriptionId, '2027-02-01')))).toBe('period_not_due');
+    expect(await code(inClinic((tx) => beginPeriod(tx, started.subscriptionId, monthFrom('2027-02-01'))))).toBe('period_not_due');
     // Overdue, so skipping moves it along the anchor: the 31st, or the month's last day.
     expect((await call('POST', `/subscriptions/${active.subscriptionId}/skip`)).body.nextPeriodStartsOn).toBe('2027-03-31');
   });

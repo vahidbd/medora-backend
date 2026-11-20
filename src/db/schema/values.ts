@@ -110,6 +110,7 @@ export const HELD_REASONS = [
   'awaiting_clinician',
   'no_order',
   'no_current_script',
+  'product_blocked',
   'awaiting_pharmacist',
   'cannot_dispense',
   'no_medicine_fee',

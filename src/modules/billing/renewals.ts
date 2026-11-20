@@ -4,8 +4,8 @@ import type { BillingModel, HeldReason } from '../../db/schema/values.js';
 import type { TenantTx } from '../../db/tenant.js';
 import { forEachTenant, type Job } from '../../lib/jobs.js';
 import { safeErrorMessage } from '../../lib/redact.js';
-import { feesOf, issueInvoice } from './invoices.service.js';
-import { beginPeriod, cancelSubscription, endAtPeriodEnd, holdRenewal, lockSubscription, periodStartingOn, today } from './subscriptions.service.js';
+import { feesOf, issueInvoice, unpaidPeriodInvoice } from './invoices.service.js';
+import { cancelSubscription, clearRenewalHold, endAtPeriodEnd, holdRenewal, lockSubscription, periodStartingOn, today } from './subscriptions.service.js';
 
 /**
  * Releasing billing periods (docs/decisions/billing.md BIL24). A period's
@@ -45,11 +45,12 @@ export interface ClearanceSource {
 /** Until consults and orders are wired in, nothing is cleared, so nothing is charged by accident. */
 export const nothingClearsYet: ClearanceSource = { clearanceForPeriod: async () => ({ status: 'held', reason: 'other' }) };
 
-type Outcome = 'issued' | 'held' | 'ended' | 'not_due';
+type Outcome = 'issued' | 'held' | 'ended' | 'not_due' | 'awaiting_payment';
 
 /**
- * Issue a due period's invoice and start the period, or record why it waits
- * (BIL24). A clinician's decline ends the subscription instead, charging nothing.
+ * Issue a due period's invoice, or record why it waits (BIL24). The period
+ * starts once the invoice is paid, and nothing more is issued until then
+ * (BIL29). A clinician's decline ends the subscription instead, charging nothing.
  */
 export async function releaseDuePeriod(tx: TenantTx, subscriptionId: string, source: ClearanceSource): Promise<Outcome> {
   const { row, interval } = await lockSubscription(tx, subscriptionId);
@@ -57,6 +58,7 @@ export async function releaseDuePeriod(tx: TenantTx, subscriptionId: string, sou
   const first = row.status === 'pending';
   const due = first || ((row.status === 'active' || row.status === 'paused') && !row.cancelsAtPeriodEnd && row.nextPeriodStartsOn! <= startsOn);
   if (!due) return 'not_due';
+  if (await unpaidPeriodInvoice(tx, subscriptionId)) return 'awaiting_payment';
   const [price] = await tx.db.select({ billingModel: prices.billingModel }).from(prices).where(eq(prices.id, row.priceId));
   const billingModel = price!.billingModel as BillingModel;
   const clearance = await source.clearanceForPeriod(tx, { patientId: row.patientId, programId: row.programId, subscriptionId, billingModel, periodStartsOn: startsOn, first });
@@ -85,7 +87,7 @@ export async function releaseDuePeriod(tx: TenantTx, subscriptionId: string, sou
   }
   const { endsOn } = periodStartingOn(row, interval, startsOn);
   await issueInvoice(tx, { kind: 'period', subscription: row, fees, period: { startsOn, endsOn }, ...(order ? { order } : {}) });
-  await beginPeriod(tx, subscriptionId, startsOn);
+  await clearRenewalHold(tx, subscriptionId);
   return 'issued';
 }
 

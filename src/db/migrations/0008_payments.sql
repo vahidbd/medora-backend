@@ -46,6 +46,7 @@ CREATE TABLE "operational"."payments" (
         and ("operational"."payments"."status" = 'refunded') = ("operational"."payments"."processor_refund_id" is not null))
 );
 --> statement-breakpoint
+ALTER TABLE "operational"."subscriptions" DROP CONSTRAINT "subscriptions_renewal_held_reason_check";--> statement-breakpoint
 ALTER TABLE "operational"."invoices" DROP CONSTRAINT "invoices_status_check";--> statement-breakpoint
 DROP INDEX "operational"."invoices_period_key";--> statement-breakpoint
 DROP INDEX "operational"."invoices_one_per_order_key";--> statement-breakpoint
@@ -64,6 +65,7 @@ CREATE UNIQUE INDEX "payments_in_flight_key" ON "operational"."payments" USING b
 CREATE UNIQUE INDEX "payments_taken_key" ON "operational"."payments" USING btree ("tenant_id","invoice_id") WHERE "operational"."payments"."status" in ('succeeded', 'refunding', 'refunded');--> statement-breakpoint
 CREATE UNIQUE INDEX "invoices_period_key" ON "operational"."invoices" USING btree ("tenant_id","subscription_id","period_starts_on") WHERE "operational"."invoices"."kind" = 'period' and "operational"."invoices"."status" <> 'void';--> statement-breakpoint
 CREATE UNIQUE INDEX "invoices_one_per_order_key" ON "operational"."invoices" USING btree ("tenant_id","order_id") WHERE "operational"."invoices"."order_id" is not null and "operational"."invoices"."status" <> 'void';--> statement-breakpoint
+ALTER TABLE "operational"."subscriptions" ADD CONSTRAINT "subscriptions_renewal_held_reason_check" CHECK ("operational"."subscriptions"."renewal_held_reason" is null or "operational"."subscriptions"."renewal_held_reason" in ('awaiting_clinician', 'no_order', 'no_current_script', 'product_blocked', 'awaiting_pharmacist', 'cannot_dispense', 'no_medicine_fee', 'other'));--> statement-breakpoint
 ALTER TABLE "operational"."invoices" ADD CONSTRAINT "invoices_settled_check" CHECK (("operational"."invoices"."status" = 'paid') = ("operational"."invoices"."paid_at" is not null) and ("operational"."invoices"."status" = 'void') = ("operational"."invoices"."voided_at" is not null));--> statement-breakpoint
 ALTER TABLE "operational"."invoices" ADD CONSTRAINT "invoices_status_check" CHECK ("operational"."invoices"."status" in ('open', 'paid', 'past_due', 'void'));--> statement-breakpoint
 

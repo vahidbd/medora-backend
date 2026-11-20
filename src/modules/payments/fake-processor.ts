@@ -11,7 +11,7 @@ import {
   type SavedMethodCharge,
 } from './processor.js';
 
-/** Saved method ids that make the fake answer a charge a particular way. Any other id is charged. */
+/** How saved method ids start to make the fake answer a charge a particular way. Any other id is charged. */
 export const FAKE_METHODS = {
   declined: 'pm_fake_declined',
   needsAuthentication: 'pm_fake_needs_authentication',
@@ -119,9 +119,9 @@ export class FakeProcessor implements PaymentProcessor {
   }
 
   private decide(methodId: string, processorPaymentId: string): ChargeResult {
-    if (methodId === FAKE_METHODS.declined) return { status: 'failed', processorPaymentId, failureCode: 'card_declined' };
-    if (methodId === FAKE_METHODS.needsAuthentication) return { status: 'requires_action', processorPaymentId, failureCode: 'authentication_required' };
-    if (methodId === FAKE_METHODS.pending) return { status: 'pending', processorPaymentId, failureCode: null };
+    if (methodId.startsWith(FAKE_METHODS.declined)) return { status: 'failed', processorPaymentId, failureCode: 'card_declined' };
+    if (methodId.startsWith(FAKE_METHODS.needsAuthentication)) return { status: 'requires_action', processorPaymentId, failureCode: 'authentication_required' };
+    if (methodId.startsWith(FAKE_METHODS.pending)) return { status: 'pending', processorPaymentId, failureCode: null };
     return { status: 'succeeded', processorPaymentId, failureCode: null };
   }
 

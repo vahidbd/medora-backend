@@ -1,6 +1,6 @@
 /**
- * Billing: prices, subscriptions and invoices (docs/decisions/billing.md).
- * The module's front door (ADR 0027).
+ * Billing: prices, subscriptions, invoices and the payments that settle them
+ * (docs/decisions/billing.md). The module's front door (ADR 0027).
  */
 export { priceRoutes } from './prices.routes.js';
 export { subscriptionRoutes } from './subscriptions.routes.js';
@@ -9,3 +9,5 @@ export { invoiceRoutes } from './invoices.routes.js';
 export { startSubscription, type Subscription } from './subscriptions.service.js';
 /** The renewal job, given who clears a period (BIL24), and what orders reads to place renewal orders ahead (BIL26). */
 export { type Clearance, type ClearanceRequest, type ClearanceSource, nothingClearsYet, renewalsJob, type UpcomingRenewal, upcomingRenewals } from './renewals.js';
+/** Charging period invoices to saved cards, given who tells an order it is paid (BIL28 to BIL30). */
+export { chargingHandlers, noOrdersYet, type PaidOrders } from './charges.js';

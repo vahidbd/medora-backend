@@ -1,5 +1,5 @@
 {
-  "id": "8b16cd09-a23a-42d7-be09-8a68abe90482",
+  "id": "528bef4a-04e9-4cc1-b4ab-8af0c042da39",
   "prevId": "6003aee0-9bc5-4bf3-a97a-0861f836ce16",
   "version": "7",
   "dialect": "postgresql",
@@ -2410,7 +2410,7 @@
         },
         "subscriptions_renewal_held_reason_check": {
           "name": "subscriptions_renewal_held_reason_check",
-          "value": "\"operational\".\"subscriptions\".\"renewal_held_reason\" is null or \"operational\".\"subscriptions\".\"renewal_held_reason\" in ('awaiting_clinician', 'no_order', 'no_current_script', 'awaiting_pharmacist', 'cannot_dispense', 'no_medicine_fee', 'other')"
+          "value": "\"operational\".\"subscriptions\".\"renewal_held_reason\" is null or \"operational\".\"subscriptions\".\"renewal_held_reason\" in ('awaiting_clinician', 'no_order', 'no_current_script', 'product_blocked', 'awaiting_pharmacist', 'cannot_dispense', 'no_medicine_fee', 'other')"
         },
         "subscriptions_renewal_held_check": {
           "name": "subscriptions_renewal_held_check",

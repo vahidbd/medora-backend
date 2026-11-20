@@ -3,6 +3,7 @@ import { paymentAccounts, paymentMethods } from '../../db/schema/index.js';
 import type { Processor } from '../../db/schema/values.js';
 import type { TenantTx } from '../../db/tenant.js';
 import { audit } from '../../lib/audit.js';
+import { BusinessRuleError } from '../../lib/errors.js';
 import { emitEvent } from '../../lib/events.js';
 
 /**
@@ -51,16 +52,29 @@ export async function savePaymentMethod(tx: TenantTx, input: PaymentMethodToSave
   const [saved] = await tx.db
     .insert(paymentMethods)
     .values({ tenantId: tx.context.tenantId, ...input, isDefault: true })
-    .onConflictDoUpdate({ target: [paymentMethods.tenantId, paymentMethods.paymentAccountId, paymentMethods.processorMethodId], set: { isDefault: true } })
+    .onConflictDoUpdate({
+      target: [paymentMethods.tenantId, paymentMethods.paymentAccountId, paymentMethods.processorMethodId],
+      set: { isDefault: true },
+      setWhere: eq(paymentMethods.patientId, input.patientId),
+    })
     .returning({ id: paymentMethods.id });
+  // The processor's card is someone else's here: never hand it to another patient.
+  if (!saved) throw new BusinessRuleError('That card is saved for another patient', 'payment_method_taken');
   const facts = { patientId: input.patientId, paymentAccountId: input.paymentAccountId };
-  await audit(tx, { action: 'payment_method.saved', zone: 'operational', recordTable: TABLE, recordId: saved!.id, details: facts });
-  await emitEvent(tx, { type: 'payment_method.saved', recordTable: TABLE, recordId: saved!.id, payload: facts });
-  return { paymentMethodId: saved!.id };
+  await audit(tx, { action: 'payment_method.saved', zone: 'operational', recordTable: TABLE, recordId: saved.id, details: facts });
+  await emitEvent(tx, { type: 'payment_method.saved', recordTable: TABLE, recordId: saved.id, payload: facts });
+  return { paymentMethodId: saved.id };
 }
 
-/** The patient's default card at a payment account, or null when they have none there. */
-export async function chargeableMethod(tx: TenantTx, owner: { patientId: string; paymentAccountId: string }): Promise<ChargeableMethod | null> {
+/**
+ * A card with what its processor needs: the patient's default at a payment
+ * account, or a given one (a payment keeps the card it was tried on). Null
+ * when there is none.
+ */
+export async function chargeableMethod(
+  tx: TenantTx,
+  which: { patientId: string; paymentAccountId: string } | { paymentMethodId: string },
+): Promise<ChargeableMethod | null> {
   const [found] = await tx.db
     .select({
       paymentMethodId: paymentMethods.id,
@@ -71,7 +85,11 @@ export async function chargeableMethod(tx: TenantTx, owner: { patientId: string;
     })
     .from(paymentMethods)
     .innerJoin(paymentAccounts, eq(paymentAccounts.id, paymentMethods.paymentAccountId))
-    .where(and(eq(paymentMethods.patientId, owner.patientId), eq(paymentMethods.paymentAccountId, owner.paymentAccountId), sql`${paymentMethods.isDefault}`));
+    .where(
+      'paymentMethodId' in which
+        ? eq(paymentMethods.id, which.paymentMethodId)
+        : and(eq(paymentMethods.patientId, which.patientId), eq(paymentMethods.paymentAccountId, which.paymentAccountId), sql`${paymentMethods.isDefault}`),
+    );
   if (!found?.processorAccountId) return null;
   return { ...found, processor: found.processor as Processor, processorAccountId: found.processorAccountId };
 }
