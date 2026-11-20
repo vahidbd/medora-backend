@@ -11,6 +11,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "node scripts/build.mjs",
     "start": "node dist/start.js",
+    "start:agents": "node dist/agents.js",
+    "dev:agents": "tsx watch src/agents.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint --max-warnings 0 .",
     "test": "vitest run",
@@ -22,10 +24,13 @@
     "contract": "tsx scripts/contract.ts",
     "skills:sync": "node scripts/check-skills.mjs --write",
     "boundaries": "depcruise src --config .dependency-cruiser.cjs",
-    "check": "npm run boundaries && node scripts/check-names.mjs && node scripts/check-file-names.mjs && node scripts/check-migrations.mjs --no-base && node scripts/check-skills.mjs && node scripts/check-adr-sync.mjs && tsx scripts/contract.ts --check && node scripts/check-schema-drift.mjs",
-    "dev:token": "tsx scripts/dev-token.ts"
+    "check": "npm run boundaries && node scripts/check-names.mjs && node scripts/check-file-names.mjs && node scripts/check-migrations.mjs --no-base && node scripts/check-skills.mjs && node scripts/check-adr-sync.mjs && tsx scripts/contract.ts --check && node scripts/check-schema-drift.mjs && tsx scripts/check-evals.ts",
+    "dev:token": "tsx scripts/dev-token.ts",
+    "evals": "tsx scripts/evals.ts"
   },
   "dependencies": {
+    "@anthropic-ai/bedrock-sdk": "1.1.2",
+    "@anthropic-ai/sdk": "1.11.0",
     "@fastify/helmet": "13.2.0",
     "@fastify/swagger": "9.9.5",
     "@sentry/node": "11.15.0",
