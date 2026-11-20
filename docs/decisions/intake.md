@@ -103,3 +103,9 @@ Decided by: us, at the patient intake screens thread's request, to confirm with 
 Decision: claiming still takes every intake the browser held (INT6). When a claimed intake's date of birth isn't the one on the patient's account, the patient can't open, answer or send it: the API answers 409 `date_of_birth_differs`, and the patient app says to start a new one. Starting a program again picks up only an intake with the patient's own date of birth. The intake stays on the record, and the prescriber's summary shows it with the date of birth flagged (INT15). Whether resuming an anonymous intake should ask for the date of birth first is for the privacy impact assessment.
 Why: on a shared device, the next person to sign in would otherwise read the last person's answers. Keeping the row still shows the prescriber what was answered in that browser.
 Decided by: stand-in (Fable 5.2), raised by the patient intake screens thread, to confirm with Vahid
+
+### INT18. Booking a first consult reads the newest intake outcome for the program
+
+Decision: the intake module tells other modules, never a route of its own, the patient's newest intake for a program that reached an outcome: sent (`completed`) or ended by a hard stop (`ineligible`), newest by when that happened. A later hard stop outranks an earlier completed intake. An intake started with another date of birth doesn't count (INT17). Each read writes an audit entry naming the program and the intake found, or none. What a booking does with the answer is the consults module's ruling.
+Why: a patient who passed once and was stopped later must not book on the old answer. Reading the outcome alone, not the answers, gives booking what it needs without handing it the clinical detail.
+Decided by: stand-in (Fable 5.2), raised by the consults thread, to confirm with Vahid

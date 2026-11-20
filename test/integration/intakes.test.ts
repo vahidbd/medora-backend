@@ -4,7 +4,7 @@ import type { App } from '../../src/app.js';
 import { closeDatabase } from '../../src/db/health.js';
 import { intakes } from '../../src/db/schema/index.js';
 import { type TenantContext, withTenant } from '../../src/db/tenant.js';
-import { intakeSummaryFor, settleIntakes } from '../../src/modules/intake/index.js';
+import { intakeSummaryFor, latestIntakeFor, settleIntakes } from '../../src/modules/intake/index.js';
 import { headers, patientSignIn, signIn, testApp } from '../support/app.js';
 import { admin, createBrand, createPlatformStaff, tenantWith } from '../support/db.js';
 
@@ -284,6 +284,40 @@ describe('claiming, submitting and the prescriber’s summary (INT6, INT15)', as
     const again = await asPatient(c, patient.token, 'POST', '/v1/patient/intakes', { programId: c.programId });
     expect(first.json()).toMatchObject({ status: 'in_progress', currentStep: 'body' });
     expect(again.json().intakeId).toBe(first.json().intakeId);
+  });
+});
+
+describe('the newest outcome, for booking a first consult (INT18)', async () => {
+  const c = await clinic();
+  const patient = await agreed(c);
+  const latest = (programId = c.programId) =>
+    withTenant({ tenantId: c.tenantId, actor: { type: 'patient', patientId: patient.patientId }, requestId: 'test' }, (tx) => latestIntakeFor(tx, { patientId: patient.patientId, programId }));
+  const answerAll = async (expecting: boolean) => {
+    const { intakeId } = (await asPatient(c, patient.token, 'POST', '/v1/patient/intakes', { programId: c.programId })).json();
+    const url = `/v1/patient/intakes/${intakeId}`;
+    await asPatient(c, patient.token, 'PUT', `${url}/steps/body`, { answers: { height: 170, mass: 70 } });
+    await asPatient(c, patient.token, 'PUT', `${url}/steps/status`, { answers: { expecting } });
+    if (!expecting) {
+      await asPatient(c, patient.token, 'PUT', `${url}/steps/more`, { answers: {} });
+      expect((await asPatient(c, patient.token, 'POST', `${url}/submit`)).json().status).toBe('completed');
+    }
+    return intakeId as string;
+  };
+
+  let sent = '';
+
+  it('is none before anything is sent, and the sent one after', async () => {
+    expect(await latest()).toBeNull();
+    sent = await answerAll(false);
+    expect(await latest()).toMatchObject({ intakeId: sent, status: 'completed' });
+    expect(await latest(randomUUID())).toBeNull();
+  });
+
+  it('is a later hard stop over an earlier completed intake, and every read is audited', async () => {
+    const stopped = await answerAll(true);
+    expect(await latest()).toMatchObject({ intakeId: stopped, status: 'ineligible' });
+    const { rows } = await admin.query("select details from platform.audit_log where action = 'intake.outcome_read' and record_id = $1 order by at", [patient.patientId]);
+    expect(rows.map((row) => row.details.intakeId)).toEqual([null, sent, null, stopped]);
   });
 });
 
