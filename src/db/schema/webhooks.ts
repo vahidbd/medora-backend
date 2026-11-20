@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { bigint, check, index, integer, jsonb, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { bigint, check, index, integer, jsonb, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { oneOf } from './checks.js';
 import { tenants } from './platform.js';
 import { WEBHOOK_PROVIDERS, WEBHOOK_STATUSES } from './values.js';
@@ -33,6 +33,8 @@ export const webhookInbox = platform.table(
   },
   (table) => [
     uniqueIndex('webhook_inbox_delivery_key').on(table.tenantId, table.provider, table.providerEventId),
+    // So consult evidence can point at its delivery within its own tenant (docs/decisions/consults.md CNS2).
+    unique('webhook_inbox_tenant_id_key').on(table.tenantId, table.id),
     index('webhook_inbox_pending_idx').on(table.tenantId, table.status, table.id),
     check('webhook_inbox_provider_check', oneOf(table.provider, WEBHOOK_PROVIDERS)),
     check('webhook_inbox_status_check', oneOf(table.status, WEBHOOK_STATUSES)),

@@ -203,7 +203,8 @@ export function signatureMatches(input: {
  */
 export function acceptRawBodies(scope: FastifyInstance): void {
   scope.removeAllContentTypeParsers();
-  for (const type of ['application/json', 'application/x-www-form-urlencoded']) {
+  // application/webhook+json is how the video server labels its JSON.
+  for (const type of ['application/json', 'application/webhook+json', 'application/x-www-form-urlencoded']) {
     scope.addContentTypeParser(type, { parseAs: 'string', bodyLimit: 256 * 1024 }, (_request, body, done) => done(null, body));
   }
 }

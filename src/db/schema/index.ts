@@ -4,3 +4,4 @@ export * from './webhooks.js';
 export * from './clinicians.js';
 export * from './clinical-patients.js';
 export * from './clinical-consents.js';
+export * from './clinical-consults.js';
