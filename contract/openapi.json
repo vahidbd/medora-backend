@@ -9763,6 +9763,93 @@
           }
         }
       }
+    },
+    "/v1/patient/notification-preferences": {
+      "get": {
+        "summary": "How the signed-in patient wants to hear from their care",
+        "tags": [
+          "notifications"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sms": {
+                      "type": "boolean"
+                    },
+                    "reminders": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "sms",
+                    "reminders"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Change how the signed-in patient hears from their care",
+        "tags": [
+          "notifications"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sms": {
+                    "type": "boolean"
+                  },
+                  "reminders": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "sms",
+                  "reminders"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sms": {
+                      "type": "boolean"
+                    },
+                    "reminders": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "sms",
+                    "reminders"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "security": [

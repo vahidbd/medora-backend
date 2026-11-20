@@ -43,6 +43,13 @@
       "when": 1795151120258,
       "tag": "0005_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795151716818,
+      "tag": "0006_notification_preferences",
+      "breakpoints": true
     }
   ]
 }
