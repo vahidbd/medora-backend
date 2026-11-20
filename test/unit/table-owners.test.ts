@@ -11,9 +11,17 @@ import * as schema from '../../src/db/schema/index.js';
  * written only by migrations' reviewed functions and the development seed.
  */
 const OWNERS: Record<string, string[]> = {
-  'platform.tenants': [],
+  'platform.tenants': ['src/modules/brands/'],
+  'platform.companies': ['src/modules/brands/'],
+  'platform.brands': ['src/modules/brands/'],
+  'platform.brand_domains': ['src/modules/brands/'],
+  'operational.products': ['src/modules/catalogue/'],
+  'platform.block_rules': [],
   'platform.users': [],
   'platform.memberships': ['src/modules/staff/'],
+  'platform.roles': ['src/modules/staff/'],
+  'platform.break_glass': ['src/modules/staff/'],
+  'platform.sign_ins': ['src/db/session.ts'],
   'platform.audit_log': ['src/lib/audit.ts'],
   'platform.outbox': ['src/lib/events.ts'],
   'platform.rate_limit_counters': ['src/lib/rate-limit.ts'],

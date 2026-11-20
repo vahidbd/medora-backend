@@ -9,7 +9,8 @@ import { env } from '../src/config/env.js';
 if (env.MEDORA_ENV !== 'development' || env.AUTH_MODE !== 'dev') throw new Error('dev:token is for local development with AUTH_MODE=dev');
 const email = process.argv[2];
 if (!email) throw new Error('Usage: npm run dev:token -- <email>');
-const token = await new SignJWT({ email })
+// A verified second factor and a session id, as a Clerk session token carries them (docs/decisions/admin.md ADM6).
+const token = await new SignJWT({ email, fva: [0, 0], sid: `dev_session_${Date.now()}` })
   .setProtectedHeader({ alg: 'HS256' })
   .setSubject(`dev_${email}`)
   .setIssuedAt()

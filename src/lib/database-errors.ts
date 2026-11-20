@@ -14,6 +14,17 @@ export function postgresError(error: unknown): { code: string; message: string }
   return null;
 }
 
+/** The name of the constraint a refused write broke, for a service that answers it in its own words. */
+export function brokenConstraint(error: unknown): string | null {
+  let current: unknown = error;
+  for (let depth = 0; depth < 3 && current && typeof current === 'object'; depth += 1) {
+    const { constraint, cause } = current as { constraint?: unknown; cause?: unknown };
+    if (typeof constraint === 'string' && constraint) return constraint;
+    current = cause;
+  }
+  return null;
+}
+
 export function databaseRefusal(error: unknown): { status: number; code: string; message: string } | null {
   const pg = postgresError(error);
   if (pg?.code === '23514') return { status: 400, code: 'invalid_value', message: "That value isn't allowed here" };
