@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { bigint, boolean, check, foreignKey, index, integer, jsonb, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { oneOf } from './checks.js';
-import { ACTOR_TYPES, DATA_ZONES, KEY_PROVIDERS, MEMBERSHIP_ROLES, MEMBERSHIP_STATUSES, ROLES } from './values.js';
+import { ACTOR_TYPES, DATA_ZONES, KEY_PROVIDERS, MEMBERSHIP_ROLES, MEMBERSHIP_STATUSES, ROLES, TIME_ZONES } from './values.js';
 import { platform } from './zones.js';
 
 /**
@@ -11,13 +11,20 @@ import { platform } from './zones.js';
  */
 
 /** A business that runs its care on Medora. Its row is visible only inside its own tenant context. */
-export const tenants = platform.table('tenants', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  name: text('name').notNull(),
-  /** IANA zone for staff-facing dates (ADR 0017). */
-  timeZone: text('time_zone').notNull().default('Australia/Sydney'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const tenants = platform.table(
+  'tenants',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    /** IANA zone for staff-facing dates (ADR 0017). */
+    timeZone: text('time_zone').notNull().default('Australia/Sydney'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check('tenants_time_zone_check', oneOf(table.timeZone, TIME_ZONES)),
+    check('tenants_name_check', sql`length(btrim(${table.name})) between 1 and 120`),
+  ],
+);
 
 /**
  * A person who can sign in. Held once across tenants; their memberships say
@@ -32,6 +39,13 @@ export const users = platform.table(
     email: text('email').notNull(),
     /** How screens name the person. Set when they are first invited; never written to audit details (ADM5). */
     displayName: text('display_name'),
+    /**
+     * Medora's own team (docs/decisions/admin.md ADM15): may create tenants
+     * and verify brand domains, and sees no tenant's data without a
+     * membership. Set only by a reviewed migration or an operator as the
+     * owner role; medora_app can't write it.
+     */
+    platformStaff: boolean('platform_staff').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

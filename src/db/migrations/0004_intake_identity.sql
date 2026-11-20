@@ -20,7 +20,7 @@ CREATE TABLE "clinical"."patient_addresses" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "patient_addresses_kind_check" CHECK ("clinical"."patient_addresses"."kind" in ('home')),
-	CONSTRAINT "patient_addresses_state_check" CHECK ("clinical"."patient_addresses"."state" in ('ACT', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA')),
+	CONSTRAINT "patient_addresses_state_check" CHECK ("clinical"."patient_addresses"."state" in ('NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT')),
 	CONSTRAINT "patient_addresses_postcode_check" CHECK ("clinical"."patient_addresses"."postcode" ~ '^[0-9]{4}$')
 );
 --> statement-breakpoint
@@ -232,6 +232,7 @@ ALTER TABLE "clinical"."protocol_versions" ADD CONSTRAINT "protocol_versions_pro
 ALTER TABLE "clinical"."protocols" ADD CONSTRAINT "protocols_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "platform"."tenants"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clinical"."protocols" ADD CONSTRAINT "protocols_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "platform"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "operational"."programs" ADD CONSTRAINT "programs_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "platform"."tenants"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "operational"."programs" ADD CONSTRAINT "programs_brand_fk" FOREIGN KEY ("tenant_id","brand_id") REFERENCES "platform"."brands"("tenant_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "operational"."programs" ADD CONSTRAINT "programs_protocol_fk" FOREIGN KEY ("tenant_id","protocol_id") REFERENCES "clinical"."protocols"("tenant_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clinical"."intakes" ADD CONSTRAINT "intakes_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "platform"."tenants"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clinical"."intakes" ADD CONSTRAINT "intakes_program_fk" FOREIGN KEY ("tenant_id","program_id") REFERENCES "operational"."programs"("tenant_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint

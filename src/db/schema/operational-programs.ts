@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { check, foreignKey, index, integer, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { oneOf, subsetOf } from './checks.js';
+import { brands } from './brands.js';
 import { protocols } from './clinical-protocols.js';
 import { tenants } from './platform.js';
 import { MEASUREMENT_KINDS, PROGRAM_STATUSES } from './values.js';
@@ -20,7 +21,7 @@ export const programs = operational.table(
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenants.id),
-    /** The brand that sells it. The foreign key to platform.brands (tenant_id, id) is added when brands land (INT9). */
+    /** The brand that sells it (INT9). */
     brandId: uuid('brand_id').notNull(),
     protocolId: uuid('protocol_id').notNull(),
     name: text('name').notNull(),
@@ -34,6 +35,7 @@ export const programs = operational.table(
   },
   (table) => [
     unique('programs_tenant_id_key').on(table.tenantId, table.id),
+    foreignKey({ columns: [table.tenantId, table.brandId], foreignColumns: [brands.tenantId, brands.id], name: 'programs_brand_fk' }),
     foreignKey({ columns: [table.tenantId, table.protocolId], foreignColumns: [protocols.tenantId, protocols.id], name: 'programs_protocol_fk' }),
     index('programs_protocol_idx').on(table.tenantId, table.protocolId),
     index('programs_brand_idx').on(table.tenantId, table.brandId),

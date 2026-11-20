@@ -25,7 +25,8 @@ import type { Access } from './route-rules.js';
  * needs a permission needs a tenant, and the person's role there must hold it
  * and be able to use it (clinical permissions need a clinical role or
  * break-glass, ADM3), and the session must have verified a second factor
- * (ADM6).
+ * (ADM6). A platform route needs platform staff with a second factor, and
+ * no tenant (ADM15).
  */
 export const TENANT_HEADER = 'x-medora-tenant';
 
@@ -46,6 +47,8 @@ export interface Auth {
   userId: string;
   email: string;
   displayName: string | null;
+  /** Medora's own team (ADM15). */
+  platformStaff: boolean;
   /** Whether this session verified a second factor (ADM6). */
   secondFactor: boolean;
   memberships: SignInMembership[];
@@ -157,6 +160,8 @@ export function grantOf(membership: Pick<SignInMembership, 'role' | 'customRole'
   return { role: membership.role, customPermissions: membership.customRole?.permissions ?? null, customClinical: membership.customRole?.clinical ?? null };
 }
 
+const twoStepRequired = () => new ForbiddenError('Set up two-step sign-in to carry on. Every staff account needs it.', 'two_step_required');
+
 export const authPlugin = fp(async (app: FastifyInstance) => {
   app.decorateRequest('auth', null);
   app.decorateRequest('patient', null);
@@ -180,17 +185,22 @@ export const authPlugin = fp(async (app: FastifyInstance) => {
       userId: user.userId,
       email: user.email,
       displayName: user.displayName,
+      platformStaff: user.platformStaff,
       secondFactor: identity.secondFactor,
       memberships: user.memberships,
       tenant,
     };
 
     if (access === 'signed-in') return;
+    if (access === 'platform') {
+      // ADM15: platform staff act in no tenant, and need a second factor like everyone else.
+      if (!user.platformStaff) throw new ForbiddenError();
+      if (!identity.secondFactor) throw twoStepRequired();
+      return;
+    }
     if (!tenant) throw new BadRequestError(`Choose a tenant first (${TENANT_HEADER})`, 'tenant_required');
     // docs/decisions/admin.md ADM6: every staff role needs a second factor; there is no setting that turns it off.
-    if (!identity.secondFactor) {
-      throw new ForbiddenError('Set up two-step sign-in to carry on. Every staff account needs it.', 'two_step_required');
-    }
+    if (!identity.secondFactor) throw twoStepRequired();
     if (access === 'member') return;
     if (!tenant.permissions.has(access.permission)) {
       if (tenant.held.has(access.permission)) {

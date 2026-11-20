@@ -27,6 +27,8 @@ export interface SignedInUser {
   userId: string;
   email: string;
   displayName: string | null;
+  /** Medora's own team: may create tenants and verify brand hosts (docs/decisions/admin.md ADM15). */
+  platformStaff: boolean;
   memberships: SignInMembership[];
 }
 
@@ -80,14 +82,15 @@ export async function findSignedInUser(identity: SignInIdentity, context: SignIn
       );
     }
     await tx.execute(sql`select platform.accept_invitations(${context.requestId})`);
-    const user = await tx.execute<{ email: string; display_name: string | null }>(
-      sql`select email, display_name from platform.users where id = ${userId}`,
+    const user = await tx.execute<{ email: string; display_name: string | null; platform_staff: boolean }>(
+      sql`select email, display_name, platform_staff from platform.users where id = ${userId}`,
     );
     const rows = await tx.execute<AccessRow>(sql`select * from platform.my_access()`);
     return {
       userId,
       email: user.rows[0]?.email ?? '',
       displayName: user.rows[0]?.display_name ?? null,
+      platformStaff: user.rows[0]?.platform_staff === true,
       memberships: rows.rows.map((row) => ({
         membershipId: row.membership_id,
         tenantId: row.tenant_id,
