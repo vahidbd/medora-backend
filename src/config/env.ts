@@ -78,6 +78,23 @@ const envSchema = z.object({
   /** The header the host's edge writes the connecting address to. Default x-real-ip once deployed. */
   CLIENT_IP_HEADER: optionalText,
 
+  /**
+   * The API's public origin, e.g. https://api.example.com.au. Outside services
+   * call back here, and a Twilio signature covers the exact address it called.
+   */
+  PUBLIC_API_URL: z.preprocess((value) => (value === '' ? undefined : value), z.url().optional()),
+
+  /** Phone and SMS (docs/decisions/telephony.md). fake: nothing leaves the process; dev and tests only. */
+  TELEPHONY: z.enum(['fake', 'twilio']).default('fake'),
+  TWILIO_ACCOUNT_SID: optionalText,
+  /** An API key made in the Australian region; Twilio's region keys work only in their region. */
+  TWILIO_API_KEY_SID: optionalText,
+  TWILIO_API_KEY_SECRET: optionalText,
+  /** Signs Twilio's webhooks. The Australian region's auth token, not the US one. */
+  TWILIO_AUTH_TOKEN: optionalText,
+  TWILIO_REGION: z.string().default('au1'),
+  TWILIO_EDGE: z.string().default('sydney'),
+
   /** A Sentry-compatible server in Australia (ADR 0026). Unset: error tracking is off. */
   SENTRY_DSN: z.preprocess((value) => (value === '' ? undefined : value), z.url().optional()),
 
@@ -104,7 +121,7 @@ export function loadEnv(source: NodeJS.ProcessEnv): Env {
     throw new Error(`Invalid environment configuration:\n${details}`);
   }
   const config = parsed.data;
-  const problems = [...authProblems(config), ...fieldKeyProblems(config), ...(isDeployedService(source) ? deployedProblems(config) : [])];
+  const problems = [...authProblems(config), ...telephonyProblems(config), ...fieldKeyProblems(config), ...(isDeployedService(source) ? deployedProblems(config) : [])];
   if (problems.length > 0) {
     throw new Error(`Refusing to start (MEDORA_ENV=${config.MEDORA_ENV}):\n${problems.map((p) => `  ${p}`).join('\n')}`);
   }
@@ -124,6 +141,15 @@ function authProblems(config: Env): string[] {
     }
   } catch (error) {
     problems.push(error instanceof Error ? error.message : String(error));
+  }
+  return problems;
+}
+
+function telephonyProblems(config: Env): string[] {
+  if (config.TELEPHONY !== 'twilio') return [];
+  const problems: string[] = [];
+  for (const name of ['TWILIO_ACCOUNT_SID', 'TWILIO_API_KEY_SID', 'TWILIO_API_KEY_SECRET', 'TWILIO_AUTH_TOKEN', 'PUBLIC_API_URL'] as const) {
+    if (!config[name]) problems.push(`${name} is required when TELEPHONY=twilio`);
   }
   return problems;
 }
@@ -174,6 +200,10 @@ export function deployedProblems(config: Env): string[] {
   if (config.MEDORA_ENV === 'production' && config.IDENTITY_GATEWAY === 'fake') problems.push('IDENTITY_GATEWAY must not be fake in production (none leaves manual checks)');
   if (config.MEDORA_ENV === 'production' && config.HI_SERVICE === 'fake') problems.push('HI_SERVICE must not be fake in production');
   if ((config.FORWARDED_IP_SECRET ?? '').length < 32) problems.push('FORWARDED_IP_SECRET of at least 32 characters is required');
+  // docs/decisions/telephony.md TEL1: a fake can't reach patients, and later it could make up consult evidence.
+  if (config.TELEPHONY !== 'twilio') problems.push('TELEPHONY must be twilio');
+  if (config.TWILIO_REGION !== 'au1') problems.push("TWILIO_REGION must be au1, Twilio's Australian region (ADR 0005)");
+  if (config.PUBLIC_API_URL && !config.PUBLIC_API_URL.startsWith('https://')) problems.push('PUBLIC_API_URL must be https');
   if (!/^[0-9a-f]{40}$/.test(config.RELEASE_SHA ?? '')) problems.push('the release commit is unknown (build with scripts/build.mjs, or set RELEASE_SHA)');
   return problems;
 }

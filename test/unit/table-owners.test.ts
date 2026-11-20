@@ -25,6 +25,7 @@ const OWNERS: Record<string, string[]> = {
   'platform.audit_log': ['src/lib/audit.ts'],
   'platform.outbox': ['src/lib/events.ts'],
   'platform.rate_limit_counters': ['src/lib/rate-limit.ts'],
+  'platform.webhook_inbox': ['src/lib/webhooks.ts'],
   'platform.tenant_keys': ['src/lib/field-crypto.ts'],
   'clinical.patients': ['src/modules/patients/'],
   'clinical.patient_contacts': ['src/modules/patients/'],

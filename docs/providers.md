@@ -10,7 +10,7 @@ Every outside service Medora uses: where it runs and what data reaches it (ADR 0
 | Parchment | Electronic prescribing | Australia | Patient identity, scripts | Yes | Planned |
 | Stripe | Card payments | Card data held by Stripe; Stripe Australia | Payment details, amounts, customer email | No | Planned |
 | eWAY | Card payments | Australia | Payment details, amounts | No | Planned |
-| Twilio | Phone consults, SMS | Australian region (AU1) | Phone numbers, call metadata, message text | Message text may mention care; templates keep it out | Planned |
+| Twilio | Phone consults, SMS (one client, `src/modules/telephony/`) | Australian region (AU1, Sydney edge); which data Twilio keeps onshore in AU1 to confirm in the data processing agreement | Phone numbers, call times and lengths, message text, inbound SMS | Message text may mention care; templates keep it out. Inbound SMS can hold anything a patient writes | Planned |
 | Error tracking (self-hosted, Sentry-compatible) | Errors from the API and web app | Sydney | Scrubbed errors (ADR 0026) | No | Planned |
 | Identity gateway (a Document Verification Service broker, not chosen yet) | Checking a patient's identity document online (docs/decisions/patients.md IDN16) | Australia (a condition of choosing one) | Legal name, date of birth, document type and number | Identity only | Fake only; needs an ADR and a data processing agreement before it is switched on |
 | HI Service (Services Australia) | Looking up a patient's IHI (IDN19) | Australia | Legal name, date of birth, sex, Medicare number | Yes | Fake only; needs a NASH certificate and conformance per tenant |

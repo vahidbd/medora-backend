@@ -44,6 +44,13 @@ export type ActorType = (typeof ACTOR_TYPES)[number];
 export const DATA_ZONES = ['clinical', 'operational', 'marketing', 'platform'] as const;
 export type DataZone = (typeof DATA_ZONES)[number];
 
+/** Outside services that call Medora's webhooks (ADR 0029, docs/decisions/webhooks.md). */
+export const WEBHOOK_PROVIDERS = ['twilio', 'video', 'parchment', 'stripe', 'eway', 'email'] as const;
+export type WebhookProvider = (typeof WEBHOOK_PROVIDERS)[number];
+
+/** Where a stored webhook is: waiting, done, or failed and waiting for a retry. */
+export const WEBHOOK_STATUSES = ['received', 'processed', 'failed'] as const;
+export type WebhookStatus = (typeof WEBHOOK_STATUSES)[number];
 /**
  * Who seals tenants' data keys (ADR 0010, docs/decisions/field-encryption.md
  * ENC3). `local` uses FIELD_ENCRYPTION_KEY and is refused in production; the
@@ -174,6 +181,8 @@ export const CHECKED_VALUES = [
   { table: 'platform.memberships', column: 'status', values: MEMBERSHIP_STATUSES },
   { table: 'platform.audit_log', column: 'actor_type', values: ACTOR_TYPES },
   { table: 'platform.audit_log', column: 'zone', values: DATA_ZONES },
+  { table: 'platform.webhook_inbox', column: 'provider', values: WEBHOOK_PROVIDERS },
+  { table: 'platform.webhook_inbox', column: 'status', values: WEBHOOK_STATUSES },
   { table: 'platform.tenant_keys', column: 'provider', values: KEY_PROVIDERS },
   { table: 'clinical.patients', column: 'sex', values: SEXES },
   { table: 'clinical.patients', column: 'identity_status', values: IDENTITY_STATUSES },
