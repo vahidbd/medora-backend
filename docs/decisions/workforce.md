@@ -2,7 +2,7 @@
 
 Rulings for clinicians, their credentials, and when they work (ADRs 0006, 0007, 0008, 0009, 0017, 0030). `src/modules/clinicians/`, tables in the `operational` schema.
 
-Rulings marked "Decided by: stand-in" were made while the product owner was away and are to be confirmed with him.
+Rulings marked "Decided by: stand-in" were made while the product owner was away and are to be confirmed with Vahid.
 
 ### WRK1. A clinician is a staff member with a profession, and the profession sets what they must hold
 
