@@ -5,7 +5,7 @@ import { type PaymentProcessor, ProcessorNotConfiguredError } from './processor.
 import { stripeProcessor } from './stripe.js';
 
 /**
- * Which adapter serves a processor (ADR 0037). With a key, the real one.
+ * Which adapter serves a processor (ADR 0160). With a key, the real one.
  * Without, the fake stands in outside a deployed service, and a deployed
  * service refuses rather than pretend (production can't start without a
  * Stripe key: src/config/env.ts). Tests never have a key (test/setup-env.ts).

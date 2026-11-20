@@ -21,7 +21,7 @@ const name = z.string().trim().min(1).max(80);
 export const paymentAccountsReply = z.object({ paymentAccounts: z.array(paymentAccount) });
 export const paymentAccountParams = z.object({ paymentAccountId: z.uuid() });
 
-/** eWAY joins with its keys in the next part (ADR 0037). */
+/** eWAY joins with its keys in the next part (ADR 0160). */
 export const createPaymentAccountBody = z.object({
   processor: z.literal('stripe'),
   companyId: z.uuid(),

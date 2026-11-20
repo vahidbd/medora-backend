@@ -43,7 +43,7 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 
 ### BIL8. A tenant connects Stripe on Stripe's own pages, and is charged on its own account
 
-Decision: Stripe through Connect with Standard accounts and direct charges (ADR 0037). Adding a Stripe payment account opens nothing; the first onboarding link opens the tenant's Stripe account (country AU, with Medora's tenant and payment account ids as metadata and nothing else) and sends staff to Stripe's onboarding pages. Coming back lands on `/settings/payment-accounts/<id>?onboarding=returned` in the console, or `?onboarding=expired` when the link ran out, and the console asks the API to refresh. Until Stripe's events are processed, the refresh route (`POST /v1/payment-accounts/:id/refresh`) is how the account's state is read.
+Decision: Stripe through Connect with Standard accounts and direct charges (ADR 0160). Adding a Stripe payment account opens nothing; the first onboarding link opens the tenant's Stripe account (country AU, with Medora's tenant and payment account ids as metadata and nothing else) and sends staff to Stripe's onboarding pages. Coming back lands on `/settings/payment-accounts/<id>?onboarding=returned` in the console, or `?onboarding=expired` when the link ran out, and the console asks the API to refresh. Until Stripe's events are processed, the refresh route (`POST /v1/payment-accounts/:id/refresh`) is how the account's state is read.
 Why: the tenant's business, bank and identity details stay with Stripe, Medora holds no tenant's keys, and patients' money never passes through Medora. Standard accounts give the tenant Stripe's full dashboard for disputes and payouts.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 

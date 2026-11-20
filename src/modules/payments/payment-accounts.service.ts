@@ -10,7 +10,7 @@ import type { ProcessorAccountState } from './processor.js';
 import { paymentProcessor } from './processors.js';
 
 /**
- * Payment accounts (ADR 0037, docs/decisions/billing.md BIL8 to BIL12): a
+ * Payment accounts (ADR 0160, docs/decisions/billing.md BIL8 to BIL12): a
  * tenant's own account at a processor. Changes lock every payment account of
  * the tenant in id order first, so two staff making different accounts the
  * default at once can't deadlock or leave two defaults.
