@@ -11,7 +11,16 @@ import { BusinessRuleError, ForbiddenError } from './errors.js';
  * ROLE_PERMISSIONS that should hold it. The owner holds every key without
  * being listed. Code checks permissions, never role keys.
  */
-export const PERMISSIONS = ['staff:read', 'staff:manage', 'roles:manage', 'break_glass:review', 'tenant:manage', 'brands:manage'] as const;
+export const PERMISSIONS = [
+  'staff:read',
+  'staff:manage',
+  'roles:manage',
+  'break_glass:review',
+  'tenant:manage',
+  'brands:manage',
+  'catalogue:read',
+  'catalogue:manage',
+] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 /**
@@ -26,6 +35,8 @@ export const PERMISSION_ZONES: Record<Permission, DataZone> = {
   'break_glass:review': 'platform',
   'tenant:manage': 'platform',
   'brands:manage': 'platform',
+  'catalogue:read': 'operational',
+  'catalogue:manage': 'operational',
 };
 
 const ALL: readonly Permission[] = PERMISSIONS;
@@ -33,15 +44,15 @@ const ALL: readonly Permission[] = PERMISSIONS;
 /** The starting roles' permissions (ADM2). Tenants can't edit these; they copy one into a custom role instead. */
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   owner: ALL,
-  admin: ['staff:read', 'staff:manage', 'roles:manage', 'tenant:manage', 'brands:manage'],
-  medical_director: ['staff:read', 'break_glass:review'],
-  prescriber: ['staff:read'],
-  clinician: ['staff:read'],
-  support: ['staff:read'],
-  finance: ['staff:read'],
-  operations: ['staff:read'],
-  marketing: ['staff:read'],
-  compliance: ['staff:read'],
+  admin: ['staff:read', 'staff:manage', 'roles:manage', 'tenant:manage', 'brands:manage', 'catalogue:read', 'catalogue:manage'],
+  medical_director: ['staff:read', 'break_glass:review', 'catalogue:read'],
+  prescriber: ['staff:read', 'catalogue:read'],
+  clinician: ['staff:read', 'catalogue:read'],
+  support: ['staff:read', 'catalogue:read'],
+  finance: ['staff:read', 'catalogue:read'],
+  operations: ['staff:read', 'catalogue:read', 'catalogue:manage'],
+  marketing: ['staff:read', 'catalogue:read'],
+  compliance: ['staff:read', 'catalogue:read'],
 };
 
 /** Starting roles that see patients clinically, so their clinical permissions work without break-glass (ADM3). */
