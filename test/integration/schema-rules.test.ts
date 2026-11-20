@@ -76,11 +76,13 @@ describe('tenancy in the catalogue (ADR 0006)', () => {
 
 describe('allowed values (ADR 0028)', () => {
   it.each(CHECKED_VALUES)('$table.$column matches values.ts', async ({ table, column, values }) => {
-    const defs = await rows<{ def: string }>(
-      `select pg_get_constraintdef(oid) as def from pg_constraint where conrelid = $1::regclass and contype = 'c'`,
-      [table],
+    // The CHECK is named <table>_<column>_check, so another column's list that happens to hold this column's name can't be mistaken for it.
+    const name = `${table.split('.')[1]}_${column}_check`;
+    const [found] = await rows<{ def: string }>(
+      `select pg_get_constraintdef(oid) as def from pg_constraint where conrelid = $1::regclass and contype = 'c' and conname = $2`,
+      [table, name],
     );
-    const def = defs.map((d) => d.def).find((d) => new RegExp(`\\b${column}\\b`).test(d) && d.includes('ARRAY['));
+    const def = found?.def;
     expect(def, `a CHECK on ${column}`).toBeDefined();
     const inDatabase = [...(def ?? '').matchAll(/'([^']+)'::text/g)].map((m) => m[1]);
     expect(inDatabase.sort()).toEqual([...values].sort());

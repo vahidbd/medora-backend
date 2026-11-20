@@ -18,6 +18,10 @@ const OWNERS: Record<string, string[]> = {
   'platform.outbox': ['src/lib/events.ts'],
   'platform.rate_limit_counters': ['src/lib/rate-limit.ts'],
   'platform.webhook_inbox': ['src/lib/webhooks.ts'],
+  'operational.clinicians': ['src/modules/clinicians/'],
+  'operational.clinician_credentials': ['src/modules/clinicians/'],
+  'operational.clinician_hours': ['src/modules/clinicians/'],
+  'operational.clinician_time_off': ['src/modules/clinicians/'],
 };
 
 /** Made-up local data only (src/db/seed.ts refuses anything but development). */
