@@ -74,10 +74,10 @@ async function begin(c: Clinic, dateOfBirth = '1990-05-01') {
 const step = (c: Clinic, intakeId: string, token: string, key: string, answers: Record<string, unknown>): Promise<Reply> =>
   app.inject({ method: 'PUT', url: `/v1/public/intakes/${intakeId}/steps/${key}`, headers: anon(c.tenantId, token), payload: { answers } });
 
-async function signUp(c: Clinic) {
+async function signUp(c: Clinic, dateOfBirth = '1990-05-01') {
   const subject = `user_${randomUUID()}`;
   const token = await patientSignIn(subject, { email: `${subject}@example.test` });
-  const reply = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, c.tenantId), payload: { brandId: c.brandId, givenName: 'Sam', familyName: 'Sample', dateOfBirth: '1990-05-01', sex: 'not_stated' } });
+  const reply = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, c.tenantId), payload: { brandId: c.brandId, givenName: 'Sam', familyName: 'Sample', dateOfBirth, sex: 'not_stated' } });
   expect(reply.statusCode).toBe(201);
   return { token, patientId: reply.json().patientId as string };
 }
@@ -260,6 +260,23 @@ describe('claiming, submitting and the prescriber’s summary (INT6, INT15)', as
     expect(JSON.stringify(list.json())).not.toContain('Beta');
     expect((await staffCall('GET', `/v1/intakes/${later.intake.intakeId}`, c.support.email, c.tenantId)).statusCode).toBe(403);
     expect((await staffCall('GET', `/v1/intakes/${later.intake.intakeId}`, c.owner.email, c.tenantId)).json().error.code).toBe('break_glass_required');
+  });
+
+  it('keeps an intake started with another date of birth from the patient, and starts them a new one (INT17)', async () => {
+    const someoneElse = await begin(c, '1970-01-01');
+    await step(c, someoneElse.intake.intakeId, someoneElse.resumeToken, 'body', { height: 160, mass: 80 });
+    const other = await signUp(c, '1991-02-03');
+    for (const document of [c.privacy, c.terms]) await asPatient(c, other.token, 'POST', '/v1/patient/consents', { documentId: document.documentId });
+    await asPatient(c, other.token, 'POST', '/v1/patient/intakes/claim', { tokens: [someoneElse.resumeToken] });
+    const url = `/v1/patient/intakes/${someoneElse.intake.intakeId}`;
+    for (const reply of [await asPatient(c, other.token, 'GET', url), await asPatient(c, other.token, 'PUT', `${url}/steps/status`, { answers: { expecting: false } }), await asPatient(c, other.token, 'POST', `${url}/submit`)]) {
+      expect(reply.statusCode).toBe(409);
+      expect(reply.json().error.code).toBe('date_of_birth_differs');
+      expect(JSON.stringify(reply.json())).not.toContain('160');
+    }
+    const fresh = await asPatient(c, other.token, 'POST', '/v1/patient/intakes', { programId: c.programId });
+    expect(fresh.json().intakeId).not.toBe(someoneElse.intake.intakeId);
+    expect(fresh.json().answers).toEqual({});
   });
 
   it('lets a signed-in patient start again, picking up the one in progress', async () => {

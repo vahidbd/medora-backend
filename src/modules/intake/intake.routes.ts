@@ -152,7 +152,7 @@ export const intakeRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/patient/intakes',
     {
-      config: { access: 'patient', audit: ['intake.started'], events: ['intake.started'], agentTool: AGENT_LATER },
+      config: { access: 'patient', audit: ['intake.started', 'patient.read'], events: ['intake.started'], agentTool: AGENT_LATER },
       schema: { tags: ['intakes'], summary: 'Start an intake, or pick up the one in progress for that program', body: patientStartBody, response: { 201: intakeView } },
     },
     async (request, reply) => reply.code(201).send(await withTenant(patientContextOf(request), (tx) => startForPatient(tx, requirePatient(request).patientId, request.body.programId))),
@@ -180,7 +180,7 @@ export const intakeRoutes: FastifyPluginAsyncZod = async (app) => {
   app.put(
     '/patient/intakes/:intakeId/steps/:stepKey',
     {
-      config: { access: 'patient', audit: ['intake.answered', 'intake.ineligible', ...LAPSES], events: ENDED, agentTool: AGENT_LATER },
+      config: { access: 'patient', audit: ['intake.answered', 'intake.ineligible', 'patient.read', ...LAPSES], events: ENDED, agentTool: AGENT_LATER },
       schema: { tags: ['intakes'], summary: 'Answer one step of an intake', params: stepParams, body: stepBody, response: { 200: intakeView } },
     },
     async (request) => {
@@ -193,7 +193,7 @@ export const intakeRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/patient/intakes/:intakeId/submit',
     {
-      config: { access: 'patient', audit: ['intake.submitted', 'intake.ineligible', ...LAPSES], events: ['intake.completed', 'intake.ended'], agentTool: AGENT_LATER },
+      config: { access: 'patient', audit: ['intake.submitted', 'intake.ineligible', 'patient.read', ...LAPSES], events: ['intake.completed', 'intake.ended'], agentTool: AGENT_LATER },
       schema: { tags: ['intakes'], summary: 'Send a finished intake to the prescriber', params: intakeParams, response: { 200: intakeView } },
     },
     async (request) => {

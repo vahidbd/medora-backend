@@ -97,3 +97,9 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid
 Decision: `GET /v1/public/brands/:brandId/programs`, with the tenant in `x-medora-tenant`, lists the brand's programs a person can start now: live, on a protocol with a live version. It answers as an intake's start does while the brand isn't taking new patients (409 `brand_not_accepting` or `tenant_not_ready`). Each program gives its id, name and condition, nothing else; brand copy about a program lives with the brand site's content, not on the program.
 Why: the start screen needs something to offer when a person arrives without a program in the link. Programs are operational and public by nature, so listing them reveals nothing a brand site wouldn't show.
 Decided by: us, at the patient intake screens thread's request, to confirm with Vahid
+
+### INT17. A claimed intake started with another date of birth is kept from the patient
+
+Decision: claiming still takes every intake the browser held (INT6). When a claimed intake's date of birth isn't the one on the patient's account, the patient can't open, answer or send it: the API answers 409 `date_of_birth_differs`, and the patient app says to start a new one. Starting a program again picks up only an intake with the patient's own date of birth. The intake stays on the record, and the prescriber's summary shows it with the date of birth flagged (INT15). Whether resuming an anonymous intake should ask for the date of birth first is for the privacy impact assessment.
+Why: on a shared device, the next person to sign in would otherwise read the last person's answers. Keeping the row still shows the prescriber what was answered in that browser.
+Decided by: stand-in (Fable 5.2), raised by the patient intake screens thread, to confirm with Vahid

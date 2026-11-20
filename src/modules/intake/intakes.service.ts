@@ -94,7 +94,21 @@ export async function loadIntake(tx: TenantTx, intakeId: string, holder: Holder)
     .where(and(eq(intakes.tenantId, tx.context.tenantId), eq(intakes.id, intakeId), held))
     .for('update');
   if (!row) throw new NotFoundError('Intake');
+  if ('patientId' in holder) await assertSamePerson(tx, row, holder.patientId);
   return row;
+}
+
+/**
+ * A claimed intake started with another date of birth was likely someone
+ * else's on a shared device: it stays on the record for the prescriber
+ * (INT15), but the patient can't read, answer or send it (INT17).
+ */
+async function assertSamePerson(tx: TenantTx, row: IntakeRow, patientId: string): Promise<void> {
+  if (!row.dateOfBirth) return;
+  const patient = await findPatient(tx, patientId);
+  if (patient && patient.dateOfBirth !== row.dateOfBirth) {
+    throw new BusinessRuleError("This intake was started with a different date of birth, so it can't be shown. Start a new one.", 'date_of_birth_differs');
+  }
 }
 
 /** The first shown step not yet behind the person. */
@@ -219,19 +233,29 @@ export async function startAnonymous(tx: TenantTx, input: AnonymousStart): Promi
 export async function startForPatient(tx: TenantTx, patientId: string, programId: string): Promise<IntakeView> {
   const { program, version } = await openProgram(tx, programId);
   await assertConsents(tx, patientId, 'care');
+  const patient = await findPatient(tx, patientId);
+  if (!patient) throw new NotFoundError('Patient');
+  // Only an intake started with their own date of birth is picked up (INT17).
   const [open] = await tx.db
     .select({ id: intakes.id })
     .from(intakes)
-    .where(and(eq(intakes.tenantId, tx.context.tenantId), eq(intakes.patientId, patientId), eq(intakes.programId, programId), eq(intakes.status, 'in_progress')))
+    .where(
+      and(
+        eq(intakes.tenantId, tx.context.tenantId),
+        eq(intakes.patientId, patientId),
+        eq(intakes.programId, programId),
+        eq(intakes.status, 'in_progress'),
+        eq(intakes.dateOfBirth, patient.dateOfBirth),
+      ),
+    )
     .orderBy(desc(intakes.startedAt))
     .limit(1);
   if (open) {
     const row = await loadIntake(tx, open.id, { patientId });
     if (row.status === 'in_progress') return viewOf(tx, row);
   }
-  const patient = await findPatient(tx, patientId);
   const privacy = await givenConsentOf(tx, patientId, 'privacy');
-  if (!patient || !privacy) throw new NotFoundError('Patient');
+  if (!privacy) throw new NotFoundError('Patient');
   const [row] = await tx.db
     .insert(intakes)
     .values({
