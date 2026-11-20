@@ -9,3 +9,5 @@ export const staffRoutes: FastifyPluginAsyncZod = async (app) => {
   await app.register(roleRoutes);
   await app.register(breakGlassRoutes);
 };
+
+export { invitations, type InvitationEmail } from './invitations.js';

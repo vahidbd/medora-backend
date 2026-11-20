@@ -1,5 +1,10 @@
-import type { DataZone, MembershipRole, MembershipStatus, Role } from '../db/schema/values.js';
-import { BusinessRuleError, ForbiddenError } from './errors.js';
+import type {
+  DataZone,
+  MembershipRole,
+  MembershipStatus,
+  Role,
+} from "../db/schema/values.js";
+import { BusinessRuleError, ForbiddenError } from "./errors.js";
 
 /**
  * What each role may do, and the rules for changing who holds which role
@@ -12,25 +17,27 @@ import { BusinessRuleError, ForbiddenError } from './errors.js';
  * being listed. Code checks permissions, never role keys.
  */
 export const PERMISSIONS = [
-  'staff:read',
-  'staff:manage',
-  'roles:manage',
-  'break_glass:review',
+  "staff:read",
+  "staff:manage",
+  "roles:manage",
+  "break_glass:review",
   // A patient's identity, contact details and consents, never clinical content (docs/decisions/patients.md IDN9, IDN15).
-  'patients:read',
+  "patients:read",
   // Correct a patient's details and record consent decisions made by phone or in person.
-  'patients:manage',
+  "patients:manage",
   // Publish the tenant's consent documents (IDN14).
-  'consents:manage',
+  "consents:manage",
   // Mark a patient's identity verified after sighting their document (IDN17).
-  'patients:verify_identity',
+  "patients:verify_identity",
   // Protocols and programs (docs/decisions/intake.md INT4, INT11).
-  'protocols:read',
-  'protocols:manage',
-  'protocols:sign_off',
-  'programs:manage',
+  "protocols:read",
+  "protocols:manage",
+  "protocols:sign_off",
+  "programs:manage",
   // A patient's intake answers and the prescriber's summary: clinical content.
-  'intakes:read',
+  "intakes:read",
+  "tenant:manage",
+  "brands:manage",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -40,21 +47,23 @@ export type Permission = (typeof PERMISSIONS)[number];
  * without a zone fails the type check.
  */
 export const PERMISSION_ZONES: Record<Permission, DataZone> = {
-  'staff:read': 'platform',
-  'staff:manage': 'platform',
-  'roles:manage': 'platform',
-  'break_glass:review': 'platform',
+  "staff:read": "platform",
+  "staff:manage": "platform",
+  "roles:manage": "platform",
+  "break_glass:review": "platform",
   // Who the patient is and how to reach them: support needs it without break-glass (IDN15).
-  'patients:read': 'operational',
-  'patients:manage': 'operational',
-  'consents:manage': 'platform',
-  'patients:verify_identity': 'operational',
-  'protocols:read': 'operational',
-  'protocols:manage': 'operational',
+  "patients:read": "operational",
+  "patients:manage": "operational",
+  "consents:manage": "platform",
+  "patients:verify_identity": "operational",
+  "protocols:read": "operational",
+  "protocols:manage": "operational",
   // Signing off works only for a clinical role, so an owner who isn't one needs break-glass (INT4).
-  'protocols:sign_off': 'clinical',
-  'programs:manage': 'operational',
-  'intakes:read': 'clinical',
+  "protocols:sign_off": "clinical",
+  "programs:manage": "operational",
+  "intakes:read": "clinical",
+  "tenant:manage": "platform",
+  "brands:manage": "platform",
 };
 
 const ALL: readonly Permission[] = PERMISSIONS;
@@ -62,35 +71,51 @@ const ALL: readonly Permission[] = PERMISSIONS;
 /** The starting roles' permissions (ADM2). Tenants can't edit these; they copy one into a custom role instead. */
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   owner: ALL,
-  admin: ['staff:read', 'staff:manage', 'roles:manage', 'patients:read', 'patients:manage', 'consents:manage', 'protocols:read', 'programs:manage'],
-  medical_director: [
-    'staff:read',
-    'break_glass:review',
-    'patients:read',
-    'patients:verify_identity',
-    'protocols:read',
-    'protocols:manage',
-    'protocols:sign_off',
-    'programs:manage',
-    'intakes:read',
+  admin: [
+    "staff:read",
+    "staff:manage",
+    "roles:manage",
+    "tenant:manage",
+    "brands:manage",
+    "patients:read",
+    "patients:manage",
+    "consents:manage",
+    "protocols:read",
+    "programs:manage",
   ],
-  prescriber: ['staff:read', 'patients:read', 'protocols:read', 'intakes:read'],
-  clinician: ['staff:read', 'patients:read', 'protocols:read', 'intakes:read'],
-  support: ['staff:read', 'patients:read', 'patients:manage'],
-  finance: ['staff:read'],
-  operations: ['staff:read'],
-  marketing: ['staff:read'],
-  compliance: ['staff:read'],
+  medical_director: [
+    "staff:read",
+    "break_glass:review",
+    "patients:read",
+    "patients:verify_identity",
+    "protocols:read",
+    "protocols:manage",
+    "protocols:sign_off",
+    "programs:manage",
+    "intakes:read",
+  ],
+  prescriber: ["staff:read", "patients:read", "protocols:read", "intakes:read"],
+  clinician: ["staff:read", "patients:read", "protocols:read", "intakes:read"],
+  support: ["staff:read", "patients:read", "patients:manage"],
+  finance: ["staff:read"],
+  operations: ["staff:read"],
+  marketing: ["staff:read"],
+  compliance: ["staff:read"],
 };
 
 /** Starting roles that see patients clinically, so their clinical permissions work without break-glass (ADM3). */
-export const CLINICAL_ROLES: ReadonlySet<Role> = new Set<Role>(['prescriber', 'clinician', 'medical_director']);
+export const CLINICAL_ROLES: ReadonlySet<Role> = new Set<Role>([
+  "prescriber",
+  "clinician",
+  "medical_director",
+]);
 
 /** The role that holds every permission. Every tenant always has at least one active holder. */
-export const FULL_ACCESS_ROLE: Role = 'owner';
+export const FULL_ACCESS_ROLE: Role = "owner";
 
 /** Permissions no agent may ever use, whatever role it runs as (ADM4, PRD ADM-07). */
-export const AGENT_FORBIDDEN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>(['staff:manage', 'roles:manage', 'break_glass:review']);
+export const AGENT_FORBIDDEN_PERMISSIONS: ReadonlySet<Permission> =
+  new Set<Permission>(["staff:manage", "roles:manage", "break_glass:review"]);
 
 /** How long break-glass lasts once opened (ADM3). */
 export const BREAK_GLASS_MINUTES = 60;
@@ -108,12 +133,19 @@ export interface RoleGrant {
 
 /** Every permission the role holds, usable or not. Granting is measured against this. */
 export function heldPermissions(grant: RoleGrant): ReadonlySet<Permission> {
-  if (grant.role === 'custom') return new Set((grant.customPermissions ?? []).filter((key): key is Permission => known.has(key)));
+  if (grant.role === "custom")
+    return new Set(
+      (grant.customPermissions ?? []).filter((key): key is Permission =>
+        known.has(key),
+      ),
+    );
   return new Set(ROLE_PERMISSIONS[grant.role]);
 }
 
 export function isClinicalRole(grant: RoleGrant): boolean {
-  return grant.role === 'custom' ? grant.customClinical === true : CLINICAL_ROLES.has(grant.role);
+  return grant.role === "custom"
+    ? grant.customClinical === true
+    : CLINICAL_ROLES.has(grant.role);
 }
 
 /**
@@ -128,38 +160,79 @@ export function usablePermissions(
 ): ReadonlySet<Permission> {
   const held = heldPermissions(grant);
   if (breakGlassOpen || isClinicalRole(grant)) return held;
-  return new Set([...held].filter((key) => zones[key] !== 'clinical'));
+  return new Set([...held].filter((key) => zones[key] !== "clinical"));
 }
 
 /** Whether the role holds clinical permissions it can only use under break-glass. */
-export function needsBreakGlass(grant: RoleGrant, zones: Readonly<Record<string, DataZone>> = PERMISSION_ZONES): boolean {
-  return !isClinicalRole(grant) && [...heldPermissions(grant)].some((key) => zones[key] === 'clinical');
+export function needsBreakGlass(
+  grant: RoleGrant,
+  zones: Readonly<Record<string, DataZone>> = PERMISSION_ZONES,
+): boolean {
+  return (
+    !isClinicalRole(grant) &&
+    [...heldPermissions(grant)].some((key) => zones[key] === "clinical")
+  );
 }
 
 /** Only someone who holds every permission of a role may give it, or take it away (ADR 0030). */
-export function assertCanGrant(actor: ReadonlySet<Permission>, role: { permissions: Iterable<Permission> }): void {
-  const missing = [...role.permissions].filter((permission) => !actor.has(permission));
-  if (missing.length > 0) throw new ForbiddenError('Only someone with every permission of that role can give or remove it', 'cannot_grant');
+export function assertCanGrant(
+  actor: ReadonlySet<Permission>,
+  role: { permissions: Iterable<Permission> },
+): void {
+  const missing = [...role.permissions].filter(
+    (permission) => !actor.has(permission),
+  );
+  if (missing.length > 0)
+    throw new ForbiddenError(
+      "Only someone with every permission of that role can give or remove it",
+      "cannot_grant",
+    );
 }
 
 export interface MembershipChange {
-  actor: { userId: string; status: MembershipStatus; permissions: ReadonlySet<Permission> };
-  target: { userId: string; role: MembershipRole; status: MembershipStatus; permissions: ReadonlySet<Permission> };
-  next: { role: MembershipRole; status: MembershipStatus; permissions: ReadonlySet<Permission> };
+  actor: {
+    userId: string;
+    status: MembershipStatus;
+    permissions: ReadonlySet<Permission>;
+  };
+  target: {
+    userId: string;
+    role: MembershipRole;
+    status: MembershipStatus;
+    permissions: ReadonlySet<Permission>;
+  };
+  next: {
+    role: MembershipRole;
+    status: MembershipStatus;
+    permissions: ReadonlySet<Permission>;
+  };
   /** Active owners in the tenant now, counted under lock by the caller. */
   activeOwners: number;
 }
 
-export function assertCanChangeMembership({ actor, target, next, activeOwners }: MembershipChange): void {
-  if (actor.status !== 'active') throw new ForbiddenError();
+export function assertCanChangeMembership({
+  actor,
+  target,
+  next,
+  activeOwners,
+}: MembershipChange): void {
+  if (actor.status !== "active") throw new ForbiddenError();
   if (actor.userId === target.userId) {
-    throw new ForbiddenError("You can't change your own role or access. Ask another owner.", 'own_membership');
+    throw new ForbiddenError(
+      "You can't change your own role or access. Ask another owner.",
+      "own_membership",
+    );
   }
   assertCanGrant(actor.permissions, target);
   assertCanGrant(actor.permissions, next);
-  const wasActiveOwner = target.role === FULL_ACCESS_ROLE && target.status === 'active';
-  const staysActiveOwner = next.role === FULL_ACCESS_ROLE && next.status === 'active';
+  const wasActiveOwner =
+    target.role === FULL_ACCESS_ROLE && target.status === "active";
+  const staysActiveOwner =
+    next.role === FULL_ACCESS_ROLE && next.status === "active";
   if (wasActiveOwner && !staysActiveOwner && activeOwners <= 1) {
-    throw new BusinessRuleError('Every tenant needs at least one active owner', 'last_owner');
+    throw new BusinessRuleError(
+      "Every tenant needs at least one active owner",
+      "last_owner",
+    );
   }
 }

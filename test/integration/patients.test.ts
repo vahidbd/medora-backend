@@ -10,7 +10,7 @@ import { headers, patientSignIn, signIn, testApp } from '../support/app.js';
 import { admin, createTenant, tenantWith } from '../support/db.js';
 
 /**
- * Patients and patient sign-in (ADR 0035, docs/decisions/patients.md).
+ * Patients and patient sign-in (ADR 0100, docs/decisions/patients.md).
  * Made-up people only.
  */
 // Built before the describe blocks run, because they create made-up patients while collecting.
@@ -29,7 +29,7 @@ async function signUp(tenantId: string, subject = `user_${randomUUID()}`, email 
   return { token, subject, reply, patientId: reply.json().patientId as string };
 }
 
-describe('patient sign-in is its own door (ADR 0035)', async () => {
+describe('patient sign-in is its own door (ADR 0100)', async () => {
   const tenantId = await createTenant();
 
   it('refuses a patient token on staff routes, and a staff token on patient routes', async () => {

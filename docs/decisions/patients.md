@@ -1,6 +1,6 @@
 # Patients, patient sign-in and identity
 
-Rulings for the identity part of the patient record, patient accounts and patient sign-in (PRD section 3). ADR 0035 sets the system-level rule; ADRs 0006, 0007, 0008, 0010 and 0028 apply throughout. Rulings marked "Decided by: stand-in" were decided by the product owner's stand-in while the product owner was away, and are listed in the pull request to confirm.
+Rulings for the identity part of the patient record, patient accounts and patient sign-in (PRD section 3). ADR 0100 sets the system-level rule; ADRs 0006, 0007, 0008, 0010 and 0028 apply throughout. Rulings marked "Decided by: stand-in" were decided by the product owner's stand-in while the product owner was away, and are listed in the pull request to confirm.
 
 ### IDN1. One patient record per person per tenant
 
@@ -10,7 +10,7 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid
 
 ### IDN2. Patients sign in on their own instance, and act as themselves
 
-Decision: patient routes accept only tokens from the patient sign-in instance (ADR 0035), carrying a session id (`sid`). A patient changing their own record is recorded as `actor_type = 'patient'` with their patient id. Creating the account is audited as the new patient. Clerk holds the email, mobile and sign-in methods only.
+Decision: patient routes accept only tokens from the patient sign-in instance (ADR 0100), carrying a session id (`sid`). A patient changing their own record is recorded as `actor_type = 'patient'` with their patient id. Creating the account is audited as the new patient. Clerk holds the email, mobile and sign-in methods only.
 Why: staff sign-up stays closed while patients sign themselves up; one kind of token can't open the other door; the audit log says who really acted.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid
 

@@ -16,6 +16,8 @@ export const meReply = z.object({
   displayName: z.string().nullable(),
   /** Whether this session verified a second factor; without one, every tenant route answers `two_step_required` (ADM6). */
   secondFactor: z.boolean(),
+  /** Medora's own team, who create tenants and verify brand hosts (ADM15). Not a membership: it opens no tenant. */
+  platformStaff: z.boolean(),
   memberships: z.array(
     z.object({
       membershipId: z.uuid(),

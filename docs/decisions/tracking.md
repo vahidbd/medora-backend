@@ -1,6 +1,6 @@
 # Tracking: measurements, side effects and check-ins
 
-Rulings for what a patient tells their care team between consults (PRD 11 and 12: APP-03, ADH-01, ADH-02). ADRs 0006, 0007, 0008, 0016, 0017 and 0028 apply throughout; ADR 0035 says who the patient is. The patient app's screens are in medora-front (`docs/decisions/patient-app.md`). Rulings marked "Decided by: stand-in" were decided by the product owner's stand-in while the product owner was away, and are listed in the pull request to confirm.
+Rulings for what a patient tells their care team between consults (PRD 11 and 12: APP-03, ADH-01, ADH-02). ADRs 0006, 0007, 0008, 0016, 0017 and 0028 apply throughout; ADR 0100 says who the patient is. The patient app's screens are in medora-front (`docs/decisions/patient-app.md`). Rulings marked "Decided by: stand-in" were decided by the product owner's stand-in while the product owner was away, and are listed in the pull request to confirm.
 
 ### TRK1. One table for every measurement, each kind in one unit
 

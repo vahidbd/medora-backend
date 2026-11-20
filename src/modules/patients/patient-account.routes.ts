@@ -9,7 +9,7 @@ import { getPatientProfile } from './patients.service.js';
 import { consentsNeeded } from './consents.service.js';
 import type { TenantTx } from '../../db/tenant.js';
 
-/** What a patient does with their own account, under /v1/patient (ADR 0035, docs/decisions/patients.md). */
+/** What a patient does with their own account, under /v1/patient (ADR 0100, docs/decisions/patients.md). */
 
 const NO_AGENT = { none: 'A patient creates and changes their own account; an agent never acts as a patient (ADR 0012)' };
 
