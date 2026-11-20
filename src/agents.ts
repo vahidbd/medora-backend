@@ -5,7 +5,7 @@ import { flushErrorTracking, reportError, startErrorTracking } from './lib/error
 import { agentsLoop, catalogueProblems, configuredModelClient } from './modules/agents/index.js';
 
 /**
- * The agents service, `medora-agents` (ADR 0037, docs/decisions/agents.md
+ * The agents service, `medora-agents` (ADR 0240, docs/decisions/agents.md
  * AGT8): the same image as the API, serving no requests. It builds the app
  * so agents call routes in-process, claims queued runs and runs them. Only
  * this service holds the AWS credentials for Bedrock.

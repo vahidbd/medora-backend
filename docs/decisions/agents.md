@@ -1,6 +1,6 @@
 # AI agents
 
-Rulings for Medora's own AI agents: the runtime, the tool catalogue, approval cards, limits, the safety screen, evals, the launch agents and voice. ADRs 0005, 0008, 0012, 0020, 0029 and 0037 set the rules; these record the choices made while building them. The console's side is in `medora-front`'s copy of this file.
+Rulings for Medora's own AI agents: the runtime, the tool catalogue, approval cards, limits, the safety screen, evals, the launch agents and voice. ADRs 0005, 0008, 0012, 0020, 0029 and 0240 set the rules; these record the choices made while building them. The console's side is in `medora-front`'s copy of this file.
 
 Rulings marked "Decided by: stand-in (Fable 5.2), to confirm with Vahid" were decided while the product owner asked not to be waited on, and are listed in the pull request under "Decisions to confirm".
 

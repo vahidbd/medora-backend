@@ -3,7 +3,7 @@ import { agentRoutes as settingsRoutes } from './agents.routes.js';
 import { proposalRoutes } from './proposals.routes.js';
 
 /**
- * AI agents (ADRs 0012, 0037; docs/decisions/agents.md): the runtime, the
+ * AI agents (ADRs 0012, 0240; docs/decisions/agents.md): the runtime, the
  * tool catalogue's policy, approval cards, limits, the safety screen and the
  * launch agents. The module's front door (ADR 0027).
  *

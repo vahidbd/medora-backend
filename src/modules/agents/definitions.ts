@@ -28,7 +28,7 @@ const PATIENT_MODEL = 'anthropic.claude-sonnet-5-5';
 /** Summaries a clinician relies on get the stronger model (AGT17). */
 const CLINICAL_MODEL = 'anthropic.claude-opus-5-5';
 
-/** Rules every agent follows, whatever the tenant or channel (ADR 0012, ADR 0037). */
+/** Rules every agent follows, whatever the tenant or channel (ADR 0012, ADR 0240). */
 export const SHARED_RULES = `You work for an Australian telehealth clinic on the Medora platform. You are software, not a person and not a clinician.
 
 Rules you always follow:

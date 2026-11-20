@@ -1,4 +1,4 @@
--- AI agents (ADRs 0012, 0037; docs/decisions/agents.md AGT3, AGT8): settings
+-- AI agents (ADRs 0012, 0240; docs/decisions/agents.md AGT3, AGT8): settings
 -- and run metadata in platform, transcripts and approval cards in clinical.
 -- Grants, row-level security and the one cross-tenant function, the claim,
 -- follow the tables.

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import type { HandoffReason } from './hand-off.js';
 
 /**
- * The safety screen (ADR 0037, docs/decisions/agents.md AGT11): plain code
+ * The safety screen (ADR 0240, docs/decisions/agents.md AGT11): plain code
  * that reads every message a patient sends, before any model does. Emergency
  * and self-harm language gets fixed words and an urgent handoff, and the
  * agent stays out of the conversation until a staff member hands it back.

@@ -1,7 +1,7 @@
 import { maskText } from '../../../lib/redact.js';
 
 /**
- * Masking before the model (ADR 0037, docs/decisions/agents.md AGT9). Patient
+ * Masking before the model (ADR 0240, docs/decisions/agents.md AGT9). Patient
  * text and tool results lose email addresses and long numbers (phone,
  * Medicare and card numbers) by pattern, and every value the clinic holds
  * for the patient (name, contact details, address, date of birth) by exact

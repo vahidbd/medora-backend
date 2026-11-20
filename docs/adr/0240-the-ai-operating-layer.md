@@ -1,4 +1,4 @@
-# 0037. The AI operating layer: agents run as code-defined roles through the API, from a queue, with fixed safety rails
+# 0240. The AI operating layer: agents run as code-defined roles through the API, from a queue, with fixed safety rails
 
 - Status: Proposed
 - Date: 20 Nov 2026

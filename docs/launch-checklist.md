@@ -5,7 +5,7 @@ ADR 0033. Each line gets a date and a link to its evidence when it is done. The 
 | # | Gate | Evidence | Done |
 | --- | --- | --- | --- |
 | 1 | External penetration test, high findings fixed | | |
-| 2 | Privacy impact assessment, including the patient notice for AI processing of messages and intake answers (ADR 0037) | | |
+| 2 | Privacy impact assessment, including the patient notice for AI processing of messages and intake answers (ADR 0240) | | |
 | 3 | Live Parchment connection | | |
 | 4 | Backup restored into a fresh database and checked (time taken written down) | | |
 | 5 | Load test at the first tenant's expected volumes, plus a spike | | |

@@ -5,7 +5,7 @@ Every outside service Medora uses: where it runs and what data reaches it (ADR 0
 | Provider | Used for | Region | Data that reaches it | Health data? | Status |
 | --- | --- | --- | --- | --- | --- |
 | Railway | Hosting the API, workers and Postgres | Sydney (to confirm when the first environment is created) | Everything Medora stores | Yes | Planned |
-| AWS (S3, KMS, Bedrock) | Files, encryption keys, AI models (Claude through Bedrock, ADR 0037) | ap-southeast-2 (Sydney); the agents service refuses a region outside Australia | Files, wrapped keys; for agents, patients' messages with identifiers masked, masked tool replies and intake answers for the copilot | Yes | Planned. Bedrock model invocation logging stays off; that Bedrock keeps no prompts and trains on none is to be confirmed in the data processing agreement (launch line 11) |
+| AWS (S3, KMS, Bedrock) | Files, encryption keys, AI models (Claude through Bedrock, ADR 0240) | ap-southeast-2 (Sydney); the agents service refuses a region outside Australia | Files, wrapped keys; for agents, patients' messages with identifiers masked, masked tool replies and intake answers for the copilot | Yes | Planned. Bedrock model invocation logging stays off; that Bedrock keeps no prompts and trains on none is to be confirmed in the data processing agreement (launch line 11) |
 | Clerk | Sign-in for staff and patients | US | Name, email, phone, sign-in methods | No | Planned |
 | Parchment | Electronic prescribing | Australia | Patient identity, scripts | Yes | Planned |
 | Stripe | Card payments | Card data held by Stripe; Stripe Australia | Payment details, amounts, customer email | No | Planned |
