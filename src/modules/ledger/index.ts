@@ -8,4 +8,4 @@ export type { AccountRef } from './ledger.accounts.js';
 export { ledgerBalanceCheck } from './ledger.check.js';
 export { ledgerBalance } from './ledger.queries.js';
 export { ledgerRoutes } from './ledger.routes.js';
-export { type EntryInput, type LineInput, type PostedEntry, postEntry, reverseEntry } from './ledger.service.js';
+export { type EntryInput, type LineInput, type PostedEntry, entryIdForKey, postEntry, reverseEntry } from './ledger.service.js';

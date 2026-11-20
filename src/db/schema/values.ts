@@ -121,9 +121,22 @@ export type HeldReason = (typeof HELD_REASONS)[number];
 export const INVOICE_KINDS = ['consult', 'period'] as const;
 export type InvoiceKind = (typeof INVOICE_KINDS)[number];
 
-/** Issued invoices are open; paid, past due and void arrive with payments. */
-export const INVOICE_STATUSES = ['open'] as const;
+/**
+ * An issued invoice is `open` until it is paid; `past_due` once a charge for
+ * it has failed or there was no card to charge; `void` when it no longer
+ * stands, keeping its number (BIL29).
+ */
+export const INVOICE_STATUSES = ['open', 'paid', 'past_due', 'void'] as const;
 export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
+
+/**
+ * A payment's life (BIL28): `pending` from before the processor is asked
+ * until it answers, then `succeeded` or `failed`. A succeeded payment whose
+ * invoice can't stand is `refunding`, then `refunded` once the processor
+ * accepts the refund.
+ */
+export const PAYMENT_STATUSES = ['pending', 'succeeded', 'failed', 'refunding', 'refunded'] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
@@ -151,4 +164,5 @@ export const CHECKED_VALUES = [
   { table: 'operational.invoices', column: 'status', values: INVOICE_STATUSES },
   { table: 'operational.invoice_lines', column: 'fee_kind', values: FEE_KINDS },
   { table: 'operational.invoice_lines', column: 'gst_treatment', values: GST_TREATMENTS },
+  { table: 'operational.payments', column: 'status', values: PAYMENT_STATUSES },
 ] as const;
