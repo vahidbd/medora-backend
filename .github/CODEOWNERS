@@ -1,0 +1,22 @@
+# The product owner reviews changes to clinical rules, money, permissions,
+# tenancy, data zones, AI autonomy, migrations, security and delivery (ADR 0015).
+# Branch protection requires a code owner's review.
+
+/src/db/                       @vahidbd
+/src/lib/permissions.ts        @vahidbd
+/src/lib/audit.ts              @vahidbd
+/src/lib/events.ts             @vahidbd
+/src/lib/client-ip.ts          @vahidbd
+/src/lib/rate-limit.ts         @vahidbd
+/src/lib/redact.ts             @vahidbd
+/src/lib/error-tracking.ts     @vahidbd
+/src/plugins/                  @vahidbd
+/src/config/                   @vahidbd
+/docs/adr/                     @vahidbd
+/docs/launch-checklist.md      @vahidbd
+/docs/providers.md             @vahidbd
+/AGENTS.md                     @vahidbd
+/.github/                      @vahidbd
+/scripts/blocked-names.json    @vahidbd
+/.dependency-cruiser.cjs       @vahidbd
+/eslint.config.js              @vahidbd

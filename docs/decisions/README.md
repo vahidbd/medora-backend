@@ -1,0 +1,29 @@
+# Feature rulings
+
+Why one feature or screen works the way it does. System-level choices are in `docs/adr/` instead.
+
+## How it works
+
+- One file per feature: `docs/decisions/<feature>.md`, in the repo that needs it. A file both repos need has the same name in both.
+- Each ruling has a short id with the file's own prefix (below), so ids never collide: `INT3`, `RX12`.
+- A ruling is written in the same pull request as the code it explains, and the code cites it: `// docs/decisions/intake.md INT3: answers are saved per step, so a dropped connection loses one step at most`.
+- A ruling is never rewritten. A new one says which it replaces.
+- Comments and rulings say why. Who asked and when go in the commit message.
+
+## A ruling
+
+```markdown
+### INT3. Answers are saved per step
+
+Decision: …
+Why: …
+Replaces: INT1 (optional)
+```
+
+## Prefixes
+
+| Prefix | File | Feature |
+| --- | --- | --- |
+| FND | `foundation.md` | The platform foundation: tenancy, sign-in, audit, health checks |
+
+Add a row when you add a file. A prefix is two to four capital letters and is never reused.
