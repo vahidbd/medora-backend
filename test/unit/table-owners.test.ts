@@ -24,6 +24,7 @@ const OWNERS: Record<string, string[]> = {
   'operational.payment_accounts': ['src/modules/payments/'],
   'operational.prices': ['src/modules/billing/'],
   'operational.price_fees': ['src/modules/billing/'],
+  'operational.subscriptions': ['src/modules/billing/'],
   'platform.rate_limit_counters': ['src/lib/rate-limit.ts'],
 };
 

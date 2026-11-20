@@ -90,6 +90,18 @@ export type IntervalUnit = (typeof INTERVAL_UNITS)[number];
 export const GST_TREATMENTS = ['taxable', 'gst_free'] as const;
 export type GstTreatment = (typeof GST_TREATMENTS)[number];
 
+/**
+ * A subscription's life (docs/decisions/billing.md BIL19): `pending` from
+ * checkout until its first billing period is released, then `active`,
+ * `paused` between periods, and `cancelled` once it has ended.
+ */
+export const SUBSCRIPTION_STATUSES = ['pending', 'active', 'paused', 'cancelled'] as const;
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+
+/** Why a subscription ended (BIL21). Codes only: a note could carry patient details. */
+export const CANCEL_REASONS = ['patient_request', 'clinician_declined', 'staff_decision', 'other'] as const;
+export type CancelReason = (typeof CANCEL_REASONS)[number];
+
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
   { table: 'platform.memberships', column: 'role', values: ROLES },
@@ -109,4 +121,6 @@ export const CHECKED_VALUES = [
   { table: 'operational.price_fees', column: 'billing_model', values: BILLING_MODELS },
   { table: 'operational.price_fees', column: 'fee_kind', values: FEE_KINDS },
   { table: 'operational.price_fees', column: 'gst_treatment', values: GST_TREATMENTS },
+  { table: 'operational.subscriptions', column: 'status', values: SUBSCRIPTION_STATUSES },
+  { table: 'operational.subscriptions', column: 'cancel_reason', values: CANCEL_REASONS },
 ] as const;

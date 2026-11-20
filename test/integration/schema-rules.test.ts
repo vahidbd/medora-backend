@@ -77,16 +77,14 @@ describe('tenancy in the catalogue (ADR 0006)', () => {
 
 describe('allowed values (ADR 0028)', () => {
   it.each(CHECKED_VALUES)('$table.$column matches values.ts', async ({ table, column, values }) => {
-    const defs = await rows<{ def: string }>(
-      `select pg_get_constraintdef(oid) as def from pg_constraint where conrelid = $1::regclass and contype = 'c'`,
-      [table],
-    );
-    // Postgres keeps a one-value list as `column = 'value'`, and a longer one as `= ANY (ARRAY[...])`.
-    const def = defs
-      .map((d) => d.def)
-      .find((d) => (new RegExp(`\\b${column}\\b`).test(d) && d.includes('ARRAY[')) || new RegExp(`^CHECK \\(\\(${column} = '[^']+'::text\\)\\)$`).test(d));
-    expect(def, `a CHECK on ${column}`).toBeDefined();
-    const inDatabase = [...(def ?? '').matchAll(/'([^']+)'::text/g)].map((m) => m[1]);
+    // Each list has its own constraint, <table>_<column>_check, so a lifecycle check naming the same column can't stand in for it.
+    const name = `${table.split('.')[1]}_${column}_check`;
+    const [found] = await rows<{ def: string }>(`select pg_get_constraintdef(oid) as def from pg_constraint where conrelid = $1::regclass and conname = $2 and contype = 'c'`, [
+      table,
+      name,
+    ]);
+    expect(found, `a CHECK named ${name}`).toBeDefined();
+    const inDatabase = [...(found?.def ?? '').matchAll(/'([^']+)'::text/g)].map((m) => m[1]);
     expect(inDatabase.sort()).toEqual([...values].sort());
   });
 });
@@ -120,6 +118,7 @@ const FOREIGN_KEYS_OWED: { column: string; references: string }[] = [
   { column: 'operational.payment_accounts.company_id', references: 'platform.companies' },
   { column: 'operational.prices.program_id', references: 'operational.programs' },
   { column: 'operational.price_fees.product_id', references: 'operational.products' },
+  { column: 'operational.subscriptions.patient_id', references: 'clinical.patients' },
 ];
 
 describe('foreign keys owed (ADR 0028)', () => {
