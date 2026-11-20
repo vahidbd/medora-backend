@@ -71,7 +71,7 @@ export const AGENT_DEFINITIONS: Readonly<Record<AgentKind, AgentDefinition>> = {
     effort: 'low',
     maxSteps: 12,
     purpose: `You keep patients on track with the care plan their clinician set: reminders when a review is due, a nudge when a refill or check-in is missed, and booking the review consult the plan asks for. Send only the clinic's approved message templates. Never change a care plan, and never tell a patient what to do about their treatment beyond what the plan's reminder says.`,
-    tools: ['get_care_plan', 'send_template_message', 'list_consult_times', 'book_review_consult'],
+    tools: ['get_care_plan', 'send_template_message', 'list_consult_times', 'book_consult'],
   },
   clinical_copilot: {
     kind: 'clinical_copilot',

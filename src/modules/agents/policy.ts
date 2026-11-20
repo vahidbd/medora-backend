@@ -43,12 +43,14 @@ export const TOOL_POLICY: Readonly<Record<string, ToolPolicy>> = {
   request_refund: line('billing', { ...patient, autoLimit: { field: 'amountCents', setting: 'refundCapCents' } }),
   get_intake_progress: line('intake and protocol engine', patient),
   list_consult_times: line('EMR and consults'),
-  /** A patient booking their own first consult may be raised to auto (AGT7). */
+  /** The patient's own consult, first (intake) or review (care coordinator), may be raised to auto (AGT7). */
   book_consult: line('EMR and consults', { ...patient, ceiling: 'auto' }),
+  /** Always on a card, and no agent has them at launch (AGT7). */
+  reschedule_consult: line('EMR and consults', patient),
+  cancel_consult: line('EMR and consults', patient),
   get_care_plan: line('EMR and consults', patient),
   /** An approved template, to the conversation's patient (AGT7). */
   send_template_message: line('support and CRM', { ...patient, ceiling: 'auto' }),
-  book_review_consult: line('EMR and consults', { ...patient, ceiling: 'auto' }),
   get_intake_answers: line('intake and protocol engine', { pins: { intakeId: 'subjectId' } }),
   get_protocol_checklist: line('intake and protocol engine', { pins: { intakeId: 'subjectId' } }),
   save_intake_summary: line('intake and protocol engine', { pins: { intakeId: 'subjectId' } }),
@@ -62,6 +64,9 @@ export function catalogueProblems(catalogue: ReadonlyMap<string, AgentToolRoute>
     const line = policy[name];
     if (!line) problems.push(`agent tool ${name} has no line in TOOL_POLICY (src/modules/agents/policy.ts)`);
     else if (line.waitingOn) problems.push(`agent tool ${name} has a route now: remove its waitingOn`);
+    for (const field of Object.keys(line?.pins ?? {})) {
+      if (!(field in tool.inputSchema.properties)) problems.push(`agent tool ${name} pins ${field}, which its route doesn't take, so the pin would be dropped (AGT9)`);
+    }
     if (line?.autoLimit && tool.inputSchema.properties[line.autoLimit.field]?.['type'] !== 'integer') {
       problems.push(`agent tool ${name} is capped by ${line.autoLimit.field}, which its input must have as a whole number of cents`);
     }

@@ -73,6 +73,15 @@ describe('the policy (AGT7, AGT9)', () => {
     expect(catalogueProblems(new Map([[refund.name, refund]]))).toContain('agent tool request_refund is capped by amountCents, which its input must have as a whole number of cents');
   });
 
+  it("catches a pinned field the route doesn't take, which would otherwise leave the tool unpinned", () => {
+    const cancel = toolFromRoute(route('cancel_consult'))!;
+    expect(catalogueProblems(new Map([[cancel.name, cancel]]))).toContain(
+      "agent tool cancel_consult pins patientId, which its route doesn't take, so the pin would be dropped (AGT9)",
+    );
+    const pinned = toolFromRoute(route('cancel_consult', { body: z.object({ patientId: z.uuid().optional(), reason: z.string() }) }))!;
+    expect(catalogueProblems(new Map([[pinned.name, pinned]])).filter((problem) => problem.includes('pins'))).toEqual([]);
+  });
+
   it('keeps pinned fields out of what the model sees', () => {
     const tool: AgentToolRoute = { ...toolFromRoute(route('book_consult'))!, inputSchema: { type: 'object', properties: { patientId: {}, startsAt: {} }, required: ['patientId', 'startsAt'] } };
     expect(modelInputSchema(tool)).toEqual({ type: 'object', properties: { startsAt: {} }, required: ['startsAt'] });
