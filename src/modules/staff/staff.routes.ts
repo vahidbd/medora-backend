@@ -41,6 +41,7 @@ export const staffRoutes: FastifyPluginAsyncZod = async (app) => {
         email: auth.email,
         displayName: auth.displayName,
         secondFactor: auth.secondFactor,
+        platformStaff: auth.platformStaff,
         memberships: auth.memberships.map((membership) => {
           const grant = grantOf(membership);
           const until = membership.breakGlassUntil && membership.breakGlassUntil.getTime() > now ? membership.breakGlassUntil : null;

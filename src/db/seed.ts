@@ -3,7 +3,7 @@ import { env } from '../config/env.js';
 
 /**
  * Made-up data for local development: one tenant with an owner and a
- * clinician, and two made-up patients. Development only, as the owner role. Never real people, and
+ * clinician, a platform staff member with no tenant (docs/decisions/admin.md ADM15), and two made-up patients. Development only, as the owner role. Never real people, and
  * never a copy of production, not even de-identified.
  */
 if (env.MEDORA_ENV !== 'development') throw new Error('The seed is for local development only');
@@ -42,8 +42,14 @@ try {
       `patient-${n}@example.test`,
     ]);
   }
+  await client.query(
+    `insert into platform.users (email, platform_staff) values ('platform@example.test', true)
+     on conflict ((lower(email))) do update set platform_staff = true`,
+  );
   await client.query('commit');
-  process.stdout.write(`Seeded tenant ${tenantId} with owner@example.test and clinician@example.test.\nMake a token: npm run dev:token -- owner@example.test\n`);
+  process.stdout.write(
+    `Seeded tenant ${tenantId} with owner@example.test and clinician@example.test, and platform@example.test as platform staff.\nMake a token: npm run dev:token -- owner@example.test\n`,
+  );
 } catch (error) {
   await client.query('rollback');
   throw error;

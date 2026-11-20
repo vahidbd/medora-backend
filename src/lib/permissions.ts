@@ -22,6 +22,8 @@ export const PERMISSIONS = [
   'patients:manage',
   // Publish the tenant's consent documents (IDN14).
   'consents:manage',
+  'tenant:manage',
+  'brands:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -39,6 +41,8 @@ export const PERMISSION_ZONES: Record<Permission, DataZone> = {
   'patients:read': 'operational',
   'patients:manage': 'operational',
   'consents:manage': 'platform',
+  'tenant:manage': 'platform',
+  'brands:manage': 'platform',
 };
 
 const ALL: readonly Permission[] = PERMISSIONS;
@@ -46,7 +50,7 @@ const ALL: readonly Permission[] = PERMISSIONS;
 /** The starting roles' permissions (ADM2). Tenants can't edit these; they copy one into a custom role instead. */
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   owner: ALL,
-  admin: ['staff:read', 'staff:manage', 'roles:manage', 'patients:read', 'patients:manage', 'consents:manage'],
+  admin: ['staff:read', 'staff:manage', 'roles:manage', 'tenant:manage', 'brands:manage', 'patients:read', 'patients:manage', 'consents:manage'],
   medical_director: ['staff:read', 'break_glass:review', 'patients:read'],
   prescriber: ['staff:read', 'patients:read'],
   clinician: ['staff:read', 'patients:read'],

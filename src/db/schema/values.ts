@@ -122,6 +122,28 @@ export type MessageKind = (typeof MESSAGE_KINDS)[number];
 export const MESSAGE_STATUSES = ['queued', 'sending', 'sent', 'delivered', 'failed', 'received', 'logged'] as const;
 export type MessageStatus = (typeof MESSAGE_STATUSES)[number];
 
+/** A brand's state: `draft` until it goes live; `paused` stops new sign-ups only (docs/decisions/admin.md ADM16). */
+export const BRAND_STATUSES = ['draft', 'live', 'paused'] as const;
+export type BrandStatus = (typeof BRAND_STATUSES)[number];
+
+/** The time zones a tenant can work in (ADR 0017): Australia's, by their IANA names. */
+export const TIME_ZONES = [
+  'Australia/Sydney',
+  'Australia/Melbourne',
+  'Australia/Brisbane',
+  'Australia/Adelaide',
+  'Australia/Darwin',
+  'Australia/Perth',
+  'Australia/Hobart',
+  'Australia/Lord_Howe',
+  'Australia/Eucla',
+  'Australia/Broken_Hill',
+  'Indian/Christmas',
+  'Indian/Cocos',
+  'Antarctica/Macquarie',
+] as const;
+export type TimeZone = (typeof TIME_ZONES)[number];
+
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
   { table: 'platform.memberships', column: 'role', values: MEMBERSHIP_ROLES },
@@ -146,4 +168,7 @@ export const CHECKED_VALUES = [
   { table: 'clinical.messages', column: 'kind', values: MESSAGE_KINDS },
   { table: 'clinical.messages', column: 'status', values: MESSAGE_STATUSES },
   { table: 'clinical.messages', column: 'author_type', values: ACTOR_TYPES },
+  { table: 'platform.tenants', column: 'time_zone', values: TIME_ZONES },
+  { table: 'platform.companies', column: 'state', values: AU_STATES },
+  { table: 'platform.brands', column: 'status', values: BRAND_STATUSES },
 ] as const;
