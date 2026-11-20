@@ -74,6 +74,22 @@ export type Processor = (typeof PROCESSORS)[number];
 export const PAYMENT_ACCOUNT_STATUSES = ['setting_up', 'active', 'closed'] as const;
 export type PaymentAccountStatus = (typeof PAYMENT_ACCOUNT_STATUSES)[number];
 
+/** Who charges the patient for the medicine (ADR 0021). Pharmacy-billed prices have no medicine fees. */
+export const BILLING_MODELS = ['bundled', 'pharmacy_billed'] as const;
+export type BillingModel = (typeof BILLING_MODELS)[number];
+
+/** A price is edited as a draft, then live until it is retired; a live price never changes (BIL14). */
+export const PRICE_STATUSES = ['draft', 'live', 'retired'] as const;
+export type PriceStatus = (typeof PRICE_STATUSES)[number];
+
+/** How often a price charges: every 1 to 52 weeks, or every 1 to 12 months (BIL15). */
+export const INTERVAL_UNITS = ['week', 'month'] as const;
+export type IntervalUnit = (typeof INTERVAL_UNITS)[number];
+
+/** GST on a fee (ruling BIL7): prices include it, and a GST-free fee has none. */
+export const GST_TREATMENTS = ['taxable', 'gst_free'] as const;
+export type GstTreatment = (typeof GST_TREATMENTS)[number];
+
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
   { table: 'platform.memberships', column: 'role', values: ROLES },
@@ -87,4 +103,10 @@ export const CHECKED_VALUES = [
   { table: 'operational.ledger_lines', column: 'fee_kind', values: FEE_KINDS },
   { table: 'operational.payment_accounts', column: 'processor', values: PROCESSORS },
   { table: 'operational.payment_accounts', column: 'status', values: PAYMENT_ACCOUNT_STATUSES },
+  { table: 'operational.prices', column: 'billing_model', values: BILLING_MODELS },
+  { table: 'operational.prices', column: 'status', values: PRICE_STATUSES },
+  { table: 'operational.prices', column: 'interval_unit', values: INTERVAL_UNITS },
+  { table: 'operational.price_fees', column: 'billing_model', values: BILLING_MODELS },
+  { table: 'operational.price_fees', column: 'fee_kind', values: FEE_KINDS },
+  { table: 'operational.price_fees', column: 'gst_treatment', values: GST_TREATMENTS },
 ] as const;

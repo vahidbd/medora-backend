@@ -118,6 +118,8 @@ const FOREIGN_KEYS_OWED: { column: string; references: string }[] = [
   { column: 'operational.ledger_accounts.patient_id', references: 'clinical.patients' },
   { column: 'operational.ledger_accounts.partner_pharmacy_id', references: 'operational.partner_pharmacies' },
   { column: 'operational.payment_accounts.company_id', references: 'platform.companies' },
+  { column: 'operational.prices.program_id', references: 'operational.programs' },
+  { column: 'operational.price_fees.product_id', references: 'operational.products' },
 ];
 
 describe('foreign keys owed (ADR 0028)', () => {
