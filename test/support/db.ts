@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
-import type { MembershipStatus, Role } from '../../src/db/schema/values.js';
+import type { MembershipRole, MembershipStatus, Role } from '../../src/db/schema/values.js';
 
 /**
  * Fixtures, written as the superuser so they can set up any tenant. Made-up
@@ -24,10 +24,27 @@ export async function createUser(email = `${randomUUID()}@example.test`): Promis
   return { id: rows[0]!.id, email };
 }
 
-export async function addMember(tenantId: string, userId: string, role: Role, status: MembershipStatus = 'active'): Promise<string> {
+export async function addMember(
+  tenantId: string,
+  userId: string,
+  role: MembershipRole,
+  status: MembershipStatus = 'active',
+  customRoleId: string | null = null,
+): Promise<string> {
   const { rows } = await admin.query<{ id: string }>(
-    'insert into platform.memberships (tenant_id, user_id, role, status) values ($1, $2, $3, $4) returning id',
-    [tenantId, userId, role, status],
+    `insert into platform.memberships (tenant_id, user_id, role, status, custom_role_id, invited_at)
+     values ($1, $2, $3, $4, $5, case when $4 = 'invited' then now() end) returning id`,
+    [tenantId, userId, role, status, customRoleId],
+  );
+  return rows[0]!.id;
+}
+
+/** A custom role in a tenant (docs/decisions/admin.md ADM1). */
+export async function createCustomRole(tenantId: string, permissions: string[], basedOn: Role = 'support', name = `Role ${randomUUID().slice(0, 8)}`): Promise<string> {
+  const { rows } = await admin.query<{ id: string }>(
+    `insert into platform.roles (tenant_id, name, permissions, based_on, clinical)
+     values ($1, $2, $3, $4, $4 in ('prescriber', 'clinician', 'medical_director')) returning id`,
+    [tenantId, name, permissions, basedOn],
   );
   return rows[0]!.id;
 }

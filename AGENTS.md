@@ -105,7 +105,7 @@ src/
 │   ├── health.ts          # readiness ping and the boot check on the database role
 │   ├── schema/            # Drizzle tables, and values.ts (allowed values)
 │   └── migrations/        # SQL migrations and the drizzle journal
-├── lib/                   # feature-free helpers: errors, audit, events, permissions, rate limit, client ip, redaction, time
+├── lib/                   # feature-free helpers: errors, audit, events, field encryption, permissions, rate limit, client ip, redaction, time
 ├── plugins/               # auth, client ip, error handler, request log, route rules, security headers
 └── modules/
     ├── index.ts           # registers every module under /v1

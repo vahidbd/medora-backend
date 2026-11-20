@@ -27,7 +27,7 @@ describe('signing in', () => {
     const person = members[0]!;
     const reply = await app.inject({ method: 'GET', url: '/v1/me', headers: headers(await signIn(person.email, 'clerk_first')) });
     expect(reply.statusCode).toBe(200);
-    expect(reply.json()).toMatchObject({ userId: person.id, memberships: [{ tenantId, role: 'clinician', status: 'active', permissions: ['staff:read', 'clinicians:read'] }] });
+    expect(reply.json()).toMatchObject({ userId: person.id, memberships: [{ tenantId, role: 'clinician', status: 'active', permissions: ['staff:read', 'patients:read', 'clinicians:read'] }] });
     const { rows } = await admin.query('select clerk_user_id from platform.users where id = $1', [person.id]);
     expect(rows[0].clerk_user_id).toBe('clerk_first');
     const audit = await admin.query("select 1 from platform.audit_log where action = 'user.sign_in_linked' and record_id = $1", [person.id]);
@@ -91,7 +91,7 @@ describe('changing a role (FND6)', () => {
     expect(reply.statusCode).toBe(200);
     expect(reply.json()).toMatchObject({ membershipId: clinician.membershipId, role: 'support' });
     const audit = await admin.query('select actor_id, details from platform.audit_log where tenant_id = $1 and action = $2', [tenantId, 'membership.role_changed']);
-    expect(audit.rows).toEqual([{ actor_id: owner.id, details: { from: 'clinician', to: 'support' } }]);
+    expect(audit.rows).toEqual([{ actor_id: owner.id, details: { from: 'clinician', to: 'support', fromCustomRoleId: null, toCustomRoleId: null } }]);
     const events = await admin.query('select type from platform.outbox where tenant_id = $1', [tenantId]);
     expect(events.rows).toEqual([{ type: 'membership.role_changed' }]);
   });

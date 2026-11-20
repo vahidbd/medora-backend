@@ -2,13 +2,15 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { env } from '../config/env.js';
-import { findSignedInUser, type SignInMembership } from '../db/session.js';
+import { findSignedInUser, type SignInIdentity, type SignInMembership } from '../db/session.js';
 import type { TenantContext } from '../db/tenant.js';
-import type { Role } from '../db/schema/values.js';
+import type { MembershipRole } from '../db/schema/values.js';
 import { clerkJwksUrl, parseAuthorizedParties, resolveClerkIssuer } from '../lib/clerk.js';
+import { describeDevice } from '../lib/device.js';
 import { BadRequestError, ForbiddenError, TooManyRequestsError, UnauthorizedError } from '../lib/errors.js';
-import { permissionsOf, type Permission } from '../lib/permissions.js';
+import { heldPermissions, isClinicalRole, usablePermissions, type Permission, type RoleGrant } from '../lib/permissions.js';
 import { blockedFor, countAttempt, type Limit } from '../lib/rate-limit.js';
+import { authenticatePatient, isPatientToken } from './patient-auth.js';
 import type { Access } from './route-rules.js';
 
 /**
@@ -20,20 +22,32 @@ import type { Access } from './route-rules.js';
  * token, or with AUTH_MODE=dev one signed with DEV_JWT_SECRET), matched to a
  * Medora account (FND2), and the tenant named by the `x-medora-tenant`
  * header is checked against the person's memberships (FND1). A route that
- * needs a permission needs a tenant, and the person's role there must hold it.
+ * needs a permission needs a tenant, and the person's role there must hold it
+ * and be able to use it (clinical permissions need a clinical role or
+ * break-glass, ADM3), and the session must have verified a second factor
+ * (ADM6).
  */
 export const TENANT_HEADER = 'x-medora-tenant';
 
 export interface TenantAccess {
   tenantId: string;
   membershipId: string;
-  role: Role;
+  role: MembershipRole;
+  customRoleId: string | null;
+  /** What this request may use now. */
   permissions: ReadonlySet<Permission>;
+  /** Everything the role holds, usable or not: what granting is measured against (ADR 0030). */
+  held: ReadonlySet<Permission>;
+  clinicalRole: boolean;
+  breakGlassUntil: Date | null;
 }
 
 export interface Auth {
   userId: string;
   email: string;
+  displayName: string | null;
+  /** Whether this session verified a second factor (ADM6). */
+  secondFactor: boolean;
   memberships: SignInMembership[];
   /** The tenant this request acts in, when it named one. */
   tenant: TenantAccess | null;
@@ -50,16 +64,30 @@ export const FAILED_SIGN_IN_LIMIT: Limit = { name: 'failed-sign-in', max: 30, wi
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-interface Identity {
-  clerkUserId: string;
-  /** Only when the sign-in provider says it is verified. */
-  email: string | null;
+type Identity = SignInIdentity;
+
+/**
+ * Clerk's `fva` claim: minutes since the first and second factor were
+ * verified, -1 for one never verified in this session (ADM6).
+ */
+export function secondFactorVerified(fva: unknown): boolean {
+  return Array.isArray(fva) && typeof fva[1] === 'number' && fva[1] >= 0;
 }
+
+const sessionIdOf = (payload: Record<string, unknown>): string | null =>
+  typeof payload['sid'] === 'string' && payload['sid'] ? payload['sid'] : null;
 
 async function verifyDevToken(token: string): Promise<Identity> {
   const { payload } = await jwtVerify(token, new TextEncoder().encode(env.DEV_JWT_SECRET ?? ''), { algorithms: ['HS256'] });
+  // A patient token never opens a staff route (ADR 0035).
+  if (isPatientToken(payload)) throw new UnauthorizedError();
   if (typeof payload.sub !== 'string' || !payload.sub) throw new UnauthorizedError();
-  return { clerkUserId: payload.sub, email: typeof payload['email'] === 'string' ? payload['email'] : null };
+  return {
+    clerkUserId: payload.sub,
+    email: typeof payload['email'] === 'string' ? payload['email'] : null,
+    sessionId: sessionIdOf(payload),
+    secondFactor: secondFactorVerified(payload['fva']),
+  };
 }
 
 const jwksByIssuer = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
@@ -82,7 +110,7 @@ async function verifyClerkToken(token: string): Promise<Identity> {
   // Clerk's session token carries these only when the session token template
   // adds them (README, "Clerk"). An address not marked verified proves nothing.
   const email = payload['email_verified'] === true && typeof payload['email'] === 'string' ? payload['email'] : null;
-  return { clerkUserId: payload.sub, email };
+  return { clerkUserId: payload.sub, email, sessionId: sessionIdOf(payload), secondFactor: secondFactorVerified(payload['fva']) };
 }
 
 async function identify(request: FastifyRequest): Promise<Identity> {
@@ -105,28 +133,71 @@ function tenantAccess(request: FastifyRequest, memberships: SignInMembership[]):
   const tenantId = Array.isArray(raw) ? raw[0] : raw;
   if (!tenantId || !UUID.test(tenantId)) throw new BadRequestError(`${TENANT_HEADER} must be a tenant id`);
   const membership = memberships.find((m) => m.tenantId === tenantId.toLowerCase());
-  if (!membership || membership.status !== 'active') throw new ForbiddenError("You aren't a member of that tenant", 'not_a_member');
-  return { tenantId: membership.tenantId, membershipId: membership.membershipId, role: membership.role, permissions: permissionsOf(membership.role) };
+  if (!membership || !isUsable(membership)) throw new ForbiddenError("You aren't a member of that tenant", 'not_a_member');
+  const grant = grantOf(membership);
+  const breakGlassOpen = membership.breakGlassUntil !== null && membership.breakGlassUntil.getTime() > Date.now();
+  return {
+    tenantId: membership.tenantId,
+    membershipId: membership.membershipId,
+    role: membership.role,
+    customRoleId: membership.customRole?.id ?? null,
+    permissions: usablePermissions(grant, breakGlassOpen),
+    held: heldPermissions(grant),
+    clinicalRole: isClinicalRole(grant),
+    breakGlassUntil: breakGlassOpen ? membership.breakGlassUntil : null,
+  };
+}
+
+/** Active, and not past the end of time-limited access (ADM7). */
+export function isUsable(membership: Pick<SignInMembership, 'status' | 'expiresAt'>, now = Date.now()): boolean {
+  return membership.status === 'active' && (membership.expiresAt === null || membership.expiresAt.getTime() > now);
+}
+
+export function grantOf(membership: Pick<SignInMembership, 'role' | 'customRole'>): RoleGrant {
+  return { role: membership.role, customPermissions: membership.customRole?.permissions ?? null, customClinical: membership.customRole?.clinical ?? null };
 }
 
 export const authPlugin = fp(async (app: FastifyInstance) => {
   app.decorateRequest('auth', null);
+  app.decorateRequest('patient', null);
 
   app.addHook('onRequest', async (request) => {
     const access: Access | undefined = request.routeOptions.config?.access;
     if (access === undefined || access === 'public') return;
+    if (access === 'patient' || access === 'patient-sign-in') return authenticatePatient(request, access);
 
     const identity = await identify(request);
-    const user = await findSignedInUser(identity, request.id);
+    const user = await findSignedInUser(identity, {
+      requestId: request.id,
+      clientIp: request.clientIp,
+      device: describeDevice(request.headers['user-agent']),
+    });
     if (!user) {
       throw new UnauthorizedError("This sign-in has no Medora account. Ask an owner to invite you.", 'no_account');
     }
     const tenant = tenantAccess(request, user.memberships);
-    request.auth = { userId: user.userId, email: user.email, memberships: user.memberships, tenant };
+    request.auth = {
+      userId: user.userId,
+      email: user.email,
+      displayName: user.displayName,
+      secondFactor: identity.secondFactor,
+      memberships: user.memberships,
+      tenant,
+    };
 
     if (access === 'signed-in') return;
     if (!tenant) throw new BadRequestError(`Choose a tenant first (${TENANT_HEADER})`, 'tenant_required');
-    if (!tenant.permissions.has(access.permission)) throw new ForbiddenError();
+    // docs/decisions/admin.md ADM6: every staff role needs a second factor; there is no setting that turns it off.
+    if (!identity.secondFactor) {
+      throw new ForbiddenError('Set up two-step sign-in to carry on. Every staff account needs it.', 'two_step_required');
+    }
+    if (access === 'member') return;
+    if (!tenant.permissions.has(access.permission)) {
+      if (tenant.held.has(access.permission)) {
+        throw new ForbiddenError('This needs clinical access. Open break-glass first, with your reason.', 'break_glass_required');
+      }
+      throw new ForbiddenError();
+    }
   });
 });
 

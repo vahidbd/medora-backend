@@ -14,6 +14,9 @@ const OWNERS: Record<string, string[]> = {
   'platform.tenants': [],
   'platform.users': [],
   'platform.memberships': ['src/modules/staff/'],
+  'platform.roles': ['src/modules/staff/'],
+  'platform.break_glass': ['src/modules/staff/'],
+  'platform.sign_ins': ['src/db/session.ts'],
   'platform.audit_log': ['src/lib/audit.ts'],
   'platform.outbox': ['src/lib/events.ts'],
   'platform.rate_limit_counters': ['src/lib/rate-limit.ts'],
@@ -22,6 +25,13 @@ const OWNERS: Record<string, string[]> = {
   'operational.clinician_credentials': ['src/modules/clinicians/'],
   'operational.clinician_hours': ['src/modules/clinicians/'],
   'operational.clinician_time_off': ['src/modules/clinicians/'],
+  'platform.tenant_keys': ['src/lib/field-crypto.ts'],
+  'clinical.patients': ['src/modules/patients/'],
+  'clinical.patient_contacts': ['src/modules/patients/'],
+  'clinical.patient_addresses': ['src/modules/patients/'],
+  'clinical.patient_sign_ins': ['src/modules/patients/'],
+  'clinical.consent_documents': ['src/modules/patients/'],
+  'clinical.patient_consents': ['src/modules/patients/'],
 };
 
 /** Made-up local data only (src/db/seed.ts refuses anything but development). */
