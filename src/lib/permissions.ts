@@ -29,6 +29,8 @@ export const PERMISSIONS = [
   'support:read',
   'support:reply',
   'support:clinical',
+  // Write and approve macros (SUP10).
+  'support:manage',
   // A brand's email addresses and numbers (docs/decisions/messaging.md CRM5).
   'messaging:manage',
 ] as const;
@@ -55,6 +57,7 @@ export const PERMISSION_ZONES: Record<Permission, DataZone> = {
   'support:read': 'operational',
   'support:reply': 'operational',
   'support:clinical': 'clinical',
+  'support:manage': 'operational',
   'messaging:manage': 'operational',
 };
 
@@ -75,6 +78,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'consents:manage',
     'support:read',
     'support:reply',
+    'support:manage',
     'messaging:manage',
   ],
   medical_director: ['staff:read', 'break_glass:review', 'patients:read', 'support:read', 'support:reply', 'support:clinical'],
@@ -98,8 +102,9 @@ export const AGENT_FORBIDDEN_PERMISSIONS: ReadonlySet<Permission> = new Set<Perm
   'staff:manage',
   'roles:manage',
   'break_glass:review',
-  // Agents never work the clinical queue (SUP12) or change where a brand sends from (CRM5).
+  // Agents never work the clinical queue or edit macros (SUP12), or change where a brand sends from (CRM5).
   'support:clinical',
+  'support:manage',
   'messaging:manage',
 ]);
 

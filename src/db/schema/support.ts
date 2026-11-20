@@ -4,7 +4,7 @@ import { brands } from './brands.js';
 import { oneOf } from './checks.js';
 import { patients } from './clinical-patients.js';
 import { memberships, tenants, users } from './platform.js';
-import { ACTOR_TYPES, CHANNELS, TICKET_FLAGS, TICKET_PRIORITIES, TICKET_QUEUES, TICKET_STATUSES, TICKET_TOPICS, VERIFICATION_METHODS } from './values.js';
+import { ACTOR_TYPES, CHANNELS, MACRO_STATUSES, TICKET_FLAGS, TICKET_PRIORITIES, TICKET_QUEUES, TICKET_STATUSES, TICKET_TOPICS, VERIFICATION_METHODS } from './values.js';
 import { clinical, operational } from './zones.js';
 
 /**
@@ -147,5 +147,41 @@ export const ticketComments = clinical.table(
     }),
     index('ticket_comments_ticket_idx').on(table.tenantId, table.ticketId, table.createdAt),
     index('ticket_comments_author_idx').on(table.authorUserId),
+  ],
+);
+
+/** A saved reply with approved wording (SUP-04, SUP10). Only an approved macro can be used in a reply. */
+export const macros = operational.table(
+  'macros',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    name: text('name').notNull(),
+    body: text('body').notNull(),
+    status: text('status').notNull().default('draft'),
+    createdByUserId: uuid('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    updatedByUserId: uuid('updated_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    approvedByUserId: uuid('approved_by_user_id').references(() => users.id),
+    approvedAt: timestamp('approved_at', { withTimezone: true }),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('macros_tenant_name_key')
+      .on(table.tenantId, sql`lower(${table.name})`)
+      .where(sql`${table.archivedAt} is null`),
+    index('macros_tenant_idx').on(table.tenantId, table.status),
+    index('macros_created_by_idx').on(table.createdByUserId),
+    index('macros_updated_by_idx').on(table.updatedByUserId),
+    index('macros_approved_by_idx').on(table.approvedByUserId),
+    check('macros_status_check', oneOf(table.status, MACRO_STATUSES)),
+    check('macros_approved_check', sql`(${table.status} = 'approved') = (${table.approvedByUserId} is not null and ${table.approvedAt} is not null)`),
   ],
 );

@@ -1,8 +1,9 @@
-import { ticketComments } from '../../db/schema/index.js';
+import { and, eq, isNull } from 'drizzle-orm';
+import { macros, ticketComments } from '../../db/schema/index.js';
 import type { TicketQueue, TicketPriority, TicketStatus } from '../../db/schema/values.js';
 import type { TenantTx } from '../../db/tenant.js';
 import { audit } from '../../lib/audit.js';
-import { BusinessRuleError, ForbiddenError } from '../../lib/errors.js';
+import { BusinessRuleError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import { emitEvent } from '../../lib/events.js';
 import { messagesOfTickets, queueMessage, recordMessage, senderAddress, type MessageRow } from '../messaging/index.js';
 import { assertCanReadText, assertCanReply, type Viewer } from './access.js';
@@ -20,12 +21,23 @@ import { triage } from './triage.js';
 
 export interface ReplyInput {
   body: string;
+  /** The approved macro the reply started from (SUP10). */
+  macroId?: string | undefined;
   /** What the ticket becomes once the reply is sent; waiting by default. */
   status?: Extract<TicketStatus, 'waiting' | 'solved'> | undefined;
 }
 
 function authorTypeOf(viewer: Viewer): 'person' | 'agent' | 'system' {
   return viewer.actor.type === 'person' ? 'person' : viewer.actor.type === 'agent' ? 'agent' : 'system';
+}
+
+async function assertApprovedMacro(tx: TenantTx, macroId: string): Promise<void> {
+  const [row] = await tx.db
+    .select({ status: macros.status })
+    .from(macros)
+    .where(and(eq(macros.tenantId, tx.context.tenantId), eq(macros.id, macroId), isNull(macros.archivedAt)));
+  if (!row) throw new NotFoundError('Macro');
+  if (row.status !== 'approved') throw new BusinessRuleError('Only an approved macro can be used in a reply', 'macro_not_approved');
 }
 
 function replySubject(subject: string | null): string {
@@ -37,12 +49,14 @@ function replySubject(subject: string | null): string {
 async function sendReply(tx: TenantTx, ticket: TicketRow, history: MessageRow[], input: ReplyInput, automated: boolean): Promise<MessageRow> {
   const route = replyRouteOf(history);
   if (!route) throw new BusinessRuleError('Nobody has written in on a channel we can reply on', 'no_reply_channel');
+  const templateKey = input.macroId ? `macro:${input.macroId}` : null;
   const common = {
     ticketId: ticket.id,
     patientId: ticket.patientId,
     brandId: ticket.brandId,
     kind: 'support' as const,
     body: input.body,
+    templateKey,
     automated,
   };
   if (route.channel === 'chat')
@@ -69,6 +83,7 @@ export async function replyToTicket(tx: TenantTx, viewer: Viewer, ticketId: stri
   let ticket = await loadTicket(tx, ticketId, { lock: true });
   const flags = (await openFlags(tx, [ticket.id])).get(ticket.id) ?? [];
   assertCanReply(viewer, { queue: ticket.queue as TicketQueue, flags });
+  if (input.macroId) await assertApprovedMacro(tx, input.macroId);
   // Every message an agent sends is labelled automated (SUP12).
   const automated = viewer.actor.type === 'agent';
   const history = await messagesOfTickets(tx, [ticket.id]);
