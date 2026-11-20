@@ -1,6 +1,6 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { messages } from '../../db/schema/index.js';
-import type { MessageKind, SenderChannel } from '../../db/schema/values.js';
+import type { Channel, MessageDirection, MessageKind, MessageStatus, SenderChannel } from '../../db/schema/values.js';
 import type { TenantTx } from '../../db/tenant.js';
 import { audit } from '../../lib/audit.js';
 import { BusinessRuleError } from '../../lib/errors.js';
@@ -8,9 +8,10 @@ import { emitEvent } from '../../lib/events.js';
 import { emailIsOn } from './email.js';
 
 /**
- * The one way an email or SMS is written (ADR 0027, docs/decisions/messaging.md
- * CRM1). It is queued here and sent after commit by the delivery handler
- * (CRM2). Text is never edited afterwards (CRM4, ADR 0028).
+ * The one way a message is written (ADR 0027, docs/decisions/messaging.md
+ * CRM1). Outbound email and SMS are queued here and sent after commit by the
+ * delivery handler (CRM2); inbound messages, chat lines and logged calls are
+ * recorded as they are. Text is never edited afterwards (CRM4, ADR 0028).
  */
 
 export type MessageRow = typeof messages.$inferSelect;
@@ -34,10 +35,8 @@ export interface QueueInput {
   to: string;
   subject?: string | null;
   body: string;
-  /** The helpdesk ticket it belongs to, if any. */
   ticketId?: string | null;
   patientId?: string | null;
-  /** The brand it is sent as. */
   brandId?: string | null;
   templateKey?: string | null;
   automated?: boolean;
@@ -98,4 +97,85 @@ export async function queueMessage(tx: TenantTx, input: QueueInput): Promise<{ m
     payload: { ...facts, patientId: message.patientId },
   });
   return { message, created: true };
+}
+
+export interface RecordInput {
+  direction: MessageDirection;
+  channel: Channel;
+  kind: MessageKind;
+  status: Extract<MessageStatus, 'received' | 'logged' | 'sent'>;
+  from?: string | null;
+  to?: string | null;
+  subject?: string | null;
+  body: string;
+  ticketId?: string | null;
+  patientId?: string | null;
+  brandId?: string | null;
+  templateKey?: string | null;
+  automated?: boolean;
+  attachmentCount?: number;
+  providerMessageId?: string | null;
+}
+
+/**
+ * Record a message that needs no sending: one that came in, a chat line the
+ * patient app shows, or a call a person wrote up.
+ */
+export async function recordMessage(tx: TenantTx, input: RecordInput): Promise<MessageRow> {
+  const [message] = await tx.db
+    .insert(messages)
+    .values({
+      tenantId: tx.context.tenantId,
+      ticketId: input.ticketId ?? null,
+      patientId: input.patientId ?? null,
+      brandId: input.brandId ?? null,
+      direction: input.direction,
+      channel: input.channel,
+      kind: input.kind,
+      status: input.status,
+      fromAddress: input.from ?? null,
+      toAddress: input.to ?? null,
+      subject: input.subject ?? null,
+      body: input.body,
+      templateKey: input.templateKey ?? null,
+      automated: input.automated ?? false,
+      ...authorOf(tx),
+      attachmentCount: input.attachmentCount ?? 0,
+      providerMessageId: input.providerMessageId ?? null,
+      sentAt: input.status === 'sent' ? sql`now()` : null,
+    })
+    .returning();
+  if (!message) throw new Error('message insert returned nothing');
+  const action = input.direction === 'inbound' ? 'message.received' : 'message.recorded';
+  await audit(tx, {
+    action,
+    zone: 'clinical',
+    recordTable: RECORD,
+    recordId: message.id,
+    details: {
+      channel: input.channel,
+      ticketId: input.ticketId ?? null,
+      attachments: message.attachmentCount,
+    },
+  });
+  return message;
+}
+
+export async function findMessage(tx: TenantTx, messageId: string): Promise<MessageRow | null> {
+  const [row] = await tx.db
+    .select()
+    .from(messages)
+    .where(and(eq(messages.tenantId, tx.context.tenantId), eq(messages.id, messageId)));
+  return row ?? null;
+}
+
+/** Automated messages on a ticket with one template since a moment, e.g. the safety reply in the last hour (SUP4). */
+export async function countTemplateSince(tx: TenantTx, ticketId: string, templateKey: string, since: Date): Promise<number> {
+  const [row] = await tx.db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(messages)
+    .where(
+      and(eq(messages.tenantId, tx.context.tenantId), eq(messages.ticketId, ticketId), eq(messages.templateKey, templateKey), sql`${messages.createdAt} >= ${since.toISOString()}`),
+    );
+  return row?.n ?? 0;
 }

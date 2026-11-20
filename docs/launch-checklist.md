@@ -18,3 +18,4 @@ ADR 0033. Each line gets a date and a link to its evidence when it is done. The 
 | 12 | Staging has run the release for at least a week with deploy checks green | | |
 | 13 | Field encryption keys sealed by AWS KMS in Sydney, not an environment variable (ADR 0010, `docs/decisions/field-encryption.md` ENC3) | | |
 | 14 | An email provider that stores and processes email in Australia, with its ADR and data processing agreement (`docs/decisions/messaging.md` CRM3) | | |
+| 15 | The helpdesk's automatic safety reply confirmed word for word by the medical director and legal (`docs/decisions/support.md` SUP4) | | |

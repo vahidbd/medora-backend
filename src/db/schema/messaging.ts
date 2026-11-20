@@ -4,6 +4,7 @@ import { brands } from './brands.js';
 import { oneOf } from './checks.js';
 import { patients } from './clinical-patients.js';
 import { tenants, users } from './platform.js';
+import { tickets } from './support.js';
 import { ACTOR_TYPES, CHANNELS, MESSAGE_DIRECTIONS, MESSAGE_KINDS, MESSAGE_STATUSES, SENDER_CHANNELS, SENDER_PURPOSES } from './values.js';
 import { clinical, operational } from './zones.js';
 
@@ -24,7 +25,7 @@ export const messages = clinical.table(
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenants.id),
-    /** The helpdesk ticket it belongs to; the helpdesk adds the foreign key with its tickets table. */
+    /** The helpdesk ticket it belongs to, if any. */
     ticketId: uuid('ticket_id'),
     patientId: uuid('patient_id'),
     /** The brand it was sent as, or to. */
@@ -59,6 +60,11 @@ export const messages = clinical.table(
     failedAt: timestamp('failed_at', { withTimezone: true }),
   },
   (table) => [
+    foreignKey({
+      columns: [table.tenantId, table.ticketId],
+      foreignColumns: [tickets.tenantId, tickets.id],
+      name: 'messages_ticket_fk',
+    }),
     foreignKey({
       columns: [table.tenantId, table.brandId],
       foreignColumns: [brands.tenantId, brands.id],

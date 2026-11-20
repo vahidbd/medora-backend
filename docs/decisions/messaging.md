@@ -6,7 +6,7 @@ Rulings marked "Decided by: stand-in" were settled by the product owner's stand-
 
 ### CRM1. One rail for every email and SMS
 
-Decision: every email and SMS Medora sends is written by `queueMessage` in the messaging module, with its kind: `support` (a ticket reply) or `transactional` (a message the person needs because of something they did, such as an order update). Marketing gets its own kind when lifecycle messaging arrives. Inbound messages, chat lines and logged calls will be written by the same module, so the helpdesk and the patient app read one store. Transactional and support messages skip marketing consent, sending limits and quiet hours, so they carry no promotional content.
+Decision: every email and SMS Medora sends is written by `queueMessage` in the messaging module, with its kind: `support` (a ticket reply) or `transactional` (a message the person needs because of something they did, such as an order update). Marketing gets its own kind when lifecycle messaging arrives. Inbound messages, chat lines and logged calls are written by the same module, so the helpdesk and the patient app read one store. Transactional and support messages skip marketing consent, sending limits and quiet hours, so they carry no promotional content.
 Why: one place to send means one place for the provider, the region and the at-most-once rule (ADR 0027). A message with promotional content is marketing under the Spam Act whatever we call it.
 Decided by: stand-in, to confirm with Vahid.
 
