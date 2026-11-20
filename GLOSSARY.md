@@ -29,6 +29,7 @@ One word per thing (ADR 0032). Use these words in table names, API fields, route
 | A real-time video or phone appointment with a clinician | **Consult** | appointment (except when booking), session, call |
 | A prescription | **Script** | Rx, prescription (in code), order |
 | Writing a script (in Parchment) | **Prescribe** | order, issue |
+| A prescriber opening Parchment for a patient after a consult; scripts written in the next 24 hours link to it | **Prescribing session** | Parchment session, visit |
 | Preparing and handing over medicine against a script | **Dispense** | fulfil, fill |
 | What a patient buys: program fees, medicine, or both | **Order** | purchase, cart |
 | A parcel on its way to a patient | **Shipment** | delivery, consignment |

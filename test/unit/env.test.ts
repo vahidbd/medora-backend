@@ -24,6 +24,20 @@ const production: NodeJS.ProcessEnv = {
   TWILIO_API_KEY_SID: 'SKtest',
   TWILIO_API_KEY_SECRET: 'secret',
   TWILIO_AUTH_TOKEN: 'token',
+  PARCHMENT_MODE: 'live',
+  PARCHMENT_API_URL: 'https://api.parchment.example',
+  PARCHMENT_PORTAL_URL: 'https://portal.parchment.example/dashboard/patients',
+  PARCHMENT_PARTNER_ID: 'partner',
+  PARCHMENT_PARTNER_SECRET: 'partner-secret',
+};
+
+/** One tenant's Parchment organisation, made up. */
+const organization = {
+  tenantId: '00000000-0000-4000-8000-000000000001',
+  organizationId: 'org_1',
+  organizationSecret: 'org-secret-0123456789',
+  userId: 'user_1',
+  webhookSecret: 'webhook-secret-0123456789',
 };
 
 function refusal(source: NodeJS.ProcessEnv): string {
@@ -53,8 +67,15 @@ describe('production and staging refuse unsafe settings', () => {
     ["Twilio outside Australia", { TWILIO_REGION: 'us1' }, 'TWILIO_REGION must be au1'],
     ['callbacks over plain http', { PUBLIC_API_URL: 'http://api.example.com.au' }, 'PUBLIC_API_URL must be https'],
     ['Twilio without its signing token', { TWILIO_AUTH_TOKEN: undefined }, 'TWILIO_AUTH_TOKEN is required'],
+    ['fake Parchment', { PARCHMENT_MODE: 'fake' }, 'PARCHMENT_MODE must be live'],
+    ["Parchment's sandbox", { PARCHMENT_API_URL: 'https://api.sandbox.parchment.example' }, "Parchment's production addresses"],
+    ['live Parchment without the partner secret', { PARCHMENT_PARTNER_SECRET: undefined }, 'PARCHMENT_PARTNER_SECRET is required'],
   ])('refuses %s', (_name, change, message) => {
     expect(refusal({ ...production, ...change })).toContain(message);
+  });
+
+  it("lets staging use Parchment's sandbox", () => {
+    expect(loadEnv({ ...production, MEDORA_ENV: 'staging', PARCHMENT_API_URL: 'https://api.sandbox.parchment.example' }).MEDORA_ENV).toBe('staging');
   });
 
   it('lets staging use a Clerk development instance', () => {
@@ -86,5 +107,29 @@ describe('outside a deployed service', () => {
 
   it('needs a long development secret for dev sign-in', () => {
     expect(refusal({ ...development, DEV_JWT_SECRET: 'short' })).toContain('DEV_JWT_SECRET of at least 32 characters');
+  });
+});
+
+describe('PARCHMENT_ORGANIZATIONS', () => {
+  const development: NodeJS.ProcessEnv = {
+    MEDORA_ENV: 'development',
+    DATABASE_URL: 'postgres://medora_api:medora_api@127.0.0.1:5432/medora',
+    DEV_JWT_SECRET: 'x'.repeat(40),
+  };
+
+  it('takes a list of organisations, one per tenant', () => {
+    expect(loadEnv({ ...development, PARCHMENT_ORGANIZATIONS: JSON.stringify([organization]) }).PARCHMENT_ORGANIZATIONS).toContain('org_1');
+  });
+
+  it('refuses a tenant listed twice, and an entry missing its webhook secret', () => {
+    expect(refusal({ ...development, PARCHMENT_ORGANIZATIONS: JSON.stringify([organization, organization]) })).toContain('lists a tenant twice');
+    expect(refusal({ ...development, PARCHMENT_ORGANIZATIONS: JSON.stringify([{ ...organization, webhookSecret: undefined }]) })).toContain('webhookSecret');
+  });
+
+  it('never repeats a secret in its refusal', () => {
+    const message = refusal({ ...development, PARCHMENT_ORGANIZATIONS: JSON.stringify([{ ...organization, organizationSecret: 'too-short' }]) });
+    expect(message).toContain('organizationSecret');
+    expect(message).not.toContain('too-short');
+    expect(refusal({ ...development, PARCHMENT_ORGANIZATIONS: '{not json' })).toContain('not valid JSON');
   });
 });

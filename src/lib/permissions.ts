@@ -6,12 +6,13 @@ import { BusinessRuleError, ForbiddenError } from './errors.js';
  * (ADR 0030, docs/decisions/foundation.md FND3 and FND6). Roles are a
  * constant for now; a tenant editing its own roles is a later decision.
  */
-export const PERMISSIONS = ['staff:read', 'staff:manage'] as const;
+export const PERMISSIONS = ['staff:read', 'staff:manage', 'prescribing:open'] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
-  owner: ['staff:read', 'staff:manage'],
-  clinician: ['staff:read'],
+  owner: ['staff:read', 'staff:manage', 'prescribing:open'],
+  // docs/decisions/prescribing.md RX5: opening Parchment moves to the prescriber role when it exists.
+  clinician: ['staff:read', 'prescribing:open'],
   support: ['staff:read'],
   finance: ['staff:read'],
 };
