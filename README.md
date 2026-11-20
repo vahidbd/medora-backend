@@ -46,6 +46,8 @@ The start command applies pending migrations as the owner, then serves as the AP
   ```
 
   A first sign-in links to an invited account only through a verified email (docs/decisions/foundation.md, FND2).
+- In Clerk, under Multi-factor, switch on Authenticator application and Backup codes. Every staff request needs a verified second factor (Clerk's `fva` claim, which session tokens carry by default), and there is no setting that turns this off (docs/decisions/admin.md ADM6).
+- `CLERK_SECRET_KEY` (an `sk_live_` key in production) and `CONSOLE_URL` (the staff console's https origin): invitations are emailed through Clerk and land on `<CONSOLE_URL>/sign-up` (ADM5). Restrict sign-ups in Clerk so only invited people can make a sign-in.
 
 ### Everything else
 

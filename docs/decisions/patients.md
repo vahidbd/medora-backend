@@ -50,7 +50,7 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid
 
 ### IDN9. Staff see identity with `patients:read`, and every patient shown is audited
 
-Decision: `GET /v1/patients` and `GET /v1/patients/:patientId` need `patients:read`, held by owner, clinician and support; finance doesn't hold it. It shows identity and contact details, never intake answers or notes, which need their own permissions. A list writes one `patient.listed` entry per patient shown; opening a record writes `patient.read`. Searching by contact writes one `patient.searched` entry with the count only.
+Decision: `GET /v1/patients`, `GET /v1/patients/:patientId` and a patient's consents need `patients:read`; recording a consent for a patient needs `patients:manage`. `patients:read` is held by owner, tenant admin, medical director, prescriber, clinician and support, and `patients:manage` by owner, tenant admin and support; finance, operations, marketing and compliance hold neither. The tenant admin holds both because someone can give only a role whose permissions they all hold (ADM4), and the tenant admin invites support staff. They show identity and contact details (Medicare masked) and consent decisions, never intake answers or notes, which need their own clinical-zone permissions. A list writes one `patient.listed` entry per patient shown; opening a record writes `patient.read`. Searching by contact writes one `patient.searched` entry with the count only.
 Why: support needs to know who they are helping without seeing clinical content; a name in a list is still a read of that patient's record (ADR 0008).
 Decided by: stand-in (Fable 5.2), to confirm with Vahid
 
@@ -64,3 +64,51 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid
 
 Decision: contact details are rows in `clinical.patient_contacts`, one per kind for now: the email lowercased and the mobile as an Australian E.164 number (`+614…`). The contact the sign-in proved is stored with `verified_at`; one typed in has none. They are stored plain, so staff can find a patient by them.
 Why: ADR 0028 keeps repeated things in rows; exact, normalised values make "find by contact" reliable for inbound messages.
+
+### IDN12. Each consent is asked when it is needed, against an exact version
+
+Decision: a tenant publishes the text of each kind of consent as numbered versions (`clinical.consent_documents`): `privacy` (privacy and the collection of health information), `telehealth_terms`, `identity_check` and `pharmacy_sharing`. A patient's decision is a row against one exact version (`clinical.patient_consents`): the kind, given or withdrawn, when, and how (`web`, or `phone` and `in_person` when staff record it, with who and why). Each is asked where it is needed, not bundled: privacy at the start of an intake, telehealth terms when the account is created, identity check at the check, pharmacy sharing before the first order. Marketing consent is per brand and is the messaging module's (`recordMarketingConsent`), not a kind here.
+Why: a record of consent is only worth something if it says exactly which words the patient agreed to; consent asked at the moment it matters is consent the patient understood.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN13. A new version asks again, and blocks new care until it is given
+
+Decision: a kind is needed unless the patient's latest decision on it is "given" on the tenant's current version, so publishing a new version asks every patient again. A kind the tenant hasn't published is needed too, so care can't start until the tenant has published its privacy text and terms. Other modules call `assertConsents(tx, patientId, purpose)` from the front door before starting an intake or booking a consult (`care`: privacy and telehealth terms) and before an order (`order`: those plus pharmacy sharing); it refuses with 409 `consent_needed` and the kinds still needed. It never blocks the patient reading their own record, messaging or cancelling. A patient gives consent in the patient app; withdrawing a required consent goes through support in v1 (`POST /v1/patients/:patientId/consents`, with a reason), keeps the record, and emits `consent.withdrawn` so other modules can pause care. Only the current version can be given; a decision the same as the latest one adds no row.
+Why: an outstanding new version of a required consent must stop new care, but a patient must never be locked out of their own information or of stopping.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN14. Published consent text and consent decisions never change
+
+Decision: both tables are insert-only. The API's role has SELECT and INSERT only, and a trigger refuses any update, delete or truncate from every role, the owner role included. A correction to the text is a new version; a withdrawal is a new decision. A decision's kind is checked against its document's by the foreign key. Publishing needs `consents:manage` (owner and tenant admin); reading the documents needs `patients:read`. The consent text is plain text with blank lines between paragraphs, never drawn as HTML.
+Why: consent records are evidence; evidence that can be edited isn't evidence (ADR 0008).
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN15. A permission's zone is what it shows, not where its rows live
+
+Decision: `patients:read` and `patients:manage` are `operational`-zone permissions, although the rows they show are in the `clinical` schema: they show who the patient is, how to reach them and their consent decisions, which support, orders and billing need without break-glass. Every key that shows clinical content (intake answers, protocols' patient results, notes, scripts, care plans) is a separate key in the `clinical` zone, so it works only for a clinical role or under break-glass. `consents:manage` is `platform`: it publishes the tenant's own text and shows no patient.
+Why: the data zone of a permission decides who may use it without break-glass (admin rulings); marking identity clinical would put every support call behind break-glass, while the rows staying in the clinical schema still keeps marketing code from reaching them (ADR 0007, IDN10).
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN16. A patient checks one document online; three that don't match go to support
+
+Decision: the patient enters one document (driver licence, passport or Medicare card) and the check runs through an identity gateway behind an interface (`src/modules/patients/identity-gateway.ts`), after the patient has given the `identity_check` consent. The document must match the legal name and date of birth on the record. The document number goes to the gateway only and is never stored or returned; the check keeps the document type, the outcome and the gateway's reference (`clinical.identity_checks`, insert-only). Three checks that don't match set the status to `failed` and emit `patient.identity_failed`; online checks then stay locked until support reopens them with a reason. The gateway being down doesn't count as an attempt. Once verified, the legal name, date of birth and sex lock (IDN6); support corrects them with a reason (`POST /v1/patients/:patientId/legal-details`), which sets the status back to unverified and clears the IHI, so the patient is checked again. The real gateway is a new provider: its row in `docs/providers.md`, an ADR and a data processing agreement come before it is switched on. Until then development, tests and staging use the fake (`IDENTITY_GATEWAY=fake`), and production can't start with the fake.
+Why: IDN-02 needs a verified identity before a script; storing the document number would add a breach risk for no use, and a cap on attempts stops someone trying documents until one fits.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN17. Staff verify by sighting the document, with a reason
+
+Decision: a staff member holding `patients:verify_identity` (owner and medical director) may mark a patient verified after sighting their document, with the document type and a reason. It is recorded as a `manual` check with who did it, audited, never done by an agent, and prescribers see "verified manually" (`identityVerification.method` in `getPatientForPrescribing`). It is the launch fallback if the gateway's contract is late (`IDENTITY_GATEWAY=none`). The permission is `operational`: it shows no clinical content.
+Why: some patients can't pass an online check (a new name, an overseas document), and the clinic must still be able to treat them; a named person with a reason is accountable for it.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN18. Identity is checked before the first script, and by default before booking
+
+Decision: the platform floor is a verified identity before the first script: prescribing calls `assertIdentityVerified(tx, patientId)` (or `isIdentityVerified`) from the front door, which refuses with 409 `identity_not_verified`. Booking a consult calls the same check by default; a tenant setting "verify before booking" (default on) will let a tenant turn that off, down to the floor and never below it, when tenant settings land.
+Why: an unverified patient wastes a prescriber's consult; the script is the line that must never be crossed.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN19. The IHI is looked up after verification, under the tenant's own HI Service details
+
+Decision: once a patient is verified, Medora looks up their Individual Healthcare Identifier through the HI Service, behind an interface (`src/modules/patients/hi-service.ts`) that takes the tenant: the tenant is the healthcare provider, so a real lookup runs under the tenant's HPI-O and certificate, with Medora as its contracted service provider. It sends the legal name, date of birth, sex (stored with the HI Service's values) and the Medicare number if given. The IHI is sealed (ADR 0010), stays in the clinical zone, is opened only for prescribing (`getPatientForPrescribing`, audited) and never appears in an event, log, prompt or staff screen; staff see whether one was found and its status. Not finding one never blocks care in v1; prescribers see it. Staff with `patients:manage` can look again. It is not a launch gate from this side: the fake ships (`HI_SERVICE=fake`, refused in production), and the real client needs a NASH certificate and conformance first.
+Why: IDN-04 asks for the IHI; it is the national identifier, so it is protected like Medicare. Vahid should confirm the launch position, because IDN-04 is P0 in the PRD; the prescribing thread decides whether Parchment needs an IHI.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid

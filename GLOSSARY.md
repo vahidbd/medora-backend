@@ -15,7 +15,10 @@ One word per thing (ADR 0032). Use these words in table names, API fields, route
 | The clinician who signs off a tenant's protocols | **Medical director** | clinical lead |
 | A pharmacy that dispenses for a tenant | **Partner pharmacy** | pharmacy app, dispensary |
 | A person's link to one tenant, with a role | **Membership** | seat, access |
+| An offer of a membership, sent by email, that becomes the membership when the person signs in | **Invitation** | invite (as a noun), pending user |
 | A named set of permissions | **Role** | group, profile |
+| A role every tenant has, defined in Medora's code and not editable by a tenant | **Starting role** | default role, system role, built-in role |
+| A role a tenant made by copying a starting role and editing it | **Custom role** | tenant role, user-defined role |
 | One thing a role may do, as a key like `staff:manage` | **Permission** | right, scope, claim |
 
 ## Care
@@ -34,6 +37,15 @@ One word per thing (ADR 0032). Use these words in table names, API fields, route
 | A parcel on its way to a patient | **Shipment** | delivery, consignment |
 | A patient's ongoing goals, check-ins and reviews | **Care plan** | journey, treatment plan |
 | A clinical record of a consult or review | **Note** | encounter, chart entry |
+| A tenant's published text a patient agrees to, in numbered versions | **Consent document** | policy, form, terms (as a record) |
+| A patient's recorded decision on one version of a consent document | **Consent** | agreement, opt-in, acceptance |
+| Checking a patient is who they say, against a document | **Identity check** | KYC, ID verification, DVS check |
+| The national Individual Healthcare Identifier | **IHI** | health ID, healthcare number |
+| One numbered edition of a protocol: a draft, then live once signed off | **Protocol version** | revision, release |
+| A medical director's recorded approval that makes a protocol version live | **Sign-off** | approval, publish |
+| A platform protocol a tenant copies into a draft of its own | **Protocol template** | preset, starter |
+| A protocol rule that ends an intake because the person can't be treated on it | **Hard stop** | exclusion, knock-out, disqualifier |
+| A protocol rule that lets the intake go on and shows the prescriber something to look at | **Red flag** | warning, alert, caution |
 | A reading of the body, by the patient or their care team (weight, waist, blood pressure) | **Measurement** | metric, vital, observation, reading (in code) |
 | Something unwanted a patient reports while on treatment | **Side effect** | symptom, adverse reaction (unless it is reported as an adverse event) |
 | A patient's short answer, between consults, to how their care is going | **Check-in** | survey, review form, questionnaire |
@@ -45,6 +57,10 @@ One word per thing (ADR 0032). Use these words in table names, API fields, route
 | One of Medora's own AI agents (intake, support, care coordinator, clinical copilot) | **Agent** | bot, assistant, AI |
 | A permission-checked action an agent can take through the API | **Agent tool** | function, skill |
 | A clinical, operational, marketing or platform schema and what may touch it | **Data zone** | domain, area |
+| Time-limited, logged and reviewed use of clinical permissions by someone whose role is not clinical | **Break-glass** | emergency access, override, god mode |
+| Signing in with a second proof after the first, such as an authenticator code | **Two-step sign-in** | MFA, 2FA |
+| That second proof | **Second factor** | OTP, token |
+| One signed-in session, recorded with when, where from and on what device | **Sign-in** | login, session (on a screen) |
 | A row in `platform.audit_log` | **Audit entry** | log, history |
 | A fact written to the outbox for others to react to | **Event** | message, notification, webhook |
 | A setting that switches unfinished work on or off | **Feature flag** | toggle, switch |

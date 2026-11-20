@@ -23,6 +23,12 @@ if (process.argv[2] === '--patient') {
 } else {
   const email = process.argv[2];
   if (!email) throw new Error('Usage: npm run dev:token -- <email>  or  npm run dev:token -- --patient <n>');
-  token = await new SignJWT({ email }).setProtectedHeader({ alg: 'HS256' }).setSubject(`dev_${email}`).setIssuedAt().setExpirationTime('8h').sign(secret);
+  // A verified second factor and a session id, as a Clerk session token carries them (docs/decisions/admin.md ADM6).
+  token = await new SignJWT({ email, fva: [0, 0], sid: `dev_session_${Date.now()}` })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setSubject(`dev_${email}`)
+    .setIssuedAt()
+    .setExpirationTime('8h')
+    .sign(secret);
 }
 process.stdout.write(`${token}\n`);

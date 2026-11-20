@@ -25,7 +25,7 @@ async function tenantTimeZone(tx: TenantTx): Promise<string> {
   return row?.timeZone ?? 'Australia/Sydney';
 }
 
-async function assertDateOfBirth(tx: TenantTx, dateOfBirth: string): Promise<void> {
+export async function assertDateOfBirth(tx: TenantTx, dateOfBirth: string): Promise<void> {
   const problem = dateOfBirthProblem(dateOfBirth, new Date(), await tenantTimeZone(tx));
   if (problem) throw new BadRequestError(DATE_OF_BIRTH_MESSAGES[problem], problem === 'under_age' ? 'under_age' : 'date_of_birth');
 }

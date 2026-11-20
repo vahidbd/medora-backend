@@ -28,8 +28,12 @@ Prefixes are unique across both repos, so this table lists both.
 | --- | --- | --- | --- |
 | FND | `foundation.md` | `medora-backend` | The platform foundation: tenancy, sign-in, audit, health checks |
 | CON | `console.md` | `medora-front` | The staff console: sign-in gate, tenant switch, shell, page security, preview mode |
+| ADM | `admin.md` | both | Admin, staff access, roles, invitations, two-step sign-in, tenant onboarding |
+| CAT | `catalogue.md` | both | Product catalogue and blocked items |
+| GOV | `governance.md` | both | Clinical governance: incidents, complaints, deadlines, retention, masking |
 | ENC | `field-encryption.md` | `medora-backend` | Sealing sensitive fields with each tenant's own key |
 | IDN | `patients.md` | `medora-backend` | Patients, patient sign-in, identity and consent |
+| INT | `intake.md` | `medora-backend` | Protocols, sign-off, programs and intakes |
 | APP | `patient-app.md` | `medora-front` | The patient app: brand hosts, patient sign-in screens, the signed-in frame, Home and Account |
 | TRK | `tracking.md` | `medora-backend` | Measurements, side effects and check-ins a patient records |
 

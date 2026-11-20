@@ -69,7 +69,7 @@ describe('creating an account (IDN-01, IDN-03, IDN-07)', async () => {
   it('creates the record with the verified email, audits it as the patient and confirms this session', async () => {
     const { reply, patientId, token } = await signUp(tenantId, 'user_alex', 'alex@example.test');
     expect(reply.statusCode).toBe(201);
-    expect(reply.json()).toMatchObject({ displayName: 'Alex Example', email: 'alex@example.test', identityStatus: 'unverified', consentsNeeded: [], programs: [] });
+    expect(reply.json()).toMatchObject({ displayName: 'Alex Example', email: 'alex@example.test', identityStatus: 'unverified', consentsNeeded: ['privacy', 'telehealth_terms'], programs: [] });
     const audit = await admin.query("select actor_type, actor_id, zone from platform.audit_log where action = 'patient.created' and record_id = $1", [patientId]);
     expect(audit.rows).toEqual([{ actor_type: 'patient', actor_id: patientId, zone: 'clinical' }]);
     const events = await admin.query("select payload from platform.outbox where type = 'patient.created' and record_id = $1", [patientId]);

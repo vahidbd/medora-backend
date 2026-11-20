@@ -32,6 +32,11 @@ const envSchema = z.object({
   CLERK_ISSUER: optionalText,
   /** The web app origins a token may be issued for, comma-separated. */
   CLERK_AUTHORIZED_PARTIES: optionalText,
+  /** Clerk's Backend API key, for sending staff invitations (docs/decisions/admin.md ADM5). Unset: invitations are saved but no email goes out. */
+  CLERK_SECRET_KEY: optionalText,
+  /** The staff console's origin, where an invitation's link lands (e.g. https://console.example.com.au). */
+  CONSOLE_URL: z.preprocess((value) => (value === '' ? undefined : value), z.url().optional()),
+
   /**
    * Patients sign in on their own Clerk instance (ADR 0035): open sign-up,
    * one-time codes, passkeys. Patient routes accept only its tokens, and staff
@@ -49,6 +54,16 @@ const envSchema = z.object({
    */
   FIELD_KEY_PROVIDER: z.enum(['local']).default('local'),
   FIELD_ENCRYPTION_KEY: optionalText,
+
+  /**
+   * Outside checks of a patient's identity (docs/decisions/patients.md IDN16,
+   * IDN19). `fake` answers from the document number and the name, for
+   * development, tests and staging; `none` turns online checks off, leaving
+   * manual verification. Production refuses `fake`. A real gateway and the HI
+   * Service each arrive with their own value, provider row and ADR.
+   */
+  IDENTITY_GATEWAY: z.enum(['none', 'fake']).default('fake'),
+  HI_SERVICE: z.enum(['none', 'fake']).default('fake'),
 
   /** Files (none yet): S3-compatible storage in an Australian region once deployed (ADRs 0005, 0025). */
   STORAGE_MODE: z.enum(['local', 's3']).default('local'),
@@ -132,6 +147,11 @@ export function deployedProblems(config: Env): string[] {
   if (config.MEDORA_ENV === 'production' && config.CLERK_PUBLISHABLE_KEY && !config.CLERK_PUBLISHABLE_KEY.startsWith('pk_live_')) {
     problems.push('CLERK_PUBLISHABLE_KEY must be a production instance key (pk_live_) in production');
   }
+  if (!config.CLERK_SECRET_KEY) problems.push('CLERK_SECRET_KEY is required (staff invitations are sent through Clerk)');
+  if (config.MEDORA_ENV === 'production' && config.CLERK_SECRET_KEY && !config.CLERK_SECRET_KEY.startsWith('sk_live_')) {
+    problems.push('CLERK_SECRET_KEY must be a production instance key (sk_live_) in production');
+  }
+  if (!config.CONSOLE_URL?.startsWith('https://')) problems.push('CONSOLE_URL must be the staff console\'s https origin');
   if (parseAuthorizedParties(config.CLERK_AUTHORIZED_PARTIES).length === 0) {
     problems.push('CLERK_AUTHORIZED_PARTIES is required (the web app origins, e.g. https://console.example.com.au)');
   }
@@ -151,6 +171,8 @@ export function deployedProblems(config: Env): string[] {
   if (config.MEDORA_ENV === 'production' && config.FIELD_KEY_PROVIDER === 'local') {
     problems.push('FIELD_KEY_PROVIDER must be a KMS provider in production: a key in an environment variable is not enough for patient data (ADR 0010)');
   }
+  if (config.MEDORA_ENV === 'production' && config.IDENTITY_GATEWAY === 'fake') problems.push('IDENTITY_GATEWAY must not be fake in production (none leaves manual checks)');
+  if (config.MEDORA_ENV === 'production' && config.HI_SERVICE === 'fake') problems.push('HI_SERVICE must not be fake in production');
   if ((config.FORWARDED_IP_SECRET ?? '').length < 32) problems.push('FORWARDED_IP_SECRET of at least 32 characters is required');
   if (!/^[0-9a-f]{40}$/.test(config.RELEASE_SHA ?? '')) problems.push('the release commit is unknown (build with scripts/build.mjs, or set RELEASE_SHA)');
   return problems;
