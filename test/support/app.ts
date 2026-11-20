@@ -32,7 +32,7 @@ export function headers(token: string, tenantId?: string): Record<string, string
 }
 
 /**
- * A development patient sign-in token (ADR 0035): `aud: "patient"`, a session
+ * A development patient sign-in token (ADR 0100): `aud: "patient"`, a session
  * id, and the verified email or mobile the sign-in proved. Made-up people only.
  */
 export async function patientSignIn(subject: string, claims: { sessionId?: string; email?: string; phone?: string } = {}): Promise<string> {

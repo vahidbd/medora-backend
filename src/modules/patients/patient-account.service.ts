@@ -8,14 +8,16 @@ import { emitEvent } from '../../lib/events.js';
 import { encryptField } from '../../lib/field-crypto.js';
 import { isTimeZone } from '../../lib/time.js';
 import type { PatientAuth } from '../../plugins/patient-auth.js';
+import { assertAcceptingPatients } from '../brands/index.js';
 import { DATE_OF_BIRTH_MESSAGES, dateOfBirthProblem, isMedicareNumber, isValidTo, normaliseEmail, normaliseMobile } from './patient-details.js';
 import type { AccountInput, ProfileChange } from './patients.schemas.js';
 import { MEDICARE_PURPOSE } from './patients.service.js';
 
 /**
  * A patient's own account (docs/decisions/patients.md IDN2, IDN3, IDN5 to
- * IDN8): creating it with the date of birth and the age check, confirming the
- * date of birth on a new sign-in, and changing their own details.
+ * IDN8, IDN20): creating it through a brand that takes new patients, with
+ * the date of birth and the age check, confirming the date of birth on a new
+ * sign-in session, and changing their own details.
  */
 
 const RECORD = 'clinical.patients' as const;
@@ -25,7 +27,7 @@ async function tenantTimeZone(tx: TenantTx): Promise<string> {
   return row?.timeZone ?? 'Australia/Sydney';
 }
 
-async function assertDateOfBirth(tx: TenantTx, dateOfBirth: string): Promise<void> {
+export async function assertDateOfBirth(tx: TenantTx, dateOfBirth: string): Promise<void> {
   const problem = dateOfBirthProblem(dateOfBirth, new Date(), await tenantTimeZone(tx));
   if (problem) throw new BadRequestError(DATE_OF_BIRTH_MESSAGES[problem], problem === 'under_age' ? 'under_age' : 'date_of_birth');
 }
@@ -52,6 +54,7 @@ async function setContact(tx: TenantTx, patientId: string, kind: ContactKind, va
  */
 export async function createAccount(tx: TenantTx, sign: PatientAuth, input: AccountInput): Promise<string> {
   if (sign.patientId) throw new BusinessRuleError('You already have an account here. Sign in instead.', 'already_registered');
+  await assertAcceptingPatients(tx, input.brandId);
   await assertDateOfBirth(tx, input.dateOfBirth);
 
   const typedEmail = input.email === undefined ? null : normaliseEmail(input.email);

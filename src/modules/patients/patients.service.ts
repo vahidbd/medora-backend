@@ -1,6 +1,6 @@
-import { and, asc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
-import { patientAddresses, patientContacts, patients, tenants } from '../../db/schema/index.js';
-import type { AuState, ContactKind, IdentityStatus, Sex } from '../../db/schema/values.js';
+import { and, asc, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
+import { identityChecks, patientAddresses, patientContacts, patients, tenants } from '../../db/schema/index.js';
+import type { AuState, ContactKind, IdentityDocument, IdentityMethod, IdentityStatus, IhiRecordStatus, IhiStatus, Sex } from '../../db/schema/values.js';
 import type { TenantTx } from '../../db/tenant.js';
 import { audit } from '../../lib/audit.js';
 import { decryptOptional } from '../../lib/field-crypto.js';
@@ -15,6 +15,7 @@ import type { MedicareInput, PatientProfile } from './patients.schemas.js';
  */
 
 export const MEDICARE_PURPOSE = 'clinical.patients.medicare' as const;
+export const IHI_PURPOSE = 'clinical.patients.ihi' as const;
 const RECORD = 'clinical.patients' as const;
 
 export interface PatientSummary {
@@ -59,9 +60,13 @@ export interface PrescribingPatient {
   mobile: string | null;
   address: PatientAddress | null;
   medicare: MedicareInput | null;
-  /** Filled once the HI Service lookup exists (IDN-04). */
+  /** The IHI, opened (IDN19); null when not found or not looked up yet. Never put it in an event, log or prompt. */
   ihi: string | null;
+  ihiStatus: IhiStatus | null;
+  ihiRecordStatus: IhiRecordStatus | null;
   identityStatus: IdentityStatus;
+  /** How the identity was verified: prescribers see "verified manually" (IDN17). */
+  identityVerification: { method: IdentityMethod; documentType: IdentityDocument; at: string } | null;
 }
 
 const summaryColumns = {
@@ -170,11 +175,17 @@ async function medicareOf(tx: TenantTx, sealed: string | null): Promise<Medicare
 /** Everything prescribing sends to the prescribing system, decrypted, audited as `patient.read_for_prescribing`. */
 export async function getPatientForPrescribing(tx: TenantTx, patientId: string): Promise<PrescribingPatient | null> {
   const [row] = await tx.db
-    .select({ ...summaryColumns, medicare: patients.medicare })
+    .select({ ...summaryColumns, medicare: patients.medicare, ihi: patients.ihi, ihiStatus: patients.ihiStatus, ihiRecordStatus: patients.ihiRecordStatus })
     .from(patients)
     .where(and(eq(patients.tenantId, tx.context.tenantId), eq(patients.id, patientId)));
   if (!row) return null;
   await auditRead(tx, patientId, 'patient.read_for_prescribing');
+  const [verification] = await tx.db
+    .select({ method: identityChecks.method, documentType: identityChecks.documentType, at: identityChecks.at })
+    .from(identityChecks)
+    .where(and(eq(identityChecks.tenantId, tx.context.tenantId), eq(identityChecks.patientId, patientId), eq(identityChecks.outcome, 'verified')))
+    .orderBy(desc(identityChecks.at), desc(identityChecks.id))
+    .limit(1);
   const summary = toSummary(row);
   return {
     patientId,
@@ -185,8 +196,14 @@ export async function getPatientForPrescribing(tx: TenantTx, patientId: string):
     ...(await contactsOf(tx, patientId)),
     address: await addressOf(tx, patientId),
     medicare: await medicareOf(tx, row.medicare),
-    ihi: null,
+    ihi: await decryptOptional(tx, IHI_PURPOSE, row.ihi),
+    ihiStatus: row.ihiStatus as IhiStatus | null,
+    ihiRecordStatus: row.ihiRecordStatus as IhiRecordStatus | null,
     identityStatus: summary.identityStatus,
+    identityVerification:
+      summary.identityStatus === 'verified' && verification
+        ? { method: verification.method as IdentityMethod, documentType: verification.documentType as IdentityDocument, at: verification.at.toISOString() }
+        : null,
   };
 }
 

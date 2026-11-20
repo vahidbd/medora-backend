@@ -8,7 +8,7 @@ import { BadRequestError, ForbiddenError, TooManyRequestsError, UnauthorizedErro
 import { blockedFor, countAttempt, type Limit } from '../lib/rate-limit.js';
 
 /**
- * Patient sign-in (ADR 0035, docs/decisions/patients.md IDN2 to IDN4).
+ * Patient sign-in (ADR 0100, docs/decisions/patients.md IDN2 to IDN4).
  * Patients sign in on their own Clerk instance; a patient route accepts only
  * that instance's tokens (in AUTH_MODE=dev, tokens with `aud: "patient"`), and
  * the staff routes refuse them. The request names its tenant with
@@ -57,7 +57,7 @@ function hasAudience(payload: JWTPayload, audience: string): boolean {
   return Array.isArray(payload.aud) ? payload.aud.includes(audience) : payload.aud === audience;
 }
 
-/** A staff token must never be a patient token (ADR 0035). Used by the staff sign-in check. */
+/** A staff token must never be a patient token (ADR 0100). Used by the staff sign-in check. */
 export function isPatientToken(payload: JWTPayload): boolean {
   return hasAudience(payload, PATIENT_AUDIENCE);
 }

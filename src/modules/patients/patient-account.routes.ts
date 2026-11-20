@@ -9,17 +9,23 @@ import { getPatientProfile } from './patients.service.js';
 import { consentsNeeded } from './consents.service.js';
 import type { TenantTx } from '../../db/tenant.js';
 
-/** What a patient does with their own account, under /v1/patient (ADR 0035, docs/decisions/patients.md). */
+/** What a patient does with their own account, under /v1/patient (ADR 0100, docs/decisions/patients.md). */
 
 const NO_AGENT = { none: 'A patient creates and changes their own account; an agent never acts as a patient (ADR 0012)' };
 
-async function meOf(tx: TenantTx, patientId: string) {
-  const profile = await getPatientProfile(tx, patientId);
-  if (!profile) throw new NotFoundError('Patient');
-  return { ...profile, consentsNeeded: await consentsNeeded(tx, patientId, 'care'), programs: [] };
+/** The programs a patient is on, for `/patient/me`. The intake module knows them, and depends on this one, so it is handed in (src/modules/index.ts). */
+export type ProgramsOf = (tx: TenantTx, patientId: string) => Promise<{ programId: string; name: string; measurements: string[]; checkInEveryDays: number | null }[]>;
+export interface PatientRoutesOptions {
+  programsOf?: ProgramsOf;
 }
 
-export const patientAccountRoutes: FastifyPluginAsyncZod = async (app) => {
+export const patientAccountRoutes: FastifyPluginAsyncZod<PatientRoutesOptions> = async (app, options) => {
+  const meOf = async (tx: TenantTx, patientId: string) => {
+    const profile = await getPatientProfile(tx, patientId);
+    if (!profile) throw new NotFoundError('Patient');
+    return { ...profile, consentsNeeded: await consentsNeeded(tx, patientId, 'care'), programs: options.programsOf ? await options.programsOf(tx, patientId) : [] };
+  };
+
   app.post(
     '/patient/account',
     {

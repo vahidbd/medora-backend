@@ -74,9 +74,6 @@ export type ContactKind = (typeof CONTACT_KINDS)[number];
 export const ADDRESS_KINDS = ['home'] as const;
 export type AddressKind = (typeof ADDRESS_KINDS)[number];
 
-export const AU_STATES = ['ACT', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'] as const;
-export type AuState = (typeof AU_STATES)[number];
-
 /**
  * What a patient consents to (IDN-05, docs/decisions/patients.md IDN12).
  * Marketing consent is the messaging module's, in the marketing zone.
@@ -132,6 +129,72 @@ export type SuspensionReason = (typeof SUSPENSION_REASONS)[number];
 
 export const TIME_OFF_REASONS = ['leave', 'sick', 'training', 'other'] as const;
 export type TimeOffReason = (typeof TIME_OFF_REASONS)[number];
+/** The documents a patient's identity can be checked against (IDN-02, docs/decisions/patients.md IDN16). */
+export const IDENTITY_DOCUMENTS = ['driver_licence', 'passport', 'medicare_card'] as const;
+export type IdentityDocument = (typeof IDENTITY_DOCUMENTS)[number];
+
+/** How an identity check was done: online against the document, or by staff who sighted it (IDN17). */
+export const IDENTITY_METHODS = ['document', 'manual'] as const;
+export type IdentityMethod = (typeof IDENTITY_METHODS)[number];
+
+/** `unavailable` is the gateway failing to answer; it doesn't count as a failed attempt. */
+export const IDENTITY_OUTCOMES = ['verified', 'not_matched', 'unavailable'] as const;
+export type IdentityOutcome = (typeof IDENTITY_OUTCOMES)[number];
+
+/** An IHI's number status and record status, as the HI Service returns them (IDN19). */
+export const IHI_STATUSES = ['active', 'deceased', 'retired', 'expired', 'resolved'] as const;
+export type IhiStatus = (typeof IHI_STATUSES)[number];
+export const IHI_RECORD_STATUSES = ['verified', 'unverified', 'provisional'] as const;
+export type IhiRecordStatus = (typeof IHI_RECORD_STATUSES)[number];
+
+/**
+ * A protocol version's life (docs/decisions/intake.md INT3, INT4): a draft
+ * is edited; a medical director's sign-off makes it live; going live retires
+ * the one before; withdrawing takes a live version off for safety.
+ */
+export const PROTOCOL_VERSION_STATUSES = ['draft', 'live', 'retired', 'withdrawn'] as const;
+export type ProtocolVersionStatus = (typeof PROTOCOL_VERSION_STATUSES)[number];
+
+export const PROGRAM_STATUSES = ['draft', 'live', 'paused', 'retired'] as const;
+export type ProgramStatus = (typeof PROGRAM_STATUSES)[number];
+
+/** What a patient on a program records (the tracking module's kinds). */
+export const MEASUREMENT_KINDS = ['weight', 'waist', 'height', 'blood_pressure_systolic', 'blood_pressure_diastolic', 'heart_rate'] as const;
+export type MeasurementKind = (typeof MEASUREMENT_KINDS)[number];
+
+/** Where an intake stands (INT5 to INT8). */
+export const INTAKE_STATUSES = ['in_progress', 'completed', 'ineligible', 'ended'] as const;
+export type IntakeStatus = (typeof INTAKE_STATUSES)[number];
+
+/** Why an intake ended without a protocol's hard stop. */
+export const INTAKE_END_REASONS = ['under_age', 'version_withdrawn', 'expired', 'unclaimed'] as const;
+export type IntakeEndReason = (typeof INTAKE_END_REASONS)[number];
+
+/** Australian states and territories: where a company is registered, and a patient's address. */
+export const AU_STATES = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT'] as const;
+export type AuState = (typeof AU_STATES)[number];
+
+/** A brand's state: `draft` until it goes live; `paused` stops new sign-ups only (docs/decisions/admin.md ADM16). */
+export const BRAND_STATUSES = ['draft', 'live', 'paused'] as const;
+export type BrandStatus = (typeof BRAND_STATUSES)[number];
+
+/** The time zones a tenant can work in (ADR 0017): Australia's, by their IANA names. */
+export const TIME_ZONES = [
+  'Australia/Sydney',
+  'Australia/Melbourne',
+  'Australia/Brisbane',
+  'Australia/Adelaide',
+  'Australia/Darwin',
+  'Australia/Perth',
+  'Australia/Hobart',
+  'Australia/Lord_Howe',
+  'Australia/Eucla',
+  'Australia/Broken_Hill',
+  'Indian/Christmas',
+  'Indian/Cocos',
+  'Antarctica/Macquarie',
+] as const;
+export type TimeZone = (typeof TIME_ZONES)[number];
 
 /** How a consult is held (docs/decisions/consults.md CNS1). Chat, messages and AI voice calls are never consults. */
 export const CONSULT_MODES = ['phone', 'video'] as const;
@@ -183,6 +246,19 @@ export const CHECKED_VALUES = [
   { table: 'clinical.patient_consents', column: 'kind', values: CONSENT_KINDS },
   { table: 'clinical.patient_consents', column: 'decision', values: CONSENT_DECISIONS },
   { table: 'clinical.patient_consents', column: 'channel', values: CONSENT_CHANNELS },
+  { table: 'clinical.patients', column: 'ihi_status', values: IHI_STATUSES },
+  { table: 'clinical.patients', column: 'ihi_record_status', values: IHI_RECORD_STATUSES },
+  { table: 'clinical.identity_checks', column: 'method', values: IDENTITY_METHODS },
+  { table: 'clinical.identity_checks', column: 'document_type', values: IDENTITY_DOCUMENTS },
+  { table: 'clinical.identity_checks', column: 'outcome', values: IDENTITY_OUTCOMES },
+  { table: 'clinical.protocol_versions', column: 'status', values: PROTOCOL_VERSION_STATUSES },
+  { table: 'operational.programs', column: 'status', values: PROGRAM_STATUSES },
+  { table: 'operational.programs', column: 'measurements', values: MEASUREMENT_KINDS },
+  { table: 'clinical.intakes', column: 'status', values: INTAKE_STATUSES },
+  { table: 'clinical.intakes', column: 'ended_reason', values: INTAKE_END_REASONS },
+  { table: 'platform.tenants', column: 'time_zone', values: TIME_ZONES },
+  { table: 'platform.companies', column: 'state', values: AU_STATES },
+  { table: 'platform.brands', column: 'status', values: BRAND_STATUSES },
   { table: 'clinical.consults', column: 'mode', values: CONSULT_MODES },
   { table: 'clinical.consults', column: 'status', values: CONSULT_STATUSES },
   { table: 'clinical.consults', column: 'purpose', values: CONSULT_PURPOSES },
