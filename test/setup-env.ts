@@ -15,6 +15,8 @@ process.env.DEV_JWT_SECRET = 'test-only-secret-that-is-at-least-32-characters';
 process.env.TELEPHONY = 'fake';
 process.env.PUBLIC_API_URL = 'https://api.medora.test';
 process.env.TWILIO_AUTH_TOKEN = 'test-only-twilio-auth-token';
+process.env.VIDEO_API_KEY = 'test-only-video-key';
+process.env.VIDEO_API_SECRET = 'test-only-video-secret-at-least-32-chars';
 // A made-up key for tests only: 32 bytes of 0x07.
 process.env.FIELD_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
 for (const name of ['DATABASE_MIGRATION_URL', 'RELEASE_SHA', 'SENTRY_DSN', 'FORWARDED_IP_SECRET', 'CLERK_PUBLISHABLE_KEY']) delete process.env[name];

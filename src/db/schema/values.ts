@@ -216,6 +216,21 @@ export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
 export const BLOCK_RULE_MATCHES = ['schedule', 'artg_number', 'compounded'] as const;
 export type BlockRuleMatch = (typeof BLOCK_RULE_MATCHES)[number];
 
+/** How a consult is held (docs/decisions/consults.md CNS1). Chat, messages and AI voice calls are never consults. */
+export const CONSULT_MODES = ['phone', 'video'] as const;
+export type ConsultMode = (typeof CONSULT_MODES)[number];
+
+/** Where a consult is (CNS3). Only in progress and completed consults can qualify a script. */
+export const CONSULT_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled', 'no_show'] as const;
+export type ConsultStatus = (typeof CONSULT_STATUSES)[number];
+
+/** Who connected, in consult evidence (CNS2). */
+export const EVIDENCE_PARTIES = ['patient', 'clinician'] as const;
+export type EvidenceParty = (typeof EVIDENCE_PARTIES)[number];
+
+export const EVIDENCE_EVENTS = ['connected', 'disconnected'] as const;
+export type EvidenceEvent = (typeof EVIDENCE_EVENTS)[number];
+
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
   { table: 'platform.memberships', column: 'role', values: MEMBERSHIP_ROLES },
@@ -261,4 +276,9 @@ export const CHECKED_VALUES = [
   { table: 'operational.products', column: 'storage', values: STORAGE },
   { table: 'operational.products', column: 'status', values: PRODUCT_STATUSES },
   { table: 'platform.block_rules', column: 'match', values: BLOCK_RULE_MATCHES },
+  { table: 'clinical.consults', column: 'mode', values: CONSULT_MODES },
+  { table: 'clinical.consults', column: 'status', values: CONSULT_STATUSES },
+  { table: 'clinical.consult_evidence', column: 'party', values: EVIDENCE_PARTIES },
+  { table: 'clinical.consult_evidence', column: 'event', values: EVIDENCE_EVENTS },
+  { table: 'clinical.consult_evidence', column: 'channel', values: CONSULT_MODES },
 ] as const;

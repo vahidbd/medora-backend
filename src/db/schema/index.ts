@@ -10,3 +10,4 @@ export * from './operational-programs.js';
 export * from './clinical-intakes.js';
 export * from './brands.js';
 export * from './catalogue.js';
+export * from './clinical-consults.js';

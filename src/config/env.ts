@@ -95,6 +95,14 @@ const envSchema = z.object({
   TWILIO_REGION: z.string().default('au1'),
   TWILIO_EDGE: z.string().default('sydney'),
 
+  /**
+   * The video server's API key and secret (ADR 0120, docs/decisions/consults.md).
+   * The secret signs its webhooks, which are the only source of video consult
+   * evidence. Unset: every video webhook is refused.
+   */
+  VIDEO_API_KEY: optionalText,
+  VIDEO_API_SECRET: optionalText,
+
   /** A Sentry-compatible server in Australia (ADR 0026). Unset: error tracking is off. */
   SENTRY_DSN: z.preprocess((value) => (value === '' ? undefined : value), z.url().optional()),
 

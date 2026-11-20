@@ -42,6 +42,8 @@ const OWNERS: Record<string, string[]> = {
   'clinical.protocol_versions': ['src/modules/protocols/'],
   'operational.programs': ['src/modules/protocols/'],
   'clinical.intakes': ['src/modules/intake/'],
+  'clinical.consults': ['src/modules/consults/'],
+  'clinical.consult_evidence': ['src/modules/consults/'],
 };
 
 /** Made-up local data only (src/db/seed.ts refuses anything but development). */
