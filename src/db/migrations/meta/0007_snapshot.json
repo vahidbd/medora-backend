@@ -1,6 +1,6 @@
 {
-  "id": "735bbdd2-75db-41ae-894e-9a325f1ce23d",
-  "prevId": "8a263258-1403-4aea-99b8-6b5a5898c435",
+  "id": "e0d538fd-421b-4851-a214-2b378ba5bf4b",
+  "prevId": "0b12e2e9-ad7c-4865-b652-9512823151cf",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1386,16 +1386,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "webhook_inbox_tenant_id_key": {
-          "name": "webhook_inbox_tenant_id_key",
-          "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
         "webhook_inbox_provider_check": {
@@ -4930,101 +4921,74 @@
       },
       "isRLSEnabled": false
     },
-    "clinical.consult_evidence": {
-      "name": "consult_evidence",
-      "schema": "clinical",
+    "platform.block_rules": {
+      "name": "block_rules",
+      "schema": "platform",
       "columns": {
         "id": {
           "name": "id",
-          "type": "bigint",
+          "type": "uuid",
           "primaryKey": true,
           "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "consult_evidence_id_seq",
-            "schema": "clinical",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "9223372036854775807",
-            "cache": "1",
-            "cycle": false
-          }
+          "default": "gen_random_uuid()"
         },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "consult_id": {
-          "name": "consult_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "party": {
-          "name": "party",
+        "match": {
+          "name": "match",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "clinician_user_id": {
-          "name": "clinician_user_id",
-          "type": "uuid",
+        "value": {
+          "name": "value",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "event": {
-          "name": "event",
+        "reason": {
+          "name": "reason",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "channel": {
-          "name": "channel",
+        "source_url": {
+          "name": "source_url",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "at": {
-          "name": "at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "delivery_id": {
-          "name": "delivery_id",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "recorded_at": {
-          "name": "recorded_at",
+        "effective_from": {
+          "name": "effective_from",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "added_by": {
+          "name": "added_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "added_at": {
+          "name": "added_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "retired_at": {
+          "name": "retired_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
-        "consult_evidence_consult_idx": {
-          "name": "consult_evidence_consult_idx",
+        "block_rules_added_by_idx": {
+          "name": "block_rules_added_by_idx",
           "columns": [
             {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "consult_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "at",
+              "expression": "added_by",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -5035,114 +4999,40 @@
           "method": "btree",
           "with": {}
         },
-        "consult_evidence_delivery_key": {
-          "name": "consult_evidence_delivery_key",
+        "block_rules_current_key": {
+          "name": "block_rules_current_key",
           "columns": [
             {
-              "expression": "tenant_id",
+              "expression": "match",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             },
             {
-              "expression": "delivery_id",
-              "isExpression": false,
+              "expression": "coalesce(\"value\", '')",
               "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "party",
-              "isExpression": false,
-              "asc": true,
+              "isExpression": true,
               "nulls": "last"
             }
           ],
           "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "consult_evidence_clinician_idx": {
-          "name": "consult_evidence_clinician_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "clinician_user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
+          "where": "\"platform\".\"block_rules\".\"retired_at\" is null",
           "concurrently": false,
           "method": "btree",
           "with": {}
         }
       },
       "foreignKeys": {
-        "consult_evidence_tenant_id_tenants_id_fk": {
-          "name": "consult_evidence_tenant_id_tenants_id_fk",
-          "tableFrom": "consult_evidence",
-          "tableTo": "tenants",
+        "block_rules_added_by_users_id_fk": {
+          "name": "block_rules_added_by_users_id_fk",
+          "tableFrom": "block_rules",
+          "tableTo": "users",
           "schemaTo": "platform",
           "columnsFrom": [
-            "tenant_id"
+            "added_by"
           ],
           "columnsTo": [
             "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "consult_evidence_consult_fk": {
-          "name": "consult_evidence_consult_fk",
-          "tableFrom": "consult_evidence",
-          "tableTo": "consults",
-          "schemaTo": "clinical",
-          "columnsFrom": [
-            "tenant_id",
-            "consult_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "consult_evidence_delivery_fk": {
-          "name": "consult_evidence_delivery_fk",
-          "tableFrom": "consult_evidence",
-          "tableTo": "webhook_inbox",
-          "schemaTo": "platform",
-          "columnsFrom": [
-            "tenant_id",
-            "delivery_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "consult_evidence_clinician_fk": {
-          "name": "consult_evidence_clinician_fk",
-          "tableFrom": "consult_evidence",
-          "tableTo": "memberships",
-          "schemaTo": "platform",
-          "columnsFrom": [
-            "tenant_id",
-            "clinician_user_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "user_id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -5152,28 +5042,28 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "consult_evidence_party_check": {
-          "name": "consult_evidence_party_check",
-          "value": "\"clinical\".\"consult_evidence\".\"party\" in ('patient', 'clinician')"
+        "block_rules_match_check": {
+          "name": "block_rules_match_check",
+          "value": "\"platform\".\"block_rules\".\"match\" in ('schedule', 'artg_number', 'compounded')"
         },
-        "consult_evidence_event_check": {
-          "name": "consult_evidence_event_check",
-          "value": "\"clinical\".\"consult_evidence\".\"event\" in ('connected', 'disconnected')"
+        "block_rules_value_check": {
+          "name": "block_rules_value_check",
+          "value": "case \"platform\".\"block_rules\".\"match\"\n        when 'compounded' then \"platform\".\"block_rules\".\"value\" is null\n        when 'schedule' then \"platform\".\"block_rules\".\"value\" ~ '^S[2348]$'\n        when 'artg_number' then \"platform\".\"block_rules\".\"value\" ~ '^[0-9]{3,8}$'\n        else false end"
         },
-        "consult_evidence_channel_check": {
-          "name": "consult_evidence_channel_check",
-          "value": "\"clinical\".\"consult_evidence\".\"channel\" in ('phone', 'video')"
+        "block_rules_reason_check": {
+          "name": "block_rules_reason_check",
+          "value": "length(btrim(\"platform\".\"block_rules\".\"reason\")) between 10 and 500"
         },
-        "consult_evidence_clinician_check": {
-          "name": "consult_evidence_clinician_check",
-          "value": "(\"clinical\".\"consult_evidence\".\"party\" = 'clinician') = (\"clinical\".\"consult_evidence\".\"clinician_user_id\" is not null)"
+        "block_rules_source_check": {
+          "name": "block_rules_source_check",
+          "value": "\"platform\".\"block_rules\".\"source_url\" ~ '^https://'"
         }
       },
       "isRLSEnabled": false
     },
-    "clinical.consults": {
-      "name": "consults",
-      "schema": "clinical",
+    "operational.products": {
+      "name": "products",
+      "schema": "operational",
       "columns": {
         "id": {
           "name": "id",
@@ -5188,21 +5078,71 @@
           "primaryKey": false,
           "notNull": true
         },
-        "patient_id": {
-          "name": "patient_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "clinician_user_id": {
-          "name": "clinician_user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "mode": {
-          "name": "mode",
+        "name": {
+          "name": "name",
           "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "schedule": {
+          "name": "schedule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "artg_number": {
+          "name": "artg_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "compounded": {
+          "name": "compounded",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "strength": {
+          "name": "strength",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "form": {
+          "name": "form",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pack_size": {
+          "name": "pack_size",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "storage": {
+          "name": "storage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'room'"
+        },
+        "price_cents": {
+          "name": "price_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "gst_free": {
+          "name": "gst_free",
+          "type": "boolean",
           "primaryKey": false,
           "notNull": true
         },
@@ -5211,17 +5151,11 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": "'scheduled'"
+          "default": "'active'"
         },
-        "started_at": {
-          "name": "started_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ended_at": {
-          "name": "ended_at",
-          "type": "timestamp with time zone",
+        "blocked_reason": {
+          "name": "blocked_reason",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -5241,8 +5175,8 @@
         }
       },
       "indexes": {
-        "consults_patient_idx": {
-          "name": "consults_patient_idx",
+        "products_tenant_name_idx": {
+          "name": "products_tenant_name_idx",
           "columns": [
             {
               "expression": "tenant_id",
@@ -5251,34 +5185,7 @@
               "nulls": "last"
             },
             {
-              "expression": "patient_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "clinician_user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "consults_clinician_idx": {
-          "name": "consults_clinician_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "clinician_user_id",
+              "expression": "name",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -5291,9 +5198,9 @@
         }
       },
       "foreignKeys": {
-        "consults_tenant_id_tenants_id_fk": {
-          "name": "consults_tenant_id_tenants_id_fk",
-          "tableFrom": "consults",
+        "products_tenant_id_tenants_id_fk": {
+          "name": "products_tenant_id_tenants_id_fk",
+          "tableFrom": "products",
           "tableTo": "tenants",
           "schemaTo": "platform",
           "columnsFrom": [
@@ -5304,44 +5211,12 @@
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
-        },
-        "consults_patient_fk": {
-          "name": "consults_patient_fk",
-          "tableFrom": "consults",
-          "tableTo": "patients",
-          "schemaTo": "clinical",
-          "columnsFrom": [
-            "tenant_id",
-            "patient_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "consults_clinician_fk": {
-          "name": "consults_clinician_fk",
-          "tableFrom": "consults",
-          "tableTo": "memberships",
-          "schemaTo": "platform",
-          "columnsFrom": [
-            "tenant_id",
-            "clinician_user_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "consults_tenant_id_key": {
-          "name": "consults_tenant_id_key",
+        "products_tenant_id_key": {
+          "name": "products_tenant_id_key",
           "nullsNotDistinct": false,
           "columns": [
             "tenant_id",
@@ -5351,25 +5226,45 @@
       },
       "policies": {},
       "checkConstraints": {
-        "consults_mode_check": {
-          "name": "consults_mode_check",
-          "value": "\"clinical\".\"consults\".\"mode\" in ('phone', 'video')"
+        "products_kind_check": {
+          "name": "products_kind_check",
+          "value": "\"operational\".\"products\".\"kind\" in ('medicine', 'device', 'service')"
         },
-        "consults_status_check": {
-          "name": "consults_status_check",
-          "value": "\"clinical\".\"consults\".\"status\" in ('scheduled', 'in_progress', 'completed', 'cancelled', 'no_show')"
+        "products_schedule_check": {
+          "name": "products_schedule_check",
+          "value": "\"operational\".\"products\".\"schedule\" in ('S2', 'S3', 'S4', 'S8')"
         },
-        "consults_started_check": {
-          "name": "consults_started_check",
-          "value": "\"clinical\".\"consults\".\"status\" not in ('in_progress', 'completed') or \"clinical\".\"consults\".\"started_at\" is not null"
+        "products_storage_check": {
+          "name": "products_storage_check",
+          "value": "\"operational\".\"products\".\"storage\" in ('room', 'refrigerated')"
         },
-        "consults_ended_check": {
-          "name": "consults_ended_check",
-          "value": "(\"clinical\".\"consults\".\"status\" = 'completed') = (\"clinical\".\"consults\".\"ended_at\" is not null)"
+        "products_status_check": {
+          "name": "products_status_check",
+          "value": "\"operational\".\"products\".\"status\" in ('active', 'archived')"
         },
-        "consults_times_check": {
-          "name": "consults_times_check",
-          "value": "\"clinical\".\"consults\".\"ended_at\" is null or \"clinical\".\"consults\".\"ended_at\" >= \"clinical\".\"consults\".\"started_at\""
+        "products_name_check": {
+          "name": "products_name_check",
+          "value": "length(btrim(\"operational\".\"products\".\"name\")) between 1 and 120"
+        },
+        "products_artg_check": {
+          "name": "products_artg_check",
+          "value": "\"operational\".\"products\".\"artg_number\" ~ '^[0-9]{3,8}$'"
+        },
+        "products_price_check": {
+          "name": "products_price_check",
+          "value": "\"operational\".\"products\".\"price_cents\" between 0 and 10000000"
+        },
+        "products_blocked_reason_check": {
+          "name": "products_blocked_reason_check",
+          "value": "length(btrim(\"operational\".\"products\".\"blocked_reason\")) between 3 and 300"
+        },
+        "products_medicine_check": {
+          "name": "products_medicine_check",
+          "value": "\"operational\".\"products\".\"kind\" = 'medicine' or (\"operational\".\"products\".\"schedule\" is null and not \"operational\".\"products\".\"compounded\")"
+        },
+        "products_identity_check": {
+          "name": "products_identity_check",
+          "value": "\"operational\".\"products\".\"kind\" <> 'medicine' or \"operational\".\"products\".\"artg_number\" is not null or \"operational\".\"products\".\"compounded\""
         }
       },
       "isRLSEnabled": false
