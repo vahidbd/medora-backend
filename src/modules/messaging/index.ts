@@ -6,5 +6,5 @@
 export { deliverMessage, messageDelivery, registerDeliveryWebhooks, sweepUnconfirmed, unconfirmedSweep } from './delivery.js';
 export { fakeEmail } from './email.js';
 export { messagingRoutes } from './messaging.routes.js';
-export { countTemplateSince, findMessage, queueMessage, recordMessage, type MessageRow, type QueueInput } from './messages.service.js';
+export { countTemplateSince, findMessage, latestMessages, messagesOfTickets, queueMessage, recordMessage, type MessageRow, type QueueInput } from './messages.service.js';
 export { senderAddress, senderByAddress } from './senders.service.js';

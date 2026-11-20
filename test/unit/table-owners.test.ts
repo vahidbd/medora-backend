@@ -37,6 +37,7 @@ const OWNERS: Record<string, string[]> = {
   'operational.senders': ['src/modules/messaging/'],
   'operational.tickets': ['src/modules/support/'],
   'operational.ticket_flags': ['src/modules/support/'],
+  'clinical.ticket_comments': ['src/modules/support/'],
 };
 
 /** Made-up local data only (src/db/seed.ts refuses anything but development). */

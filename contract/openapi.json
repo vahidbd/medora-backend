@@ -252,6 +252,9 @@
                                 "consents:manage",
                                 "tenant:manage",
                                 "brands:manage",
+                                "support:read",
+                                "support:reply",
+                                "support:clinical",
                                 "messaging:manage"
                               ]
                             }
@@ -1181,6 +1184,9 @@
                                 "consents:manage",
                                 "tenant:manage",
                                 "brands:manage",
+                                "support:read",
+                                "support:reply",
+                                "support:clinical",
                                 "messaging:manage"
                               ]
                             }
@@ -1248,6 +1254,9 @@
                                 "consents:manage",
                                 "tenant:manage",
                                 "brands:manage",
+                                "support:read",
+                                "support:reply",
+                                "support:clinical",
                                 "messaging:manage"
                               ]
                             }
@@ -1293,6 +1302,9 @@
                               "consents:manage",
                               "tenant:manage",
                               "brands:manage",
+                              "support:read",
+                              "support:reply",
+                              "support:clinical",
                               "messaging:manage"
                             ]
                           },
@@ -1377,6 +1389,9 @@
                         "consents:manage",
                         "tenant:manage",
                         "brands:manage",
+                        "support:read",
+                        "support:reply",
+                        "support:clinical",
                         "messaging:manage"
                       ]
                     }
@@ -1443,6 +1458,9 @@
                           "consents:manage",
                           "tenant:manage",
                           "brands:manage",
+                          "support:read",
+                          "support:reply",
+                          "support:clinical",
                           "messaging:manage"
                         ]
                       }
@@ -1513,6 +1531,9 @@
                         "consents:manage",
                         "tenant:manage",
                         "brands:manage",
+                        "support:read",
+                        "support:reply",
+                        "support:clinical",
                         "messaging:manage"
                       ]
                     }
@@ -1586,6 +1607,9 @@
                           "consents:manage",
                           "tenant:manage",
                           "brands:manage",
+                          "support:read",
+                          "support:reply",
+                          "support:clinical",
                           "messaging:manage"
                         ]
                       }
@@ -6101,6 +6125,3112 @@
                   },
                   "required": [
                     "removed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tickets": {
+      "get": {
+        "summary": "The inbox: tickets newest first",
+        "tags": [
+          "support"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "support",
+                "clinical"
+              ]
+            },
+            "in": "query",
+            "name": "queue",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "waiting",
+                "solved",
+                "active"
+              ]
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "me"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "unassigned"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              ]
+            },
+            "in": "query",
+            "name": "assignee",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "query",
+            "name": "brandId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "query",
+            "name": "patientId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            },
+            "in": "query",
+            "name": "before",
+            "required": false
+          },
+          {
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tickets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "ticketId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "brandId": {
+                            "nullable": true,
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "channel": {
+                            "type": "string",
+                            "enum": [
+                              "email",
+                              "sms",
+                              "chat",
+                              "voice"
+                            ]
+                          },
+                          "topic": {
+                            "type": "string",
+                            "enum": [
+                              "care_team",
+                              "orders",
+                              "billing",
+                              "account",
+                              "other"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "open",
+                              "waiting",
+                              "solved"
+                            ]
+                          },
+                          "queue": {
+                            "type": "string",
+                            "enum": [
+                              "support",
+                              "clinical"
+                            ]
+                          },
+                          "priority": {
+                            "type": "string",
+                            "enum": [
+                              "normal",
+                              "urgent"
+                            ]
+                          },
+                          "assigneeMembershipId": {
+                            "nullable": true,
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "flags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "emergency",
+                                "self_harm",
+                                "clinical",
+                                "possible_adverse_event",
+                                "possible_complaint",
+                                "legal",
+                                "person_requested"
+                              ]
+                            }
+                          },
+                          "firstResponseDueAt": {
+                            "type": "string"
+                          },
+                          "firstRespondedAt": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "overdue": {
+                            "type": "boolean"
+                          },
+                          "lastMessageAt": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "textHidden": {
+                            "type": "boolean"
+                          },
+                          "patient": {
+                            "nullable": true,
+                            "type": "object",
+                            "properties": {
+                              "patientId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "displayName": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "verified": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "patientId",
+                              "displayName",
+                              "verified"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "preview": {
+                            "nullable": true,
+                            "type": "object",
+                            "properties": {
+                              "direction": {
+                                "type": "string",
+                                "enum": [
+                                  "inbound",
+                                  "outbound"
+                                ]
+                              },
+                              "channel": {
+                                "type": "string",
+                                "enum": [
+                                  "email",
+                                  "sms",
+                                  "chat",
+                                  "voice"
+                                ]
+                              },
+                              "subject": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "snippet": {
+                                "type": "string"
+                              },
+                              "automated": {
+                                "type": "boolean"
+                              },
+                              "at": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "direction",
+                              "channel",
+                              "subject",
+                              "snippet",
+                              "automated",
+                              "at"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "ticketId",
+                          "brandId",
+                          "channel",
+                          "topic",
+                          "status",
+                          "queue",
+                          "priority",
+                          "assigneeMembershipId",
+                          "flags",
+                          "firstResponseDueAt",
+                          "firstRespondedAt",
+                          "overdue",
+                          "lastMessageAt",
+                          "createdAt",
+                          "textHidden",
+                          "patient",
+                          "preview"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "nextBefore": {
+                      "nullable": true,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "tickets",
+                    "nextBefore"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tickets/{ticketId}": {
+      "get": {
+        "summary": "One ticket, its messages and comments",
+        "tags": [
+          "support"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "ticketId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ticketId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "brandId": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "channel": {
+                      "type": "string",
+                      "enum": [
+                        "email",
+                        "sms",
+                        "chat",
+                        "voice"
+                      ]
+                    },
+                    "topic": {
+                      "type": "string",
+                      "enum": [
+                        "care_team",
+                        "orders",
+                        "billing",
+                        "account",
+                        "other"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "open",
+                        "waiting",
+                        "solved"
+                      ]
+                    },
+                    "queue": {
+                      "type": "string",
+                      "enum": [
+                        "support",
+                        "clinical"
+                      ]
+                    },
+                    "priority": {
+                      "type": "string",
+                      "enum": [
+                        "normal",
+                        "urgent"
+                      ]
+                    },
+                    "assigneeMembershipId": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "flags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "emergency",
+                          "self_harm",
+                          "clinical",
+                          "possible_adverse_event",
+                          "possible_complaint",
+                          "legal",
+                          "person_requested"
+                        ]
+                      }
+                    },
+                    "firstResponseDueAt": {
+                      "type": "string"
+                    },
+                    "firstRespondedAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "overdue": {
+                      "type": "boolean"
+                    },
+                    "lastMessageAt": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "textHidden": {
+                      "type": "boolean"
+                    },
+                    "patient": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "patientId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "displayName": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "verified": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "patientId",
+                        "displayName",
+                        "verified"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "patientPanel": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "patientId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "displayName": {
+                          "type": "string"
+                        },
+                        "dateOfBirth": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "mobile": {
+                          "nullable": true,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "patientId",
+                        "displayName",
+                        "dateOfBirth",
+                        "email",
+                        "mobile"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "verification": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "method": {
+                          "nullable": true,
+                          "type": "string",
+                          "enum": [
+                            "date_of_birth",
+                            "call_back",
+                            "patient_app"
+                          ]
+                        },
+                        "at": {
+                          "type": "string"
+                        },
+                        "byUserId": {
+                          "nullable": true,
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "required": [
+                        "method",
+                        "at",
+                        "byUserId"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "messages": {
+                      "nullable": true,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "messageId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "direction": {
+                            "type": "string",
+                            "enum": [
+                              "inbound",
+                              "outbound"
+                            ]
+                          },
+                          "channel": {
+                            "type": "string",
+                            "enum": [
+                              "email",
+                              "sms",
+                              "chat",
+                              "voice"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "queued",
+                              "sending",
+                              "sent",
+                              "delivered",
+                              "failed",
+                              "received",
+                              "logged"
+                            ]
+                          },
+                          "from": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "to": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "subject": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "automated": {
+                            "type": "boolean"
+                          },
+                          "authorType": {
+                            "type": "string",
+                            "enum": [
+                              "person",
+                              "patient",
+                              "agent",
+                              "system"
+                            ]
+                          },
+                          "authorId": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "attachmentCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "failureCode": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "sentAt": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "messageId",
+                          "direction",
+                          "channel",
+                          "status",
+                          "from",
+                          "to",
+                          "subject",
+                          "body",
+                          "automated",
+                          "authorType",
+                          "authorId",
+                          "attachmentCount",
+                          "failureCode",
+                          "createdAt",
+                          "sentAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "comments": {
+                      "nullable": true,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "commentId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "authorUserId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "commentId",
+                          "authorUserId",
+                          "body",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "reply": {
+                      "type": "object",
+                      "properties": {
+                        "allowed": {
+                          "type": "boolean"
+                        },
+                        "refusal": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "channel": {
+                          "nullable": true,
+                          "type": "string",
+                          "enum": [
+                            "email",
+                            "sms",
+                            "chat"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "allowed",
+                        "refusal",
+                        "channel"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "ticketId",
+                    "brandId",
+                    "channel",
+                    "topic",
+                    "status",
+                    "queue",
+                    "priority",
+                    "assigneeMembershipId",
+                    "flags",
+                    "firstResponseDueAt",
+                    "firstRespondedAt",
+                    "overdue",
+                    "lastMessageAt",
+                    "createdAt",
+                    "textHidden",
+                    "patient",
+                    "patientPanel",
+                    "verification",
+                    "messages",
+                    "comments",
+                    "reply"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Change a ticket's status, queue, priority or assignee",
+        "tags": [
+          "support"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "waiting",
+                      "solved"
+                    ]
+                  },
+                  "queue": {
+                    "type": "string",
+                    "enum": [
+                      "support",
+                      "clinical"
+                    ]
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": [
+                      "normal",
+                      "urgent"
+                    ]
+                  },
+                  "assigneeMembershipId": {
+                    "nullable": true,
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "ticketId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ticketId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "brandId": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "channel": {
+                      "type": "string",
+                      "enum": [
+                        "email",
+                        "sms",
+                        "chat",
+                        "voice"
+                      ]
+                    },
+                    "topic": {
+                      "type": "string",
+                      "enum": [
+                        "care_team",
+                        "orders",
+                        "billing",
+                        "account",
+                        "other"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "open",
+                        "waiting",
+                        "solved"
+                      ]
+                    },
+                    "queue": {
+                      "type": "string",
+                      "enum": [
+                        "support",
+                        "clinical"
+                      ]
+                    },
+                    "priority": {
+                      "type": "string",
+                      "enum": [
+                        "normal",
+                        "urgent"
+                      ]
+                    },
+                    "assigneeMembershipId": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "flags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "emergency",
+                          "self_harm",
+                          "clinical",
+                          "possible_adverse_event",
+                          "possible_complaint",
+                          "legal",
+                          "person_requested"
+                        ]
+                      }
+                    },
+                    "firstResponseDueAt": {
+                      "type": "string"
+                    },
+                    "firstRespondedAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "overdue": {
+                      "type": "boolean"
+                    },
+                    "lastMessageAt": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "textHidden": {
+                      "type": "boolean"
+                    },
+                    "patient": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "patientId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "displayName": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "verified": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "patientId",
+                        "displayName",
+                        "verified"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "patientPanel": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "patientId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "displayName": {
+                          "type": "string"
+                        },
+                        "dateOfBirth": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "mobile": {
+                          "nullable": true,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "patientId",
+                        "displayName",
+                        "dateOfBirth",
+                        "email",
+                        "mobile"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "verification": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "method": {
+                          "nullable": true,
+                          "type": "string",
+                          "enum": [
+                            "date_of_birth",
+                            "call_back",
+                            "patient_app"
+                          ]
+                        },
+                        "at": {
+                          "type": "string"
+                        },
+                        "byUserId": {
+                          "nullable": true,
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "required": [
+                        "method",
+                        "at",
+                        "byUserId"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "messages": {
+                      "nullable": true,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "messageId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "direction": {
+                            "type": "string",
+                            "enum": [
+                              "inbound",
+                              "outbound"
+                            ]
+                          },
+                          "channel": {
+                            "type": "string",
+                            "enum": [
+                              "email",
+                              "sms",
+                              "chat",
+                              "voice"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "queued",
+                              "sending",
+                              "sent",
+                              "delivered",
+                              "failed",
+                              "received",
+                              "logged"
+                            ]
+                          },
+                          "from": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "to": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "subject": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "automated": {
+                            "type": "boolean"
+                          },
+                          "authorType": {
+                            "type": "string",
+                            "enum": [
+                              "person",
+                              "patient",
+                              "agent",
+                              "system"
+                            ]
+                          },
+                          "authorId": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "attachmentCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "failureCode": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "sentAt": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "messageId",
+                          "direction",
+                          "channel",
+                          "status",
+                          "from",
+                          "to",
+                          "subject",
+                          "body",
+                          "automated",
+                          "authorType",
+                          "authorId",
+                          "attachmentCount",
+                          "failureCode",
+                          "createdAt",
+                          "sentAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "comments": {
+                      "nullable": true,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "commentId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "authorUserId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "commentId",
+                          "authorUserId",
+                          "body",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "reply": {
+                      "type": "object",
+                      "properties": {
+                        "allowed": {
+                          "type": "boolean"
+                        },
+                        "refusal": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "channel": {
+                          "nullable": true,
+                          "type": "string",
+                          "enum": [
+                            "email",
+                            "sms",
+                            "chat"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "allowed",
+                        "refusal",
+                        "channel"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "ticketId",
+                    "brandId",
+                    "channel",
+                    "topic",
+                    "status",
+                    "queue",
+                    "priority",
+                    "assigneeMembershipId",
+                    "flags",
+                    "firstResponseDueAt",
+                    "firstRespondedAt",
+                    "overdue",
+                    "lastMessageAt",
+                    "createdAt",
+                    "textHidden",
+                    "patient",
+                    "patientPanel",
+                    "verification",
+                    "messages",
+                    "comments",
+                    "reply"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tickets/{ticketId}/replies": {
+      "post": {
+        "summary": "Reply to the person, the way they last wrote in",
+        "tags": [
+          "support"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "waiting",
+                      "solved"
+                    ]
+                  }
+                },
+                "required": [
+                  "body"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "ticketId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ticketId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "brandId": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "channel": {
+                      "type": "string",
+                      "enum": [
+                        "email",
+                        "sms",
+                        "chat",
+                        "voice"
+                      ]
+                    },
+                    "topic": {
+                      "type": "string",
+                      "enum": [
+                        "care_team",
+                        "orders",
+                        "billing",
+                        "account",
+                        "other"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "open",
+                        "waiting",
+                        "solved"
+                      ]
+                    },
+                    "queue": {
+                      "type": "string",
+                      "enum": [
+                        "support",
+                        "clinical"
+                      ]
+                    },
+                    "priority": {
+                      "type": "string",
+                      "enum": [
+                        "normal",
+                        "urgent"
+                      ]
+                    },
+                    "assigneeMembershipId": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "flags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "emergency",
+                          "self_harm",
+                          "clinical",
+                          "possible_adverse_event",
+                          "possible_complaint",
+                          "legal",
+                          "person_requested"
+                        ]
+                      }
+                    },
+                    "firstResponseDueAt": {
+                      "type": "string"
+                    },
+                    "firstRespondedAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "overdue": {
+                      "type": "boolean"
+                    },
+                    "lastMessageAt": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "textHidden": {
+                      "type": "boolean"
+                    },
+                    "patient": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "patientId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "displayName": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "verified": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "patientId",
+                        "displayName",
+                        "verified"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "patientPanel": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "patientId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "displayName": {
+                          "type": "string"
+                        },
+                        "dateOfBirth": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "mobile": {
+                          "nullable": true,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "patientId",
+                        "displayName",
+                        "dateOfBirth",
+                        "email",
+                        "mobile"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "verification": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "method": {
+                          "nullable": true,
+                          "type": "string",
+                          "enum": [
+                            "date_of_birth",
+                            "call_back",
+                            "patient_app"
+                          ]
+                        },
+                        "at": {
+                          "type": "string"
+                        },
+                        "byUserId": {
+                          "nullable": true,
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "required": [
+                        "method",
+                        "at",
+                        "byUserId"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "messages": {
+                      "nullable": true,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "messageId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "direction": {
+                            "type": "string",
+                            "enum": [
+                              "inbound",
+                              "outbound"
+                            ]
+                          },
+                          "channel": {
+                            "type": "string",
+                            "enum": [
+                              "email",
+                              "sms",
+                              "chat",
+                              "voice"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "queued",
+                              "sending",
+                              "sent",
+                              "delivered",
+                              "failed",
+                              "received",
+                              "logged"
+                            ]
+                          },
+                          "from": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "to": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "subject": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "automated": {
+                            "type": "boolean"
+                          },
+                          "authorType": {
+                            "type": "string",
+                            "enum": [
+                              "person",
+                              "patient",
+                              "agent",
+                              "system"
+                            ]
+                          },
+                          "authorId": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "attachmentCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "failureCode": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "sentAt": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "messageId",
+                          "direction",
+                          "channel",
+                          "status",
+                          "from",
+                          "to",
+                          "subject",
+                          "body",
+                          "automated",
+                          "authorType",
+                          "authorId",
+                          "attachmentCount",
+                          "failureCode",
+                          "createdAt",
+                          "sentAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "comments": {
+                      "nullable": true,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "commentId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "authorUserId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "commentId",
+                          "authorUserId",
+                          "body",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "reply": {
+                      "type": "object",
+                      "properties": {
+                        "allowed": {
+                          "type": "boolean"
+                        },
+                        "refusal": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "channel": {
+                          "nullable": true,
+                          "type": "string",
+                          "enum": [
+                            "email",
+                            "sms",
+                            "chat"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "allowed",
+                        "refusal",
+                        "channel"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "ticketId",
+                    "brandId",
+                    "channel",
+                    "topic",
+                    "status",
+                    "queue",
+                    "priority",
+                    "assigneeMembershipId",
+                    "flags",
+                    "firstResponseDueAt",
+                    "firstRespondedAt",
+                    "overdue",
+                    "lastMessageAt",
+                    "createdAt",
+                    "textHidden",
+                    "patient",
+                    "patientPanel",
+                    "verification",
+                    "messages",
+                    "comments",
+                    "reply"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tickets/{ticketId}/calls": {
+      "post": {
+        "summary": "Log a phone call on a ticket: a summary, no recording",
+        "tags": [
+          "support"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "direction": {
+                    "type": "string",
+                    "enum": [
+                      "inbound",
+                      "outbound"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  },
+                  "phone": {
+                    "nullable": true,
+                    "type": "string",
+                    "maxLength": 32
+                  }
+                },
+                "required": [
+                  "direction",
+                  "summary"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "ticketId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ticketId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "brandId": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "channel": {
+                      "type": "string",
+                      "enum": [
+                        "email",
+                        "sms",
+                        "chat",
+                        "voice"
+                      ]
+                    },
+                    "topic": {
+                      "type": "string",
+                      "enum": [
+                        "care_team",
+                        "orders",
+                        "billing",
+                        "account",
+                        "other"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "open",
+                        "waiting",
+                        "solved"
+                      ]
+                    },
+                    "queue": {
+                      "type": "string",
+                      "enum": [
+                        "support",
+                        "clinical"
+                      ]
+                    },
+                    "priority": {
+                      "type": "string",
+                      "enum": [
+                        "normal",
+                        "urgent"
+                      ]
+                    },
+                    "assigneeMembershipId": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "flags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "emergency",
+                          "self_harm",
+                          "clinical",
+                          "possible_adverse_event",
+                          "possible_complaint",
+                          "legal",
+                          "person_requested"
+                        ]
+                      }
+                    },
+                    "firstResponseDueAt": {
+                      "type": "string"
+                    },
+                    "firstRespondedAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "overdue": {
+                      "type": "boolean"
+                    },
+                    "lastMessageAt": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "textHidden": {
+                      "type": "boolean"
+                    },
+                    "patient": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "patientId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "displayName": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "verified": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "patientId",
+                        "displayName",
+                        "verified"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "patientPanel": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "patientId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "displayName": {
+                          "type": "string"
+                        },
+                        "dateOfBirth": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "mobile": {
+                          "nullable": true,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "patientId",
+                        "displayName",
+                        "dateOfBirth",
+                        "email",
+                        "mobile"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "verification": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "method": {
+                          "nullable": true,
+                          "type": "string",
+                          "enum": [
+                            "date_of_birth",
+                            "call_back",
+                            "patient_app"
+                          ]
+                        },
+                        "at": {
+                          "type": "string"
+                        },
+                        "byUserId": {
+                          "nullable": true,
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "required": [
+                        "method",
+                        "at",
+                        "byUserId"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "messages": {
+                      "nullable": true,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "messageId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "direction": {
+                            "type": "string",
+                            "enum": [
+                              "inbound",
+                              "outbound"
+                            ]
+                          },
+                          "channel": {
+                            "type": "string",
+                            "enum": [
+                              "email",
+                              "sms",
+                              "chat",
+                              "voice"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "queued",
+                              "sending",
+                              "sent",
+                              "delivered",
+                              "failed",
+                              "received",
+                              "logged"
+                            ]
+                          },
+                          "from": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "to": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "subject": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "automated": {
+                            "type": "boolean"
+                          },
+                          "authorType": {
+                            "type": "string",
+                            "enum": [
+                              "person",
+                              "patient",
+                              "agent",
+                              "system"
+                            ]
+                          },
+                          "authorId": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "attachmentCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "failureCode": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "sentAt": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "messageId",
+                          "direction",
+                          "channel",
+                          "status",
+                          "from",
+                          "to",
+                          "subject",
+                          "body",
+                          "automated",
+                          "authorType",
+                          "authorId",
+                          "attachmentCount",
+                          "failureCode",
+                          "createdAt",
+                          "sentAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "comments": {
+                      "nullable": true,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "commentId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "authorUserId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "commentId",
+                          "authorUserId",
+                          "body",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "reply": {
+                      "type": "object",
+                      "properties": {
+                        "allowed": {
+                          "type": "boolean"
+                        },
+                        "refusal": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "channel": {
+                          "nullable": true,
+                          "type": "string",
+                          "enum": [
+                            "email",
+                            "sms",
+                            "chat"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "allowed",
+                        "refusal",
+                        "channel"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "ticketId",
+                    "brandId",
+                    "channel",
+                    "topic",
+                    "status",
+                    "queue",
+                    "priority",
+                    "assigneeMembershipId",
+                    "flags",
+                    "firstResponseDueAt",
+                    "firstRespondedAt",
+                    "overdue",
+                    "lastMessageAt",
+                    "createdAt",
+                    "textHidden",
+                    "patient",
+                    "patientPanel",
+                    "verification",
+                    "messages",
+                    "comments",
+                    "reply"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tickets/{ticketId}/comments": {
+      "post": {
+        "summary": "Add a comment only staff see",
+        "tags": [
+          "support"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  }
+                },
+                "required": [
+                  "body"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "ticketId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "commentId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "authorUserId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "body": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "commentId",
+                    "authorUserId",
+                    "body",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tickets/{ticketId}/flags": {
+      "post": {
+        "summary": "Flag a ticket: it only ever escalates",
+        "tags": [
+          "support"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "flag": {
+                    "type": "string",
+                    "enum": [
+                      "emergency",
+                      "self_harm",
+                      "possible_adverse_event",
+                      "possible_complaint",
+                      "legal",
+                      "person_requested"
+                    ]
+                  }
+                },
+                "required": [
+                  "flag"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "ticketId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "flags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "emergency",
+                          "self_harm",
+                          "clinical",
+                          "possible_adverse_event",
+                          "possible_complaint",
+                          "legal",
+                          "person_requested"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "flags"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tickets/{ticketId}/flags/{flag}": {
+      "delete": {
+        "summary": "Clear a flag",
+        "tags": [
+          "support"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "ticketId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "emergency",
+                "self_harm",
+                "clinical",
+                "possible_adverse_event",
+                "possible_complaint",
+                "legal",
+                "person_requested"
+              ]
+            },
+            "in": "path",
+            "name": "flag",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "flags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "emergency",
+                          "self_harm",
+                          "clinical",
+                          "possible_adverse_event",
+                          "possible_complaint",
+                          "legal",
+                          "person_requested"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "flags"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tickets/{ticketId}/patient": {
+      "put": {
+        "summary": "Link the ticket to a patient, or to nobody",
+        "tags": [
+          "support"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "patientId": {
+                    "nullable": true,
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "patientId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "ticketId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ticketId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "brandId": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "channel": {
+                      "type": "string",
+                      "enum": [
+                        "email",
+                        "sms",
+                        "chat",
+                        "voice"
+                      ]
+                    },
+                    "topic": {
+                      "type": "string",
+                      "enum": [
+                        "care_team",
+                        "orders",
+                        "billing",
+                        "account",
+                        "other"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "open",
+                        "waiting",
+                        "solved"
+                      ]
+                    },
+                    "queue": {
+                      "type": "string",
+                      "enum": [
+                        "support",
+                        "clinical"
+                      ]
+                    },
+                    "priority": {
+                      "type": "string",
+                      "enum": [
+                        "normal",
+                        "urgent"
+                      ]
+                    },
+                    "assigneeMembershipId": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "flags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "emergency",
+                          "self_harm",
+                          "clinical",
+                          "possible_adverse_event",
+                          "possible_complaint",
+                          "legal",
+                          "person_requested"
+                        ]
+                      }
+                    },
+                    "firstResponseDueAt": {
+                      "type": "string"
+                    },
+                    "firstRespondedAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "overdue": {
+                      "type": "boolean"
+                    },
+                    "lastMessageAt": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "textHidden": {
+                      "type": "boolean"
+                    },
+                    "patient": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "patientId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "displayName": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "verified": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "patientId",
+                        "displayName",
+                        "verified"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "patientPanel": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "patientId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "displayName": {
+                          "type": "string"
+                        },
+                        "dateOfBirth": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "mobile": {
+                          "nullable": true,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "patientId",
+                        "displayName",
+                        "dateOfBirth",
+                        "email",
+                        "mobile"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "verification": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "method": {
+                          "nullable": true,
+                          "type": "string",
+                          "enum": [
+                            "date_of_birth",
+                            "call_back",
+                            "patient_app"
+                          ]
+                        },
+                        "at": {
+                          "type": "string"
+                        },
+                        "byUserId": {
+                          "nullable": true,
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "required": [
+                        "method",
+                        "at",
+                        "byUserId"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "messages": {
+                      "nullable": true,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "messageId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "direction": {
+                            "type": "string",
+                            "enum": [
+                              "inbound",
+                              "outbound"
+                            ]
+                          },
+                          "channel": {
+                            "type": "string",
+                            "enum": [
+                              "email",
+                              "sms",
+                              "chat",
+                              "voice"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "queued",
+                              "sending",
+                              "sent",
+                              "delivered",
+                              "failed",
+                              "received",
+                              "logged"
+                            ]
+                          },
+                          "from": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "to": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "subject": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "automated": {
+                            "type": "boolean"
+                          },
+                          "authorType": {
+                            "type": "string",
+                            "enum": [
+                              "person",
+                              "patient",
+                              "agent",
+                              "system"
+                            ]
+                          },
+                          "authorId": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "attachmentCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "failureCode": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "sentAt": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "messageId",
+                          "direction",
+                          "channel",
+                          "status",
+                          "from",
+                          "to",
+                          "subject",
+                          "body",
+                          "automated",
+                          "authorType",
+                          "authorId",
+                          "attachmentCount",
+                          "failureCode",
+                          "createdAt",
+                          "sentAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "comments": {
+                      "nullable": true,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "commentId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "authorUserId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "commentId",
+                          "authorUserId",
+                          "body",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "reply": {
+                      "type": "object",
+                      "properties": {
+                        "allowed": {
+                          "type": "boolean"
+                        },
+                        "refusal": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "channel": {
+                          "nullable": true,
+                          "type": "string",
+                          "enum": [
+                            "email",
+                            "sms",
+                            "chat"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "allowed",
+                        "refusal",
+                        "channel"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "ticketId",
+                    "brandId",
+                    "channel",
+                    "topic",
+                    "status",
+                    "queue",
+                    "priority",
+                    "assigneeMembershipId",
+                    "flags",
+                    "firstResponseDueAt",
+                    "firstRespondedAt",
+                    "overdue",
+                    "lastMessageAt",
+                    "createdAt",
+                    "textHidden",
+                    "patient",
+                    "patientPanel",
+                    "verification",
+                    "messages",
+                    "comments",
+                    "reply"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tickets/{ticketId}/verify": {
+      "post": {
+        "summary": "Confirm who you are talking to, and how",
+        "tags": [
+          "support"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "date_of_birth",
+                      "call_back"
+                    ]
+                  }
+                },
+                "required": [
+                  "method"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "ticketId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ticketId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "brandId": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "channel": {
+                      "type": "string",
+                      "enum": [
+                        "email",
+                        "sms",
+                        "chat",
+                        "voice"
+                      ]
+                    },
+                    "topic": {
+                      "type": "string",
+                      "enum": [
+                        "care_team",
+                        "orders",
+                        "billing",
+                        "account",
+                        "other"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "open",
+                        "waiting",
+                        "solved"
+                      ]
+                    },
+                    "queue": {
+                      "type": "string",
+                      "enum": [
+                        "support",
+                        "clinical"
+                      ]
+                    },
+                    "priority": {
+                      "type": "string",
+                      "enum": [
+                        "normal",
+                        "urgent"
+                      ]
+                    },
+                    "assigneeMembershipId": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "flags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "emergency",
+                          "self_harm",
+                          "clinical",
+                          "possible_adverse_event",
+                          "possible_complaint",
+                          "legal",
+                          "person_requested"
+                        ]
+                      }
+                    },
+                    "firstResponseDueAt": {
+                      "type": "string"
+                    },
+                    "firstRespondedAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "overdue": {
+                      "type": "boolean"
+                    },
+                    "lastMessageAt": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "textHidden": {
+                      "type": "boolean"
+                    },
+                    "patient": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "patientId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "displayName": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "verified": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "patientId",
+                        "displayName",
+                        "verified"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "patientPanel": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "patientId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "displayName": {
+                          "type": "string"
+                        },
+                        "dateOfBirth": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "mobile": {
+                          "nullable": true,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "patientId",
+                        "displayName",
+                        "dateOfBirth",
+                        "email",
+                        "mobile"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "verification": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "method": {
+                          "nullable": true,
+                          "type": "string",
+                          "enum": [
+                            "date_of_birth",
+                            "call_back",
+                            "patient_app"
+                          ]
+                        },
+                        "at": {
+                          "type": "string"
+                        },
+                        "byUserId": {
+                          "nullable": true,
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "required": [
+                        "method",
+                        "at",
+                        "byUserId"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "messages": {
+                      "nullable": true,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "messageId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "direction": {
+                            "type": "string",
+                            "enum": [
+                              "inbound",
+                              "outbound"
+                            ]
+                          },
+                          "channel": {
+                            "type": "string",
+                            "enum": [
+                              "email",
+                              "sms",
+                              "chat",
+                              "voice"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "queued",
+                              "sending",
+                              "sent",
+                              "delivered",
+                              "failed",
+                              "received",
+                              "logged"
+                            ]
+                          },
+                          "from": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "to": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "subject": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "automated": {
+                            "type": "boolean"
+                          },
+                          "authorType": {
+                            "type": "string",
+                            "enum": [
+                              "person",
+                              "patient",
+                              "agent",
+                              "system"
+                            ]
+                          },
+                          "authorId": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "attachmentCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "failureCode": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "sentAt": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "messageId",
+                          "direction",
+                          "channel",
+                          "status",
+                          "from",
+                          "to",
+                          "subject",
+                          "body",
+                          "automated",
+                          "authorType",
+                          "authorId",
+                          "attachmentCount",
+                          "failureCode",
+                          "createdAt",
+                          "sentAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "comments": {
+                      "nullable": true,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "commentId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "authorUserId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "commentId",
+                          "authorUserId",
+                          "body",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "reply": {
+                      "type": "object",
+                      "properties": {
+                        "allowed": {
+                          "type": "boolean"
+                        },
+                        "refusal": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "channel": {
+                          "nullable": true,
+                          "type": "string",
+                          "enum": [
+                            "email",
+                            "sms",
+                            "chat"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "allowed",
+                        "refusal",
+                        "channel"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "ticketId",
+                    "brandId",
+                    "channel",
+                    "topic",
+                    "status",
+                    "queue",
+                    "priority",
+                    "assigneeMembershipId",
+                    "flags",
+                    "firstResponseDueAt",
+                    "firstRespondedAt",
+                    "overdue",
+                    "lastMessageAt",
+                    "createdAt",
+                    "textHidden",
+                    "patient",
+                    "patientPanel",
+                    "verification",
+                    "messages",
+                    "comments",
+                    "reply"
                   ],
                   "additionalProperties": false
                 }

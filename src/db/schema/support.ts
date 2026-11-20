@@ -5,7 +5,7 @@ import { oneOf } from './checks.js';
 import { patients } from './clinical-patients.js';
 import { memberships, tenants, users } from './platform.js';
 import { ACTOR_TYPES, CHANNELS, TICKET_FLAGS, TICKET_PRIORITIES, TICKET_QUEUES, TICKET_STATUSES, TICKET_TOPICS, VERIFICATION_METHODS } from './values.js';
-import { operational } from './zones.js';
+import { clinical, operational } from './zones.js';
 
 /**
  * The helpdesk (PRD section 13, docs/decisions/support.md). A ticket is
@@ -121,5 +121,31 @@ export const ticketFlags = operational.table(
     check('ticket_flags_set_by_type_check', oneOf(table.setByType, ACTOR_TYPES)),
     check('ticket_flags_set_by_check', sql`(${table.setByType} = 'system') = (${table.setById} is null)`),
     check('ticket_flags_cleared_check', sql`(${table.clearedAt} is null) = (${table.clearedByUserId} is null)`),
+  ],
+);
+
+/** Staff-only text on a ticket, never sent (glossary: Comment). Clinical zone, like every free text on a ticket. */
+export const ticketComments = clinical.table(
+  'ticket_comments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    ticketId: uuid('ticket_id').notNull(),
+    authorUserId: uuid('author_user_id')
+      .notNull()
+      .references(() => users.id),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.tenantId, table.ticketId],
+      foreignColumns: [tickets.tenantId, tickets.id],
+      name: 'ticket_comments_ticket_fk',
+    }),
+    index('ticket_comments_ticket_idx').on(table.tenantId, table.ticketId, table.createdAt),
+    index('ticket_comments_author_idx').on(table.authorUserId),
   ],
 );
