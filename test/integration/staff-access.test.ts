@@ -218,8 +218,11 @@ describe('break-glass (ADM3)', () => {
     );
     expect((await call('POST', `/v1/break-glass/${own.rows[0]!.id}/review`, director.email, tenantId, {})).json().error.code).toBe('own_break_glass');
 
-    const closed = await call('POST', `/v1/break-glass/${id}/close`, owner.email, tenantId);
-    expect(new Date(closed.json().endsAt).getTime()).toBeLessThanOrEqual(Date.now());
+    const closed = await call('POST', '/v1/break-glass/close', owner.email, tenantId);
+    expect(closed.json().breakGlass).toMatchObject([{ breakGlassId: id }]);
+    expect(new Date(closed.json().breakGlass[0].endsAt).getTime()).toBeLessThanOrEqual(Date.now());
+    const again = await call('POST', '/v1/break-glass/close', owner.email, tenantId);
+    expect(again.json().breakGlass).toEqual([]);
 
     const stranger = await tenantWith('owner');
     const seen = await withTenant({ tenantId: stranger.tenantId, actor: { type: 'person', userId: stranger.members[0]!.id }, requestId: 'test' }, (tx) =>
