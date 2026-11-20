@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { type PaymentProcessor, ProcessorRefusedError, ProcessorUnavailableError } from './processor.js';
 
 /**
- * The Stripe adapter (ADRs 0019 and 0037): Stripe Connect with Standard
+ * The Stripe adapter (ADRs 0019 and 0160): Stripe Connect with Standard
  * accounts. Each tenant's account is its own; Medora's key opens and reads
  * them, and charges are made on the tenant's account (direct charges) as
  * billing arrives. Plain HTTPS to Stripe's API, pinned to one API version so

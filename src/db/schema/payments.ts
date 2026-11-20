@@ -6,7 +6,7 @@ import { PAYMENT_ACCOUNT_STATUSES, PROCESSORS } from './values.js';
 import { operational } from './zones.js';
 
 /**
- * Payment accounts (ADR 0037, docs/decisions/billing.md BIL8 to BIL12): each
+ * Payment accounts (ADR 0160, docs/decisions/billing.md BIL8 to BIL12): each
  * one is a tenant's own account at a processor, so patients' money is paid
  * into the tenant's account and never passes through Medora's.
  */

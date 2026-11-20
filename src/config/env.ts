@@ -47,7 +47,7 @@ const envSchema = z.object({
   CLIENT_IP_HEADER: optionalText,
 
   /**
-   * Medora's own Stripe key, for Stripe Connect (ADR 0037). Tenants' money goes
+   * Medora's own Stripe key, for Stripe Connect (ADR 0160). Tenants' money goes
    * to their own Stripe accounts; this key only opens and reads them. Unset
    * outside a deployed service: a fake processor stands in.
    */
@@ -98,7 +98,7 @@ function authProblems(config: Env): string[] {
   return problems;
 }
 
-/** A live payment key works only in production, and production takes nothing else (ADRs 0025, 0037). */
+/** A live payment key works only in production, and production takes nothing else (ADRs 0025, 0160). */
 function paymentProblems(config: Env): string[] {
   const live = /^(sk|rk)_live_/.test(config.STRIPE_SECRET_KEY ?? '');
   if (config.MEDORA_ENV === 'production') return live ? [] : ['STRIPE_SECRET_KEY must be a live key (sk_live_ or rk_live_) in production'];

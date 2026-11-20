@@ -4,7 +4,7 @@ import { AppError } from '../../lib/errors.js';
 /**
  * The payments interface (ADR 0019): one adapter per processor, and feature
  * code never calls a processor any other way. Each tenant is paid into its
- * own account at the processor (ADR 0037). This part covers connecting those
+ * own account at the processor (ADR 0160). This part covers connecting those
  * accounts; saving cards, charging and refunding join it as billing grows.
  */
 
@@ -55,7 +55,7 @@ export class ProcessorUnavailableError extends AppError {
   }
 }
 
-/** This server has no key for the processor, so nothing is sent (ADR 0037). */
+/** This server has no key for the processor, so nothing is sent (ADR 0160). */
 export class ProcessorNotConfiguredError extends AppError {
   constructor(processor: Processor) {
     super(503, 'processor_not_configured', `${NAMES[processor]} isn't set up on this server yet`);

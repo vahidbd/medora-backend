@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STRIPE_API_VERSION, stripeProcessor } from '../../src/modules/payments/stripe.js';
 
-/** What the Stripe adapter sends and how it reads Stripe's replies (ADRs 0019, 0037). Made-up ids and keys. */
+/** What the Stripe adapter sends and how it reads Stripe's replies (ADRs 0019, 0160). Made-up ids and keys. */
 interface Sent {
   url: string;
   method: string;
