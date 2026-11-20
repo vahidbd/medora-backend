@@ -119,7 +119,7 @@ export const authPlugin = fp(async (app: FastifyInstance) => {
     const identity = await identify(request);
     const user = await findSignedInUser(identity, request.id);
     if (!user) {
-      throw new UnauthorizedError("This sign-in has no Medora account. Ask your clinic's owner to invite you.", 'no_account');
+      throw new UnauthorizedError("This sign-in has no Medora account. Ask an owner to invite you.", 'no_account');
     }
     const tenant = tenantAccess(request, user.memberships);
     request.auth = { userId: user.userId, email: user.email, memberships: user.memberships, tenant };

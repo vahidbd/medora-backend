@@ -22,8 +22,11 @@ Replaces: INT1 (optional)
 
 ## Prefixes
 
-| Prefix | File | Feature |
-| --- | --- | --- |
-| FND | `foundation.md` | The platform foundation: tenancy, sign-in, audit, health checks |
+Prefixes are unique across both repos, so this table lists both.
 
-Add a row when you add a file. A prefix is two to four capital letters and is never reused.
+| Prefix | File | Repo | Feature |
+| --- | --- | --- | --- |
+| FND | `foundation.md` | `medora-backend` | The platform foundation: tenancy, sign-in, audit, health checks |
+| CON | `console.md` | `medora-front` | The staff console: sign-in gate, tenant switch, shell, page security, preview mode |
+
+Add a row in both repos when you add a file. A prefix is two to four capital letters and is never reused.
