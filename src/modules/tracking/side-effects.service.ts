@@ -3,7 +3,7 @@ import { sideEffects } from '../../db/schema/index.js';
 import type { SideEffectSeverity } from '../../db/schema/values.js';
 import type { TenantTx } from '../../db/tenant.js';
 import { audit } from '../../lib/audit.js';
-import { BadRequestError } from '../../lib/errors.js';
+import { BadRequestError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import { emitEvent } from '../../lib/events.js';
 import { localDate } from '../../lib/time.js';
 import { flagSideEffect, recordActivity } from '../adherence/index.js';
@@ -94,4 +94,17 @@ export async function sideEffectsOfCheckIns(tx: TenantTx, checkInIds: readonly s
     .where(and(eq(sideEffects.tenantId, tx.context.tenantId), inArray(sideEffects.checkInId, [...checkInIds])));
   for (const row of rows) if (row.checkInId) byCheckIn.set(row.checkInId, toSideEffect(row));
   return byCheckIn;
+}
+
+/**
+ * One report, for the care team acting on the adherence flag it raised
+ * (docs/decisions/adherence.md ADH10). The patient's words: a person reads
+ * them, never an agent, and the read is audited.
+ */
+export async function sideEffectForCareTeam(tx: TenantTx, sideEffectId: string): Promise<SideEffect & { patientId: string }> {
+  if (tx.context.actor.type !== 'person') throw new ForbiddenError('Only a person on the care team reads this');
+  const [row] = await tx.db.select().from(sideEffects).where(and(eq(sideEffects.tenantId, tx.context.tenantId), eq(sideEffects.id, sideEffectId)));
+  if (!row) throw new NotFoundError('Side effect');
+  await audit(tx, { action: 'side_effect.read', zone: 'clinical', recordTable: RECORD, recordId: row.id, details: { patientId: row.patientId } });
+  return { ...toSideEffect(row), patientId: row.patientId };
 }

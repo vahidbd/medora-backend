@@ -56,6 +56,8 @@ export const sideEffect = z.object({
 });
 export type SideEffect = z.infer<typeof sideEffect>;
 export const sideEffectsReply = z.object({ sideEffects: z.array(sideEffect) });
+export const sideEffectParams = z.object({ sideEffectId: z.uuid() }).strict();
+export const careTeamSideEffect = sideEffect.extend({ patientId: z.uuid() });
 
 export const checkInBody = z
   .object({

@@ -1,10 +1,12 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { withTenant } from '../../db/tenant.js';
+import { tenantContextOf } from '../../plugins/auth.js';
 import { patientContextOf, requirePatient } from '../../plugins/patient-auth.js';
 import { checkInsOf, submitCheckIn } from './check-ins.service.js';
 import { measurementsOf, recordMeasurements } from './measurements.service.js';
-import { reportSideEffect, sideEffectsOf } from './side-effects.service.js';
+import { reportSideEffect, sideEffectForCareTeam, sideEffectsOf } from './side-effects.service.js';
 import {
+  careTeamSideEffect,
   checkIn,
   checkInBody,
   checkInsReply,
@@ -13,13 +15,15 @@ import {
   measurementsReply,
   sideEffect,
   sideEffectBody,
+  sideEffectParams,
   sideEffectsReply,
 } from './tracking.schemas.js';
 
 /**
  * What a patient records about themselves, under /v1/patient
- * (docs/decisions/tracking.md). Every route is on the patient's own record
- * only: the patient comes from the sign-in, never from the request.
+ * (docs/decisions/tracking.md). Every patient route is on the patient's own
+ * record only: the patient comes from the sign-in, never from the request.
+ * The care team reads a side effect report through /v1/side-effects.
  */
 
 const NO_AGENT = { none: 'A patient records their own readings, side effects and check-ins; an agent never acts as a patient (ADR 0012)' };
@@ -75,6 +79,16 @@ export const trackingRoutes: FastifyPluginAsyncZod = async (app) => {
       const reported = await withTenant(patientContextOf(request), (tx) => reportSideEffect(tx, { patientId: requirePatient(request).patientId, ...request.body }));
       return reply.code(201).send(reported);
     },
+  );
+
+  // The care team reads the report behind an adherence flag (docs/decisions/adherence.md ADH10).
+  app.get(
+    '/side-effects/:sideEffectId',
+    {
+      config: { access: { permission: 'adherence:read' } },
+      schema: { tags: ['tracking'], summary: 'A side effect report, in the patient’s words', params: sideEffectParams, response: { 200: careTeamSideEffect } },
+    },
+    async (request) => withTenant(tenantContextOf(request), (tx) => sideEffectForCareTeam(tx, request.params.sideEffectId)),
   );
 
   app.get(

@@ -49,3 +49,15 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid
 Decision: `openFlagsOf(tx, patientId)` gives the kind, urgency and when each open flag was raised, urgent first, and audits the read. It is how the care coordinator agent learns a patient has one. No agent resolves or reopens a flag, or reads the words behind one.
 Why: the PRD makes clinical escalation human only, and ADR 0012 wants that enforced by the system, not by a prompt.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### ADH9. Two clinical permissions, for clinical roles
+
+Decision: `adherence:read` lists adherence flags, shows one and the report behind it, and will show a patient's activity; `adherence:resolve` resolves and reopens them. Both are clinical-zone permissions held by clinicians, prescribers and medical directors, so an owner or anyone else uses them only under break-glass (ADR 0220). `adherence:resolve` is one no agent may hold, and the services refuse any actor that isn't a person.
+Why: who is struggling with their treatment, and why, is clinical; acting on it is a clinical escalation, which the PRD keeps for people.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### ADH10. The list never shows the patient's words; one audited step does
+
+Decision: `GET /v1/adherence/flags` lists open flags urgent first, then oldest first, or resolved ones newest resolution first, with the patient's name, the kind, the urgency, when raised and the resolution's outcome; one audit entry for the list with the count. The resolver's note is only in `GET /v1/adherence/flags/:adherenceFlagId`, an audited read that also shows the resolution a reopened flag undid and, on a resolved flag, the flag that reopened it, so a screen offers reopen only once. The patient's words behind a side effect flag come from the report's own module, `GET /v1/side-effects/:sideEffectId`, an audited read for people only, so the adherence module depends on no module that writes activity (ADR 0260).
+Why: the list is what a whole team scans; free text stays behind a step that says who read it.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid

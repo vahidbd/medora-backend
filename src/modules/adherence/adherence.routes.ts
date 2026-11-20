@@ -3,9 +3,11 @@ import { withTenant } from '../../db/tenant.js';
 import { patientContextOf, requirePatient } from '../../plugins/patient-auth.js';
 import { recordAppOpened } from './activity.service.js';
 import { appOpenedReply } from './adherence.schemas.js';
+import { adherenceReviewRoutes } from './review.routes.js';
 
-/** The patient's side of the adherence activity stream (docs/decisions/adherence.md ADH2). */
+/** The patient's side of the adherence activity stream (docs/decisions/adherence.md ADH2), and the care team's adherence flags. */
 export const adherenceRoutes: FastifyPluginAsyncZod = async (app) => {
+  await app.register(adherenceReviewRoutes);
   app.post(
     '/patient/activity/app-opened',
     {
