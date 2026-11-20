@@ -34,6 +34,9 @@ One word per thing (ADR 0032). Use these words in table names, API fields, route
 | A parcel on its way to a patient | **Shipment** | delivery, consignment |
 | A patient's ongoing goals, check-ins and reviews | **Care plan** | journey, treatment plan |
 | A clinical record of a consult or review | **Note** | encounter, chart entry |
+| A reading of the body, by the patient or their care team (weight, waist, blood pressure) | **Measurement** | metric, vital, observation, reading (in code) |
+| Something unwanted a patient reports while on treatment | **Side effect** | symptom, adverse reaction (unless it is reported as an adverse event) |
+| A patient's short answer, between consults, to how their care is going | **Check-in** | survey, review form, questionnaire |
 
 ## Platform
 
