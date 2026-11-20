@@ -1,6 +1,6 @@
 {
-  "id": "419d1354-4122-4366-a00a-e07a38ae485f",
-  "prevId": "735bbdd2-75db-41ae-894e-9a325f1ce23d",
+  "id": "bcb7df98-37e0-42b9-b8e6-dc22ee810347",
+  "prevId": "e0d538fd-421b-4851-a214-2b378ba5bf4b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -4930,6 +4930,354 @@
       },
       "isRLSEnabled": false
     },
+    "platform.block_rules": {
+      "name": "block_rules",
+      "schema": "platform",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "match": {
+          "name": "match",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_url": {
+          "name": "source_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "effective_from": {
+          "name": "effective_from",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "added_by": {
+          "name": "added_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "added_at": {
+          "name": "added_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "retired_at": {
+          "name": "retired_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "block_rules_added_by_idx": {
+          "name": "block_rules_added_by_idx",
+          "columns": [
+            {
+              "expression": "added_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "block_rules_current_key": {
+          "name": "block_rules_current_key",
+          "columns": [
+            {
+              "expression": "match",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "coalesce(\"value\", '')",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"platform\".\"block_rules\".\"retired_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "block_rules_added_by_users_id_fk": {
+          "name": "block_rules_added_by_users_id_fk",
+          "tableFrom": "block_rules",
+          "tableTo": "users",
+          "schemaTo": "platform",
+          "columnsFrom": [
+            "added_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "block_rules_match_check": {
+          "name": "block_rules_match_check",
+          "value": "\"platform\".\"block_rules\".\"match\" in ('schedule', 'artg_number', 'compounded')"
+        },
+        "block_rules_value_check": {
+          "name": "block_rules_value_check",
+          "value": "case \"platform\".\"block_rules\".\"match\"\n        when 'compounded' then \"platform\".\"block_rules\".\"value\" is null\n        when 'schedule' then \"platform\".\"block_rules\".\"value\" ~ '^S[2348]$'\n        when 'artg_number' then \"platform\".\"block_rules\".\"value\" ~ '^[0-9]{3,8}$'\n        else false end"
+        },
+        "block_rules_reason_check": {
+          "name": "block_rules_reason_check",
+          "value": "length(btrim(\"platform\".\"block_rules\".\"reason\")) between 10 and 500"
+        },
+        "block_rules_source_check": {
+          "name": "block_rules_source_check",
+          "value": "\"platform\".\"block_rules\".\"source_url\" ~ '^https://'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "operational.products": {
+      "name": "products",
+      "schema": "operational",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "schedule": {
+          "name": "schedule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "artg_number": {
+          "name": "artg_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "compounded": {
+          "name": "compounded",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "strength": {
+          "name": "strength",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "form": {
+          "name": "form",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pack_size": {
+          "name": "pack_size",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "storage": {
+          "name": "storage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'room'"
+        },
+        "price_cents": {
+          "name": "price_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "gst_free": {
+          "name": "gst_free",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "blocked_reason": {
+          "name": "blocked_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "products_tenant_name_idx": {
+          "name": "products_tenant_name_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "products_tenant_id_tenants_id_fk": {
+          "name": "products_tenant_id_tenants_id_fk",
+          "tableFrom": "products",
+          "tableTo": "tenants",
+          "schemaTo": "platform",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "products_tenant_id_key": {
+          "name": "products_tenant_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "products_kind_check": {
+          "name": "products_kind_check",
+          "value": "\"operational\".\"products\".\"kind\" in ('medicine', 'device', 'service')"
+        },
+        "products_schedule_check": {
+          "name": "products_schedule_check",
+          "value": "\"operational\".\"products\".\"schedule\" in ('S2', 'S3', 'S4', 'S8')"
+        },
+        "products_storage_check": {
+          "name": "products_storage_check",
+          "value": "\"operational\".\"products\".\"storage\" in ('room', 'refrigerated')"
+        },
+        "products_status_check": {
+          "name": "products_status_check",
+          "value": "\"operational\".\"products\".\"status\" in ('active', 'archived')"
+        },
+        "products_name_check": {
+          "name": "products_name_check",
+          "value": "length(btrim(\"operational\".\"products\".\"name\")) between 1 and 120"
+        },
+        "products_artg_check": {
+          "name": "products_artg_check",
+          "value": "\"operational\".\"products\".\"artg_number\" ~ '^[0-9]{3,8}$'"
+        },
+        "products_price_check": {
+          "name": "products_price_check",
+          "value": "\"operational\".\"products\".\"price_cents\" between 0 and 10000000"
+        },
+        "products_blocked_reason_check": {
+          "name": "products_blocked_reason_check",
+          "value": "length(btrim(\"operational\".\"products\".\"blocked_reason\")) between 3 and 300"
+        },
+        "products_medicine_check": {
+          "name": "products_medicine_check",
+          "value": "\"operational\".\"products\".\"kind\" = 'medicine' or (\"operational\".\"products\".\"schedule\" is null and not \"operational\".\"products\".\"compounded\")"
+        },
+        "products_identity_check": {
+          "name": "products_identity_check",
+          "value": "\"operational\".\"products\".\"kind\" <> 'medicine' or \"operational\".\"products\".\"artg_number\" is not null or \"operational\".\"products\".\"compounded\""
+        }
+      },
+      "isRLSEnabled": false
+    },
     "clinical.consult_evidence": {
       "name": "consult_evidence",
       "schema": "clinical",
@@ -5206,42 +5554,12 @@
           "primaryKey": false,
           "notNull": true
         },
-        "purpose": {
-          "name": "purpose",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "scheduled_start": {
-          "name": "scheduled_start",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "scheduled_end": {
-          "name": "scheduled_end",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
         "status": {
           "name": "status",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "default": "'scheduled'"
-        },
-        "cancellation_reason": {
-          "name": "cancellation_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rescheduled_from": {
-          "name": "rescheduled_from",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
         },
         "started_at": {
           "name": "started_at",
@@ -5312,54 +5630,6 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last"
-            },
-            {
-              "expression": "scheduled_start",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "consults_rescheduled_from_key": {
-          "name": "consults_rescheduled_from_key",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "rescheduled_from",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "consults_schedule_idx": {
-          "name": "consults_schedule_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "scheduled_start",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
             }
           ],
           "isUnique": false,
@@ -5414,22 +5684,6 @@
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
-        },
-        "consults_rescheduled_from_fk": {
-          "name": "consults_rescheduled_from_fk",
-          "tableFrom": "consults",
-          "tableTo": "consults",
-          "schemaTo": "clinical",
-          "columnsFrom": [
-            "tenant_id",
-            "rescheduled_from"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -5449,25 +5703,9 @@
           "name": "consults_mode_check",
           "value": "\"clinical\".\"consults\".\"mode\" in ('phone', 'video')"
         },
-        "consults_purpose_check": {
-          "name": "consults_purpose_check",
-          "value": "\"clinical\".\"consults\".\"purpose\" in ('initial', 'review', 'follow_up')"
-        },
         "consults_status_check": {
           "name": "consults_status_check",
           "value": "\"clinical\".\"consults\".\"status\" in ('scheduled', 'in_progress', 'completed', 'cancelled', 'no_show')"
-        },
-        "consults_cancellation_reason_check": {
-          "name": "consults_cancellation_reason_check",
-          "value": "\"clinical\".\"consults\".\"cancellation_reason\" in ('patient_request', 'clinician_unavailable', 'rescheduled', 'booked_in_error', 'other')"
-        },
-        "consults_cancelled_check": {
-          "name": "consults_cancelled_check",
-          "value": "(\"clinical\".\"consults\".\"status\" = 'cancelled') = (\"clinical\".\"consults\".\"cancellation_reason\" is not null)"
-        },
-        "consults_slot_check": {
-          "name": "consults_slot_check",
-          "value": "\"clinical\".\"consults\".\"scheduled_end\" > \"clinical\".\"consults\".\"scheduled_start\""
         },
         "consults_started_check": {
           "name": "consults_started_check",

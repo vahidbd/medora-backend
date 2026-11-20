@@ -37,6 +37,9 @@ export const PERMISSIONS = [
   'intakes:read',
   'tenant:manage',
   'brands:manage',
+  'catalogue:read',
+  'catalogue:manage',
+  'audit:read',
   // The consult schedule: who sees whom, when, how and why, never what was said (docs/decisions/consults.md CNS11).
   'consults:read',
   // Book, move and cancel consults, and mark or reinstate a no-show (CNS11 to CNS16).
@@ -69,6 +72,9 @@ export const PERMISSION_ZONES: Record<Permission, DataZone> = {
   'intakes:read': 'clinical',
   'tenant:manage': 'platform',
   'brands:manage': 'platform',
+  'catalogue:read': 'operational',
+  'catalogue:manage': 'operational',
+  'audit:read': 'platform',
   // Support books consults without break-glass, so the schedule is operational; consult content will have its own clinical key.
   'consults:read': 'operational',
   'consults:book': 'operational',
@@ -85,6 +91,9 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'roles:manage',
     'tenant:manage',
     'brands:manage',
+    'catalogue:read',
+    'catalogue:manage',
+    'audit:read',
     'patients:read',
     'patients:manage',
     'consents:manage',
@@ -98,6 +107,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   medical_director: [
     'staff:read',
     'break_glass:review',
+    'catalogue:read',
+    'audit:read',
     'patients:read',
     'patients:verify_identity',
     'protocols:read',
@@ -110,13 +121,13 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'consults:read',
     'consults:book',
   ],
-  prescriber: ['staff:read', 'patients:read', 'protocols:read', 'intakes:read', 'clinicians:read', 'consults:read', 'consults:book'],
-  clinician: ['staff:read', 'patients:read', 'protocols:read', 'intakes:read', 'clinicians:read', 'consults:read', 'consults:book'],
-  support: ['staff:read', 'patients:read', 'patients:manage', 'clinicians:read', 'consults:read', 'consults:book'],
-  finance: ['staff:read'],
-  operations: ['staff:read'],
-  marketing: ['staff:read'],
-  compliance: ['staff:read'],
+  prescriber: ['staff:read', 'catalogue:read', 'patients:read', 'protocols:read', 'intakes:read', 'clinicians:read', 'consults:read', 'consults:book'],
+  clinician: ['staff:read', 'catalogue:read', 'patients:read', 'protocols:read', 'intakes:read', 'clinicians:read', 'consults:read', 'consults:book'],
+  support: ['staff:read', 'catalogue:read', 'patients:read', 'patients:manage', 'clinicians:read', 'consults:read', 'consults:book'],
+  finance: ['staff:read', 'catalogue:read'],
+  operations: ['staff:read', 'catalogue:read', 'catalogue:manage'],
+  marketing: ['staff:read', 'catalogue:read'],
+  compliance: ['staff:read', 'catalogue:read', 'audit:read'],
 };
 
 /** Starting roles that see patients clinically, so their clinical permissions work without break-glass (ADM3). */
