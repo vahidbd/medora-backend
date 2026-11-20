@@ -38,6 +38,11 @@ describe('the permission registry (ADM2, ADM3)', () => {
     for (const key of ['staff:manage', 'roles:manage'] as const) expect(AGENT_FORBIDDEN_PERMISSIONS.has(key)).toBe(true);
   });
 
+  it('never lets an agent resolve an adherence flag (docs/decisions/adherence.md ADH8)', () => {
+    expect(AGENT_FORBIDDEN_PERMISSIONS.has('adherence:resolve')).toBe(true);
+    expect(PERMISSION_ZONES['adherence:resolve']).toBe('clinical');
+  });
+
   it('gives staff:manage and roles:manage only to the owner and the tenant admin', () => {
     for (const role of ROLES) {
       const expected = role === 'owner' || role === 'admin';

@@ -36,6 +36,10 @@ export const PERMISSIONS = [
   "programs:manage",
   // A patient's intake answers and the prescriber's summary: clinical content.
   "intakes:read",
+  // Adherence flags and what raised them, and a patient's activity (docs/decisions/adherence.md ADH9).
+  "adherence:read",
+  // Resolve or reopen an adherence flag: people only (ADH7, ADH8).
+  "adherence:resolve",
   "tenant:manage",
   "brands:manage",
 ] as const;
@@ -62,6 +66,8 @@ export const PERMISSION_ZONES: Record<Permission, DataZone> = {
   "protocols:sign_off": "clinical",
   "programs:manage": "operational",
   "intakes:read": "clinical",
+  "adherence:read": "clinical",
+  "adherence:resolve": "clinical",
   "tenant:manage": "platform",
   "brands:manage": "platform",
 };
@@ -93,9 +99,11 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "protocols:sign_off",
     "programs:manage",
     "intakes:read",
+    "adherence:read",
+    "adherence:resolve",
   ],
-  prescriber: ["staff:read", "patients:read", "protocols:read", "intakes:read"],
-  clinician: ["staff:read", "patients:read", "protocols:read", "intakes:read"],
+  prescriber: ["staff:read", "patients:read", "protocols:read", "intakes:read", "adherence:read", "adherence:resolve"],
+  clinician: ["staff:read", "patients:read", "protocols:read", "intakes:read", "adherence:read", "adherence:resolve"],
   support: ["staff:read", "patients:read", "patients:manage"],
   finance: ["staff:read"],
   operations: ["staff:read"],
@@ -113,9 +121,13 @@ export const CLINICAL_ROLES: ReadonlySet<Role> = new Set<Role>([
 /** The role that holds every permission. Every tenant always has at least one active holder. */
 export const FULL_ACCESS_ROLE: Role = "owner";
 
-/** Permissions no agent may ever use, whatever role it runs as (ADM4, PRD ADM-07). */
+/**
+ * Permissions no agent may ever use, whatever role it runs as (ADM4, PRD
+ * ADM-07). Resolving an adherence flag is a clinical escalation, which the
+ * PRD keeps for people (docs/decisions/adherence.md ADH8).
+ */
 export const AGENT_FORBIDDEN_PERMISSIONS: ReadonlySet<Permission> =
-  new Set<Permission>(["staff:manage", "roles:manage", "break_glass:review"]);
+  new Set<Permission>(["staff:manage", "roles:manage", "break_glass:review", "adherence:resolve"]);
 
 /** How long break-glass lasts once opened (ADM3). */
 export const BREAK_GLASS_MINUTES = 60;
