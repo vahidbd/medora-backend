@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import { z } from 'zod';
 import { parseAuthorizedParties, resolveClerkIssuer } from '../lib/clerk.js';
 import { assertDatabaseTargetAllowed, isDeployedService } from './database-guard.js';
+import { parchmentProblems } from './parchment.js';
 import { builtReleaseSha } from './release.js';
 
 /**
@@ -66,6 +67,18 @@ const envSchema = z.object({
   /** A Sentry-compatible server in Australia (ADR 0026). Unset: error tracking is off. */
   SENTRY_DSN: z.preprocess((value) => (value === '' ? undefined : value), z.url().optional()),
 
+  /** Prescribing (ADR 0013). fake: an in-memory Parchment for development and tests. live: Parchment's API. Production refuses fake. */
+  PARCHMENT_MODE: z.enum(['fake', 'live']).default('fake'),
+  /** Parchment's API base, e.g. https://api.sandbox.parchmenthealth.io/external. */
+  PARCHMENT_API_URL: z.preprocess((value) => (value === '' ? undefined : value), z.url().optional()),
+  /** Where a prescriber opens a patient, e.g. https://portal.sandbox.parchment.health/dashboard/patients. */
+  PARCHMENT_PORTAL_URL: z.preprocess((value) => (value === '' ? undefined : value), z.url().optional()),
+  /** Medora's own partner credentials, one pair per environment. */
+  PARCHMENT_PARTNER_ID: optionalText,
+  PARCHMENT_PARTNER_SECRET: optionalText,
+  /** Each tenant's Parchment organisation, as JSON (src/config/parchment.ts, docs/decisions/prescribing.md RX4). A secret. */
+  PARCHMENT_ORGANIZATIONS: optionalText,
+
   /** The commit being served. Baked in by the build; RELEASE_SHA or Railway's commit variable override it. */
   RELEASE_SHA: optionalText,
 });
@@ -86,7 +99,12 @@ export function loadEnv(source: NodeJS.ProcessEnv): Env {
     throw new Error(`Invalid environment configuration:\n${details}`);
   }
   const config = parsed.data;
-  const problems = [...authProblems(config), ...telephonyProblems(config), ...(isDeployedService(source) ? deployedProblems(config) : [])];
+  const problems = [
+    ...authProblems(config),
+    ...telephonyProblems(config),
+    ...parchmentProblems(config),
+    ...(isDeployedService(source) ? deployedProblems(config) : []),
+  ];
   if (problems.length > 0) {
     throw new Error(`Refusing to start (MEDORA_ENV=${config.MEDORA_ENV}):\n${problems.map((p) => `  ${p}`).join('\n')}`);
   }
@@ -140,6 +158,10 @@ export function deployedProblems(config: Env): string[] {
   if (config.TELEPHONY !== 'twilio') problems.push('TELEPHONY must be twilio');
   if (config.TWILIO_REGION !== 'au1') problems.push("TWILIO_REGION must be au1, Twilio's Australian region (ADR 0005)");
   if (config.PUBLIC_API_URL && !config.PUBLIC_API_URL.startsWith('https://')) problems.push('PUBLIC_API_URL must be https');
+  if (config.MEDORA_ENV === 'production' && config.PARCHMENT_MODE !== 'live') problems.push('PARCHMENT_MODE must be live in production');
+  if (config.MEDORA_ENV === 'production' && /sandbox/i.test(`${config.PARCHMENT_API_URL ?? ''}${config.PARCHMENT_PORTAL_URL ?? ''}`)) {
+    problems.push("PARCHMENT_API_URL and PARCHMENT_PORTAL_URL must be Parchment's production addresses in production");
+  }
   if (!/^[0-9a-f]{40}$/.test(config.RELEASE_SHA ?? '')) problems.push('the release commit is unknown (build with scripts/build.mjs, or set RELEASE_SHA)');
   return problems;
 }

@@ -27,7 +27,7 @@ describe('signing in', () => {
     const person = members[0]!;
     const reply = await app.inject({ method: 'GET', url: '/v1/me', headers: headers(await signIn(person.email, 'clerk_first')) });
     expect(reply.statusCode).toBe(200);
-    expect(reply.json()).toMatchObject({ userId: person.id, memberships: [{ tenantId, role: 'clinician', status: 'active', permissions: ['staff:read'] }] });
+    expect(reply.json()).toMatchObject({ userId: person.id, memberships: [{ tenantId, role: 'clinician', status: 'active', permissions: ['staff:read', 'prescribing:open'] }] });
     const { rows } = await admin.query('select clerk_user_id from platform.users where id = $1', [person.id]);
     expect(rows[0].clerk_user_id).toBe('clerk_first');
     const audit = await admin.query("select 1 from platform.audit_log where action = 'user.sign_in_linked' and record_id = $1", [person.id]);
