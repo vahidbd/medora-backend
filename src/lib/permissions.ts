@@ -20,6 +20,7 @@ export const PERMISSIONS = [
   'brands:manage',
   'catalogue:read',
   'catalogue:manage',
+  'audit:read',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -37,6 +38,7 @@ export const PERMISSION_ZONES: Record<Permission, DataZone> = {
   'brands:manage': 'platform',
   'catalogue:read': 'operational',
   'catalogue:manage': 'operational',
+  'audit:read': 'platform',
 };
 
 const ALL: readonly Permission[] = PERMISSIONS;
@@ -44,15 +46,15 @@ const ALL: readonly Permission[] = PERMISSIONS;
 /** The starting roles' permissions (ADM2). Tenants can't edit these; they copy one into a custom role instead. */
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   owner: ALL,
-  admin: ['staff:read', 'staff:manage', 'roles:manage', 'tenant:manage', 'brands:manage', 'catalogue:read', 'catalogue:manage'],
-  medical_director: ['staff:read', 'break_glass:review', 'catalogue:read'],
+  admin: ['staff:read', 'staff:manage', 'roles:manage', 'tenant:manage', 'brands:manage', 'catalogue:read', 'catalogue:manage', 'audit:read'],
+  medical_director: ['staff:read', 'break_glass:review', 'catalogue:read', 'audit:read'],
   prescriber: ['staff:read', 'catalogue:read'],
   clinician: ['staff:read', 'catalogue:read'],
   support: ['staff:read', 'catalogue:read'],
   finance: ['staff:read', 'catalogue:read'],
   operations: ['staff:read', 'catalogue:read', 'catalogue:manage'],
   marketing: ['staff:read', 'catalogue:read'],
-  compliance: ['staff:read', 'catalogue:read'],
+  compliance: ['staff:read', 'catalogue:read', 'audit:read'],
 };
 
 /** Starting roles that see patients clinically, so their clinical permissions work without break-glass (ADM3). */
