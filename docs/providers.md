@@ -8,7 +8,7 @@ Every outside service Medora uses: where it runs and what data reaches it (ADR 0
 | AWS (S3, KMS, Bedrock) | Files, encryption keys, AI models | ap-southeast-2 (Sydney) | Files, wrapped keys, prompts and replies | Yes | Planned |
 | Clerk | Sign-in for staff and patients | US | Name, email, phone, sign-in methods | No | Planned |
 | Parchment | Electronic prescribing | Australia | Patient identity, scripts | Yes | Planned |
-| Stripe | Card payments, into each tenant's own Stripe account (Connect, ADR 0037) | Card data held by Stripe; Stripe Australia | Medora's ids for the tenant and its payment account. Tenants enter their business and bank details on Stripe's own pages. Later: card details (entered in Stripe's own fields, never Medora's), amounts and customer email; never what a payment was for clinically | No | Planned |
+| Stripe | Card payments, into each tenant's own Stripe account (Connect, ADR 0160) | Card data held by Stripe; Stripe Australia | Medora's ids for the tenant and its payment account. Tenants enter their business and bank details on Stripe's own pages. Later: card details (entered in Stripe's own fields, never Medora's), amounts and customer email; never what a payment was for clinically | No | Planned |
 | eWAY | Card payments | Australia | Payment details, amounts | No | Planned |
 | Twilio | Phone consults, SMS | Australian region (AU1) | Phone numbers, call metadata, message text | Message text may mention care; templates keep it out | Planned |
 | Error tracking (self-hosted, Sentry-compatible) | Errors from the API and web app | Sydney | Scrubbed errors (ADR 0026) | No | Planned |

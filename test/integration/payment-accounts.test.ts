@@ -8,7 +8,7 @@ import { fakeProcessor } from '../../src/modules/payments/processors.js';
 import { headers, signIn, testApp } from '../support/app.js';
 import { admin, tenantWith } from '../support/db.js';
 
-/** Payment accounts (ADR 0037, docs/decisions/billing.md BIL8 to BIL12), against the fake processor. */
+/** Payment accounts (ADR 0160, docs/decisions/billing.md BIL8 to BIL12), against the fake processor. */
 let app: App;
 beforeAll(async () => {
   app = await testApp();

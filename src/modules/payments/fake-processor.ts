@@ -4,7 +4,7 @@ import { type PaymentProcessor, type ProcessorAccountState, ProcessorRefusedErro
 
 /**
  * A processor that never leaves the process, for development and tests
- * (ADR 0037): no key, no network, no money. A deployed service never uses
+ * (ADR 0160): no key, no network, no money. A deployed service never uses
  * it (src/modules/payments/processors.ts).
  *
  * Onboarding is instant: making a link finishes it, and the link goes
