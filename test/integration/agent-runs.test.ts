@@ -70,6 +70,8 @@ describe('a run', () => {
     expect(JSON.stringify(model.requests[1]!.messages)).toContain(s.patientId);
 
     const event = (await admin.query("select payload from platform.outbox where tenant_id = $1 and type = 'agent_message.created'", [s.tenantId])).rows[0];
+    // Ids only: the channel's module reads the text through readReply (AGT16).
+    expect(Object.keys(event.payload).sort()).toEqual(['agent', 'channel', 'conversationId', 'messageId', 'subjectId', 'subjectTable']);
     const reply = await withTenant(system(s.tenantId), (tx) => readReply(tx, event.payload.messageId));
     expect(reply.text).toBe('Your next consult is on 1 December at 9 am.');
   });

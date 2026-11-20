@@ -179,7 +179,7 @@ export async function runAgentRun(deps: RunnerDeps, claimed: { runId: string; te
       await tx.db.update(agentRuns).set({ modelVersion: result.modelVersion, steps: result.steps }).where(and(eq(agentRuns.tenantId, tenantId), eq(agentRuns.id, runId)));
       await spendThresholds(tx, agent, start.spentBefore, spent, settings.monthlySpendCapCents);
       if (result.outcome.kind === 'replied') {
-        const payload = { conversationId: conversation.id, messageId: result.outcome.messageId, agent, channel: loaded.channel };
+        const payload = { conversationId: conversation.id, messageId: result.outcome.messageId, agent, channel: loaded.channel, subjectTable: conversation.subjectTable, subjectId: conversation.subjectId };
         await emitEvent(tx, { type: 'agent_message.created', recordTable: 'clinical.agent_messages', recordId: String(result.outcome.messageId), payload });
         await finish(tx, runId, 'completed', 'replied');
       } else {

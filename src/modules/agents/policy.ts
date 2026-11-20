@@ -49,6 +49,9 @@ export const TOOL_POLICY: Readonly<Record<string, ToolPolicy>> = {
   reschedule_consult: line('EMR and consults', patient),
   cancel_consult: line('EMR and consults', patient),
   get_care_plan: line('EMR and consults', patient),
+  /** The conversation's own ticket only. No agent has them at launch: an agent's reply leaves as agent_message.created, and escalation is a handoff (AGT7, AGT16). */
+  update_ticket: line('support and CRM', { pins: { ticketId: 'subjectId' } }),
+  flag_ticket: line('support and CRM', { pins: { ticketId: 'subjectId' } }),
   /** An approved template, to the conversation's patient (AGT7). */
   send_template_message: line('support and CRM', { ...patient, ceiling: 'auto' }),
   get_intake_answers: line('intake and protocol engine', { pins: { intakeId: 'subjectId' } }),

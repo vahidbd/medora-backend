@@ -101,7 +101,7 @@ Decided by: the coordinator's brief, to confirm with Vahid
 
 ### AGT16. How other modules hand work in
 
-Decision: modules reach the agents only through the agents module's front door: `openConversation`, `receiveMessage` (returns whether the agent, a person or the safety screen answers), `startJob`, `readReply`, `handBack` and `screenMessage`. Replies go out through the `agent_message.created` event, which the channel's module delivers; handoffs emit `agent_conversation.handed_off` with the reason and whether it is urgent, which the helpdesk turns into a queue item. The agents module never writes another module's tables.
+Decision: modules reach the agents only through the agents module's front door: `openConversation`, `receiveMessage` (returns whether the agent, a person or the safety screen answers), `startJob`, `readReply`, `handBack` and `screenMessage`. Replies go out through the `agent_message.created` event (the conversation, the message, the agent, the channel and the conversation's subject, such as a ticket; ids only), which the channel's module delivers after reading the text with `readReply`; for a ticket that is the helpdesk's own reply path with its own checks. Handoffs emit `agent_conversation.handed_off` with the reason, whether it is urgent and the same subject, which the helpdesk turns into a queue item. The helpdesk's ticket tools (`update_ticket`, `flag_ticket`) are pinned to the conversation's ticket, and no agent has them at launch. The agents module never writes another module's tables.
 Why: ADR 0027. Each channel keeps its own sending rules (consent, quiet hours, limits) and the agents keep theirs.
 Decided by: the AI agents thread, to confirm with Vahid
 

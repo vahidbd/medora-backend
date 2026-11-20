@@ -99,7 +99,7 @@ export async function handOff(tx: TenantTx, conversationId: string, reason: Hand
   const record = { recordTable: 'clinical.agent_conversations', recordId: conversationId } as const;
   const facts = { agent: conversation.agent, channel: conversation.channel, reason, urgent: URGENT_REASONS.has(reason) };
   await audit(tx, { action: 'agent_conversation.handed_off', zone: 'clinical', ...record, details: facts });
-  await emitEvent(tx, { type: 'agent_conversation.handed_off', ...record, payload: { ...facts, patientId: conversation.patientId } });
+  await emitEvent(tx, { type: 'agent_conversation.handed_off', ...record, payload: { ...facts, patientId: conversation.patientId, subjectTable: conversation.subjectTable, subjectId: conversation.subjectId } });
 }
 
 /** A staff member gives the conversation back to the agent (AGT11), the way back out of a handoff. */
