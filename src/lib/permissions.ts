@@ -29,8 +29,10 @@ export const PERMISSIONS = [
   'support:read',
   'support:reply',
   'support:clinical',
-  // Write and approve macros (SUP10).
+  // Write and approve macros (SUP10) and help centre articles (SUP16).
   'support:manage',
+  // Read and search the help centre's published articles; drafts need support:manage too (SUP19).
+  'help_centre:read',
   // A brand's email addresses and numbers (docs/decisions/messaging.md CRM5).
   'messaging:manage',
 ] as const;
@@ -58,6 +60,7 @@ export const PERMISSION_ZONES: Record<Permission, DataZone> = {
   'support:reply': 'operational',
   'support:clinical': 'clinical',
   'support:manage': 'operational',
+  'help_centre:read': 'operational',
   'messaging:manage': 'operational',
 };
 
@@ -79,16 +82,17 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'support:read',
     'support:reply',
     'support:manage',
+    'help_centre:read',
     'messaging:manage',
   ],
-  medical_director: ['staff:read', 'break_glass:review', 'patients:read', 'support:read', 'support:reply', 'support:clinical'],
-  prescriber: ['staff:read', 'patients:read', 'support:read', 'support:reply', 'support:clinical'],
-  clinician: ['staff:read', 'patients:read', 'support:read', 'support:reply', 'support:clinical'],
-  support: ['staff:read', 'patients:read', 'patients:manage', 'support:read', 'support:reply'],
-  finance: ['staff:read'],
-  operations: ['staff:read'],
-  marketing: ['staff:read'],
-  compliance: ['staff:read'],
+  medical_director: ['staff:read', 'break_glass:review', 'patients:read', 'support:read', 'support:reply', 'support:clinical', 'help_centre:read'],
+  prescriber: ['staff:read', 'patients:read', 'support:read', 'support:reply', 'support:clinical', 'help_centre:read'],
+  clinician: ['staff:read', 'patients:read', 'support:read', 'support:reply', 'support:clinical', 'help_centre:read'],
+  support: ['staff:read', 'patients:read', 'patients:manage', 'support:read', 'support:reply', 'help_centre:read'],
+  finance: ['staff:read', 'help_centre:read'],
+  operations: ['staff:read', 'help_centre:read'],
+  marketing: ['staff:read', 'help_centre:read'],
+  compliance: ['staff:read', 'help_centre:read'],
 };
 
 /** Starting roles that see patients clinically, so their clinical permissions work without break-glass (ADM3). */
@@ -102,7 +106,7 @@ export const AGENT_FORBIDDEN_PERMISSIONS: ReadonlySet<Permission> = new Set<Perm
   'staff:manage',
   'roles:manage',
   'break_glass:review',
-  // Agents never work the clinical queue or edit macros (SUP12), or change where a brand sends from (CRM5).
+  // Agents never work the clinical queue, write macros or help centre articles (SUP12, SUP16), or change where a brand sends from (CRM5).
   'support:clinical',
   'support:manage',
   'messaging:manage',

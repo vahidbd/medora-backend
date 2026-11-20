@@ -174,6 +174,14 @@ export type SenderPurpose = (typeof SENDER_PURPOSES)[number];
 export const MACRO_STATUSES = ['draft', 'approved'] as const;
 export type MacroStatus = (typeof MACRO_STATUSES)[number];
 
+/**
+ * The help centre's publish checks, oldest first (docs/decisions/support.md
+ * SUP16). An approved version stores the one it passed. `format-1`: no raw
+ * HTML, no images, links only to https or the brand's own pages.
+ */
+export const HELP_CENTRE_CHECKS = ['format-1'] as const;
+export type HelpCentreCheck = (typeof HELP_CENTRE_CHECKS)[number];
+
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
   { table: 'platform.memberships', column: 'role', values: MEMBERSHIP_ROLES },
@@ -207,6 +215,7 @@ export const CHECKED_VALUES = [
   { table: 'operational.ticket_flags', column: 'flag', values: TICKET_FLAGS },
   { table: 'operational.ticket_flags', column: 'set_by_type', values: ACTOR_TYPES },
   { table: 'operational.macros', column: 'status', values: MACRO_STATUSES },
+  { table: 'operational.help_centre_article_versions', column: 'checked_with', values: HELP_CENTRE_CHECKS },
   { table: 'operational.senders', column: 'channel', values: SENDER_CHANNELS },
   { table: 'operational.senders', column: 'purpose', values: SENDER_PURPOSES },
   { table: 'platform.tenants', column: 'time_zone', values: TIME_ZONES },
