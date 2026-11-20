@@ -102,6 +102,29 @@ export type IhiStatus = (typeof IHI_STATUSES)[number];
 export const IHI_RECORD_STATUSES = ['verified', 'unverified', 'provisional'] as const;
 export type IhiRecordStatus = (typeof IHI_RECORD_STATUSES)[number];
 
+/**
+ * A protocol version's life (docs/decisions/intake.md INT3, INT4): a draft
+ * is edited; a medical director's sign-off makes it live; going live retires
+ * the one before; withdrawing takes a live version off for safety.
+ */
+export const PROTOCOL_VERSION_STATUSES = ['draft', 'live', 'retired', 'withdrawn'] as const;
+export type ProtocolVersionStatus = (typeof PROTOCOL_VERSION_STATUSES)[number];
+
+export const PROGRAM_STATUSES = ['draft', 'live', 'paused', 'retired'] as const;
+export type ProgramStatus = (typeof PROGRAM_STATUSES)[number];
+
+/** What a patient on a program records (the tracking module's kinds). */
+export const MEASUREMENT_KINDS = ['weight', 'waist', 'height', 'blood_pressure_systolic', 'blood_pressure_diastolic', 'heart_rate'] as const;
+export type MeasurementKind = (typeof MEASUREMENT_KINDS)[number];
+
+/** Where an intake stands (INT5 to INT8). */
+export const INTAKE_STATUSES = ['in_progress', 'completed', 'ineligible', 'ended'] as const;
+export type IntakeStatus = (typeof INTAKE_STATUSES)[number];
+
+/** Why an intake ended without a protocol's hard stop. */
+export const INTAKE_END_REASONS = ['under_age', 'version_withdrawn', 'expired', 'unclaimed'] as const;
+export type IntakeEndReason = (typeof INTAKE_END_REASONS)[number];
+
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
   { table: 'platform.memberships', column: 'role', values: MEMBERSHIP_ROLES },
@@ -123,4 +146,9 @@ export const CHECKED_VALUES = [
   { table: 'clinical.identity_checks', column: 'method', values: IDENTITY_METHODS },
   { table: 'clinical.identity_checks', column: 'document_type', values: IDENTITY_DOCUMENTS },
   { table: 'clinical.identity_checks', column: 'outcome', values: IDENTITY_OUTCOMES },
+  { table: 'clinical.protocol_versions', column: 'status', values: PROTOCOL_VERSION_STATUSES },
+  { table: 'operational.programs', column: 'status', values: PROGRAM_STATUSES },
+  { table: 'operational.programs', column: 'measurements', values: MEASUREMENT_KINDS },
+  { table: 'clinical.intakes', column: 'status', values: INTAKE_STATUSES },
+  { table: 'clinical.intakes', column: 'ended_reason', values: INTAKE_END_REASONS },
 ] as const;

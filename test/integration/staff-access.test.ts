@@ -189,10 +189,14 @@ describe('sign-in history (ADM6)', () => {
 });
 
 describe('break-glass (ADM3)', () => {
-  it('is not needed while no role holds a clinical permission it cannot use', async () => {
-    const { tenantId, members } = await tenantWith('owner');
-    const reply = await call('POST', '/v1/break-glass', members[0]!.email, tenantId, { reason: 'Checking a reported incident' });
-    expect(reply.json().error.code).toBe('break_glass_not_needed');
+  it('is not needed by a role with no clinical permission it cannot use, and is open to the owner, who holds some', async () => {
+    const { tenantId, members } = await tenantWith('admin', 'clinician', 'owner');
+    for (const member of members.slice(0, 2)) {
+      const reply = await call('POST', '/v1/break-glass', member.email, tenantId, { reason: 'Checking a reported incident' });
+      expect(reply.json().error.code).toBe('break_glass_not_needed');
+    }
+    const owner = await call('POST', '/v1/break-glass', members[2]!.email, tenantId, { reason: 'Checking a reported incident' });
+    expect(owner.statusCode).toBe(201);
   });
 
   it('is reviewed by the medical director, never by the person who opened it, and only in its tenant', async () => {

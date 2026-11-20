@@ -28,6 +28,10 @@ const OWNERS: Record<string, string[]> = {
   'clinical.consent_documents': ['src/modules/patients/'],
   'clinical.patient_consents': ['src/modules/patients/'],
   'clinical.identity_checks': ['src/modules/patients/'],
+  'clinical.protocols': ['src/modules/protocols/'],
+  'clinical.protocol_versions': ['src/modules/protocols/'],
+  'operational.programs': ['src/modules/protocols/'],
+  'clinical.intakes': ['src/modules/intake/'],
 };
 
 /** Made-up local data only (src/db/seed.ts refuses anything but development). */

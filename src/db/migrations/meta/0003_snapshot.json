@@ -1,5 +1,5 @@
 {
-  "id": "bf5be592-2f57-4092-8feb-20d5978b9154",
+  "id": "0a87f2be-b282-4928-954f-8179f173891c",
   "prevId": "ab544e95-1f0d-4c84-962b-f8682259f180",
   "version": "7",
   "dialect": "postgresql",
@@ -2365,6 +2365,1034 @@
         "identity_checks_manual_check": {
           "name": "identity_checks_manual_check",
           "value": "(\"clinical\".\"identity_checks\".\"method\" = 'document' and \"clinical\".\"identity_checks\".\"checked_by\" is null) or (\"clinical\".\"identity_checks\".\"method\" = 'manual' and \"clinical\".\"identity_checks\".\"checked_by\" is not null and \"clinical\".\"identity_checks\".\"outcome\" = 'verified' and length(trim(coalesce(\"clinical\".\"identity_checks\".\"reason\", ''))) > 0)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "clinical.protocol_versions": {
+      "name": "protocol_versions",
+      "schema": "clinical",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "protocol_id": {
+          "name": "protocol_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "definition": {
+          "name": "definition",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "edited_by": {
+          "name": "edited_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "edited_at": {
+          "name": "edited_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "signed_off_by": {
+          "name": "signed_off_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "signed_off_at": {
+          "name": "signed_off_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "signer_registration": {
+          "name": "signer_registration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attestation": {
+          "name": "attestation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "retired_at": {
+          "name": "retired_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "withdrawn_by": {
+          "name": "withdrawn_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "withdrawn_at": {
+          "name": "withdrawn_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "withdrawn_reason": {
+          "name": "withdrawn_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "protocol_versions_version_key": {
+          "name": "protocol_versions_version_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "protocol_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "protocol_versions_one_live_key": {
+          "name": "protocol_versions_one_live_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "protocol_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"clinical\".\"protocol_versions\".\"status\" = 'live'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "protocol_versions_one_draft_key": {
+          "name": "protocol_versions_one_draft_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "protocol_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"clinical\".\"protocol_versions\".\"status\" = 'draft'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "protocol_versions_edited_by_idx": {
+          "name": "protocol_versions_edited_by_idx",
+          "columns": [
+            {
+              "expression": "edited_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "protocol_versions_signed_off_by_idx": {
+          "name": "protocol_versions_signed_off_by_idx",
+          "columns": [
+            {
+              "expression": "signed_off_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "protocol_versions_withdrawn_by_idx": {
+          "name": "protocol_versions_withdrawn_by_idx",
+          "columns": [
+            {
+              "expression": "withdrawn_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "protocol_versions_edited_by_users_id_fk": {
+          "name": "protocol_versions_edited_by_users_id_fk",
+          "tableFrom": "protocol_versions",
+          "tableTo": "users",
+          "schemaTo": "platform",
+          "columnsFrom": [
+            "edited_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "protocol_versions_signed_off_by_users_id_fk": {
+          "name": "protocol_versions_signed_off_by_users_id_fk",
+          "tableFrom": "protocol_versions",
+          "tableTo": "users",
+          "schemaTo": "platform",
+          "columnsFrom": [
+            "signed_off_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "protocol_versions_withdrawn_by_users_id_fk": {
+          "name": "protocol_versions_withdrawn_by_users_id_fk",
+          "tableFrom": "protocol_versions",
+          "tableTo": "users",
+          "schemaTo": "platform",
+          "columnsFrom": [
+            "withdrawn_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "protocol_versions_protocol_fk": {
+          "name": "protocol_versions_protocol_fk",
+          "tableFrom": "protocol_versions",
+          "tableTo": "protocols",
+          "schemaTo": "clinical",
+          "columnsFrom": [
+            "tenant_id",
+            "protocol_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "protocol_versions_tenant_id_key": {
+          "name": "protocol_versions_tenant_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "protocol_versions_status_check": {
+          "name": "protocol_versions_status_check",
+          "value": "\"clinical\".\"protocol_versions\".\"status\" in ('draft', 'live', 'retired', 'withdrawn')"
+        },
+        "protocol_versions_version_check": {
+          "name": "protocol_versions_version_check",
+          "value": "\"clinical\".\"protocol_versions\".\"version\" > 0"
+        },
+        "protocol_versions_sign_off_check": {
+          "name": "protocol_versions_sign_off_check",
+          "value": "(\"clinical\".\"protocol_versions\".\"status\" = 'draft') = (\"clinical\".\"protocol_versions\".\"signed_off_at\" is null) and (\"clinical\".\"protocol_versions\".\"signed_off_at\" is null) = (\"clinical\".\"protocol_versions\".\"signed_off_by\" is null) and (\"clinical\".\"protocol_versions\".\"signed_off_at\" is null) = (\"clinical\".\"protocol_versions\".\"signer_registration\" is null) and (\"clinical\".\"protocol_versions\".\"signed_off_at\" is null) = (\"clinical\".\"protocol_versions\".\"attestation\" is null)"
+        },
+        "protocol_versions_withdrawn_check": {
+          "name": "protocol_versions_withdrawn_check",
+          "value": "(\"clinical\".\"protocol_versions\".\"status\" = 'withdrawn') = (\"clinical\".\"protocol_versions\".\"withdrawn_at\" is not null) and (\"clinical\".\"protocol_versions\".\"withdrawn_at\" is null) = (\"clinical\".\"protocol_versions\".\"withdrawn_reason\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "clinical.protocols": {
+      "name": "protocols",
+      "schema": "clinical",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "condition": {
+          "name": "condition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "template_key": {
+          "name": "template_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "template_version": {
+          "name": "template_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "protocols_tenant_name_key": {
+          "name": "protocols_tenant_name_key",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lower(\"name\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "protocols_created_by_idx": {
+          "name": "protocols_created_by_idx",
+          "columns": [
+            {
+              "expression": "created_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "protocols_tenant_id_tenants_id_fk": {
+          "name": "protocols_tenant_id_tenants_id_fk",
+          "tableFrom": "protocols",
+          "tableTo": "tenants",
+          "schemaTo": "platform",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "protocols_created_by_users_id_fk": {
+          "name": "protocols_created_by_users_id_fk",
+          "tableFrom": "protocols",
+          "tableTo": "users",
+          "schemaTo": "platform",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "protocols_tenant_id_key": {
+          "name": "protocols_tenant_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "protocols_text_check": {
+          "name": "protocols_text_check",
+          "value": "length(trim(\"clinical\".\"protocols\".\"name\")) > 0 and length(trim(\"clinical\".\"protocols\".\"condition\")) > 0"
+        },
+        "protocols_template_check": {
+          "name": "protocols_template_check",
+          "value": "(\"clinical\".\"protocols\".\"template_key\" is null) = (\"clinical\".\"protocols\".\"template_version\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "operational.programs": {
+      "name": "programs",
+      "schema": "operational",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "brand_id": {
+          "name": "brand_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "protocol_id": {
+          "name": "protocol_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "measurements": {
+          "name": "measurements",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "check_in_every_days": {
+          "name": "check_in_every_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "programs_protocol_idx": {
+          "name": "programs_protocol_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "protocol_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "programs_brand_idx": {
+          "name": "programs_brand_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "brand_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "programs_tenant_id_tenants_id_fk": {
+          "name": "programs_tenant_id_tenants_id_fk",
+          "tableFrom": "programs",
+          "tableTo": "tenants",
+          "schemaTo": "platform",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "programs_protocol_fk": {
+          "name": "programs_protocol_fk",
+          "tableFrom": "programs",
+          "tableTo": "protocols",
+          "schemaTo": "clinical",
+          "columnsFrom": [
+            "tenant_id",
+            "protocol_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "programs_tenant_id_key": {
+          "name": "programs_tenant_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "programs_status_check": {
+          "name": "programs_status_check",
+          "value": "\"operational\".\"programs\".\"status\" in ('draft', 'live', 'paused', 'retired')"
+        },
+        "programs_measurements_check": {
+          "name": "programs_measurements_check",
+          "value": "\"operational\".\"programs\".\"measurements\" <@ array['weight', 'waist', 'height', 'blood_pressure_systolic', 'blood_pressure_diastolic', 'heart_rate']::text[]"
+        },
+        "programs_name_check": {
+          "name": "programs_name_check",
+          "value": "length(trim(\"operational\".\"programs\".\"name\")) > 0"
+        },
+        "programs_check_in_check": {
+          "name": "programs_check_in_check",
+          "value": "\"operational\".\"programs\".\"check_in_every_days\" is null or \"operational\".\"programs\".\"check_in_every_days\" between 1 and 365"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "clinical.intakes": {
+      "name": "intakes",
+      "schema": "clinical",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "program_id": {
+          "name": "program_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "protocol_version_id": {
+          "name": "protocol_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "resume_token_hash": {
+          "name": "resume_token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'in_progress'"
+        },
+        "ended_reason": {
+          "name": "ended_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stopped_rule": {
+          "name": "stopped_rule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "red_flags": {
+          "name": "red_flags",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "date_of_birth": {
+          "name": "date_of_birth",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "privacy_document_id": {
+          "name": "privacy_document_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "privacy_agreed_at": {
+          "name": "privacy_agreed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "answers": {
+          "name": "answers",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "steps_done": {
+          "name": "steps_done",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "last_active_at": {
+          "name": "last_active_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "submitted_at": {
+          "name": "submitted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ended_at": {
+          "name": "ended_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "claimed_at": {
+          "name": "claimed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cleared_at": {
+          "name": "cleared_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "intakes_resume_token_key": {
+          "name": "intakes_resume_token_key",
+          "columns": [
+            {
+              "expression": "resume_token_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "intakes_patient_idx": {
+          "name": "intakes_patient_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "submitted_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "intakes_program_idx": {
+          "name": "intakes_program_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "program_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "intakes_protocol_version_idx": {
+          "name": "intakes_protocol_version_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "protocol_version_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "intakes_privacy_document_idx": {
+          "name": "intakes_privacy_document_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "privacy_document_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "intakes_activity_idx": {
+          "name": "intakes_activity_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "last_active_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "intakes_tenant_id_tenants_id_fk": {
+          "name": "intakes_tenant_id_tenants_id_fk",
+          "tableFrom": "intakes",
+          "tableTo": "tenants",
+          "schemaTo": "platform",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "intakes_program_fk": {
+          "name": "intakes_program_fk",
+          "tableFrom": "intakes",
+          "tableTo": "programs",
+          "schemaTo": "operational",
+          "columnsFrom": [
+            "tenant_id",
+            "program_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "intakes_protocol_version_fk": {
+          "name": "intakes_protocol_version_fk",
+          "tableFrom": "intakes",
+          "tableTo": "protocol_versions",
+          "schemaTo": "clinical",
+          "columnsFrom": [
+            "tenant_id",
+            "protocol_version_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "intakes_patient_fk": {
+          "name": "intakes_patient_fk",
+          "tableFrom": "intakes",
+          "tableTo": "patients",
+          "schemaTo": "clinical",
+          "columnsFrom": [
+            "tenant_id",
+            "patient_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "intakes_privacy_document_fk": {
+          "name": "intakes_privacy_document_fk",
+          "tableFrom": "intakes",
+          "tableTo": "consent_documents",
+          "schemaTo": "clinical",
+          "columnsFrom": [
+            "tenant_id",
+            "privacy_document_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "intakes_tenant_id_key": {
+          "name": "intakes_tenant_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "intakes_status_check": {
+          "name": "intakes_status_check",
+          "value": "\"clinical\".\"intakes\".\"status\" in ('in_progress', 'completed', 'ineligible', 'ended')"
+        },
+        "intakes_ended_reason_check": {
+          "name": "intakes_ended_reason_check",
+          "value": "\"clinical\".\"intakes\".\"ended_reason\" in ('under_age', 'version_withdrawn', 'expired', 'unclaimed')"
+        },
+        "intakes_ended_check": {
+          "name": "intakes_ended_check",
+          "value": "(\"clinical\".\"intakes\".\"status\" = 'ended') = (\"clinical\".\"intakes\".\"ended_reason\" is not null)"
+        },
+        "intakes_ineligible_check": {
+          "name": "intakes_ineligible_check",
+          "value": "(\"clinical\".\"intakes\".\"status\" = 'ineligible') = (\"clinical\".\"intakes\".\"stopped_rule\" is not null)"
+        },
+        "intakes_submitted_check": {
+          "name": "intakes_submitted_check",
+          "value": "(\"clinical\".\"intakes\".\"status\" = 'completed') = (\"clinical\".\"intakes\".\"submitted_at\" is not null)"
+        },
+        "intakes_holder_check": {
+          "name": "intakes_holder_check",
+          "value": "\"clinical\".\"intakes\".\"patient_id\" is not null or \"clinical\".\"intakes\".\"resume_token_hash\" is not null or \"clinical\".\"intakes\".\"cleared_at\" is not null"
+        },
+        "intakes_steps_check": {
+          "name": "intakes_steps_check",
+          "value": "\"clinical\".\"intakes\".\"steps_done\" >= 0"
         }
       },
       "isRLSEnabled": false

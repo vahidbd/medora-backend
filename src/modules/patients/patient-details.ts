@@ -1,4 +1,4 @@
-import { localDate } from '../../lib/time.js';
+import { localDate, parseCalendarDate } from '../../lib/time.js';
 
 /**
  * Checks on what a patient types about themselves (docs/decisions/patients.md
@@ -7,16 +7,6 @@ import { localDate } from '../../lib/time.js';
 
 /** v1 treats adults only (IDN-03). */
 export const MINIMUM_AGE = 18;
-
-/** A real calendar date in YYYY-MM-DD, or null. */
-export function parseCalendarDate(value: string): { year: number; month: number; day: number } | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) return null;
-  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
-  const check = new Date(Date.UTC(year, month - 1, day));
-  if (check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day) return null;
-  return { year, month, day };
-}
 
 /** Whole years between a date of birth and a calendar date (both YYYY-MM-DD). A 29 February birthday turns over on 1 March. */
 export function ageOn(dateOfBirth: string, today: string): number | null {
