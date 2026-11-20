@@ -9,6 +9,7 @@ import { emitEvent } from '../../lib/events.js';
 import { clinicianCalendar, clinicianStanding } from '../clinicians/index.js';
 import { ageOn, assertConsents, findPatient, findPatientContact, MINIMUM_AGE } from '../patients/index.js';
 import { BOOKING_HORIZON_DAYS, BOOKING_NOTICE_MINUTES, bookingWindow, busyFor, overlapsAny, slotStartingAt, tenantToday } from './calendar.service.js';
+import { assignClinician, needsPrescriber } from './assignment.service.js';
 import type { BookConsult, RescheduleConsult } from './consults.schemas.js';
 
 /**
@@ -19,8 +20,6 @@ import type { BookConsult, RescheduleConsult } from './consults.schemas.js';
 
 const RECORD = 'clinical.consults' as const;
 type Consult = typeof consults.$inferSelect;
-
-const needsPrescriber = (purpose: ConsultPurpose) => purpose === 'initial' || purpose === 'review';
 
 function facts(consult: Consult) {
   return {
@@ -34,8 +33,8 @@ function facts(consult: Consult) {
   };
 }
 
-/** CNS13: who can be booked, checked inside the booking transaction. */
-async function assertBookable(tx: TenantTx, input: { patientId: string; clinicianUserId: string; mode: ConsultMode; purpose: ConsultPurpose }, now: Date) {
+/** CNS13: whether the patient can be booked, checked inside the booking transaction. */
+async function assertPatientBookable(tx: TenantTx, input: { patientId: string; mode: ConsultMode }, now: Date) {
   const patient = await findPatient(tx, input.patientId);
   if (!patient) throw new NotFoundError('Patient');
   const age = ageOn(patient.dateOfBirth, await tenantToday(tx, now));
@@ -44,6 +43,10 @@ async function assertBookable(tx: TenantTx, input: { patientId: string; clinicia
   if (input.mode === 'phone' && !(await findPatientContact(tx, input.patientId))?.mobile) {
     throw new BusinessRuleError('A phone consult needs a mobile number on the patient’s record', 'no_mobile');
   }
+}
+
+/** CNS13: whether the clinician can take this consult now. */
+async function assertClinicianBookable(tx: TenantTx, input: { clinicianUserId: string; purpose: ConsultPurpose }, now: Date) {
   const standing = await clinicianStanding(tx, input.clinicianUserId, now);
   if (!standing.mayConsult) throw new AppError(409, 'clinician_not_in_standing', "This clinician can't be booked right now", { reasons: standing.reasons });
   if (needsPrescriber(input.purpose) && !standing.mayPrescribe) {
@@ -51,12 +54,31 @@ async function assertBookable(tx: TenantTx, input: { patientId: string; clinicia
   }
 }
 
-/** CNS12: the time must be a slot Medora offers, re-checked here with the clinician locked. Each refusal names its rule. */
-async function assertOffered(tx: TenantTx, input: { patientId: string; clinicianUserId: string; startsAt: Date }, now: Date): Promise<{ endsAt: Date }> {
+function assertInWindow(startsAt: Date, now: Date): void {
   const window = bookingWindow(now);
-  if (input.startsAt < window.earliest || input.startsAt > window.latest) {
+  if (startsAt < window.earliest || startsAt > window.latest) {
     throw new BusinessRuleError(`Consults are booked from ${BOOKING_NOTICE_MINUTES} minutes to ${BOOKING_HORIZON_DAYS} days ahead`, 'outside_booking_window');
   }
+}
+
+/**
+ * Patient checks, then the clinician: the one named, or one assigned (CNS19,
+ * preferring `prefer`), then their checks. Returns who takes the consult.
+ */
+async function bookableClinician(
+  tx: TenantTx,
+  input: { patientId: string; clinicianUserId?: string | undefined; mode: ConsultMode; purpose: ConsultPurpose; startsAt: Date; prefer?: string },
+  now: Date,
+): Promise<string> {
+  assertInWindow(input.startsAt, now);
+  await assertPatientBookable(tx, input, now);
+  const clinicianUserId = input.clinicianUserId ?? (await assignClinician(tx, { ...input, prefer: input.prefer ?? null }, now));
+  await assertClinicianBookable(tx, { clinicianUserId, purpose: input.purpose }, now);
+  return clinicianUserId;
+}
+
+/** CNS12: the time must be a slot Medora offers, re-checked here with the clinician locked. Each refusal names its rule. */
+async function assertOffered(tx: TenantTx, input: { patientId: string; clinicianUserId: string; startsAt: Date }, now: Date): Promise<{ endsAt: Date }> {
   const calendar = await clinicianCalendar(tx, input.clinicianUserId, now, { lock: true });
   if (!calendar) throw new NotFoundError('Clinician');
   const slot = slotStartingAt(calendar, input.startsAt);
@@ -84,14 +106,15 @@ async function insertConsult(tx: TenantTx, values: typeof consults.$inferInsert)
   }
 }
 
+/** CNS12, CNS13; without a clinician named, one is assigned (CNS19). */
 export async function bookConsult(tx: TenantTx, input: BookConsult, now = new Date()): Promise<Consult> {
   const startsAt = new Date(input.startsAt);
-  await assertBookable(tx, input, now);
-  const { endsAt } = await assertOffered(tx, { ...input, startsAt }, now);
+  const clinicianUserId = await bookableClinician(tx, { ...input, startsAt }, now);
+  const { endsAt } = await assertOffered(tx, { patientId: input.patientId, clinicianUserId, startsAt }, now);
   const consult = await insertConsult(tx, {
     tenantId: tx.context.tenantId,
     patientId: input.patientId,
-    clinicianUserId: input.clinicianUserId,
+    clinicianUserId,
     mode: input.mode,
     purpose: input.purpose,
     scheduledStart: startsAt,
@@ -102,13 +125,14 @@ export async function bookConsult(tx: TenantTx, input: BookConsult, now = new Da
   return consult;
 }
 
-async function lockedConsult(tx: TenantTx, consultId: string): Promise<Consult> {
+/** The consult, held until the transaction ends. Naming a patient makes another patient's consult not found (CNS20). */
+export async function lockedConsult(tx: TenantTx, consultId: string, patientId?: string): Promise<Consult> {
   const [row] = await tx.db
     .select()
     .from(consults)
     .where(and(eq(consults.tenantId, tx.context.tenantId), eq(consults.id, consultId)))
     .for('update');
-  if (!row) throw new NotFoundError('Consult');
+  if (!row || (patientId !== undefined && row.patientId !== patientId)) throw new NotFoundError('Consult');
   return row;
 }
 
@@ -122,8 +146,8 @@ async function assertNoEvidence(tx: TenantTx, consult: Consult): Promise<void> {
   if (found) throw new BusinessRuleError('This consult has already started', 'consult_has_evidence');
 }
 
-async function scheduledWithoutEvidence(tx: TenantTx, consultId: string): Promise<Consult> {
-  const consult = await lockedConsult(tx, consultId);
+async function scheduledWithoutEvidence(tx: TenantTx, consultId: string, patientId?: string): Promise<Consult> {
+  const consult = await lockedConsult(tx, consultId, patientId);
   if (consult.status !== 'scheduled') throw new BusinessRuleError('Only a scheduled consult can be changed', 'consult_not_scheduled');
   await assertNoEvidence(tx, consult);
   return consult;
@@ -137,8 +161,14 @@ async function setCancelled(tx: TenantTx, consult: Consult, reason: Cancellation
 }
 
 /** CNS14: cancelled is final; the way back is booking again. */
-export async function cancelConsult(tx: TenantTx, consultId: string, reason: Exclude<CancellationReason, 'rescheduled'>): Promise<Consult> {
-  const consult = await scheduledWithoutEvidence(tx, consultId);
+export async function cancelConsult(
+  tx: TenantTx,
+  consultId: string,
+  reason: Exclude<CancellationReason, 'rescheduled'>,
+  options: { patientId?: string | undefined; check?: (consult: Consult) => void } = {},
+): Promise<Consult> {
+  const consult = await scheduledWithoutEvidence(tx, consultId, options.patientId);
+  options.check?.(consult);
   await setCancelled(tx, consult, reason);
   await audit(tx, { action: 'consult.cancelled', zone: 'clinical', recordTable: RECORD, recordId: consult.id, details: { reason } });
   await emitEvent(tx, { type: 'consult.cancelled', recordTable: RECORD, recordId: consult.id, payload: { ...facts(consult), reason } });
@@ -148,19 +178,30 @@ export async function cancelConsult(tx: TenantTx, consultId: string, reason: Exc
 /**
  * CNS15: a move cancels the consult and books a new one linked to it, by the
  * same rules as any booking, in one transaction. If the new time is refused
- * the old consult stands. One event, so the patient gets one message.
+ * the old consult stands. One event, so the patient gets one message. With
+ * no clinician named, the same clinician keeps it if they are free then,
+ * and otherwise it is assigned (CNS19); the reply and the event say who
+ * holds it now.
  */
-export async function rescheduleConsult(tx: TenantTx, consultId: string, input: RescheduleConsult, now = new Date()): Promise<Consult> {
-  const old = await scheduledWithoutEvidence(tx, consultId);
-  const next = {
-    patientId: old.patientId,
-    clinicianUserId: input.clinicianUserId ?? old.clinicianUserId,
-    mode: input.mode ?? (old.mode as ConsultMode),
-    purpose: old.purpose as ConsultPurpose,
-  };
+export async function rescheduleConsult(
+  tx: TenantTx,
+  consultId: string,
+  input: RescheduleConsult,
+  now = new Date(),
+  options: { check?: (consult: Consult) => void } = {},
+): Promise<Consult> {
+  const old = await scheduledWithoutEvidence(tx, consultId, input.patientId);
+  options.check?.(old);
   const startsAt = new Date(input.startsAt);
+  const mode = input.mode ?? (old.mode as ConsultMode);
+  const purpose = old.purpose as ConsultPurpose;
   await setCancelled(tx, old, 'rescheduled');
-  await assertBookable(tx, next, now);
+  const clinicianUserId = await bookableClinician(
+    tx,
+    { patientId: old.patientId, clinicianUserId: input.clinicianUserId, mode, purpose, startsAt, prefer: old.clinicianUserId },
+    now,
+  );
+  const next = { patientId: old.patientId, clinicianUserId, mode, purpose };
   const { endsAt } = await assertOffered(tx, { ...next, startsAt }, now);
   const consult = await insertConsult(tx, {
     tenantId: tx.context.tenantId,
@@ -171,7 +212,12 @@ export async function rescheduleConsult(tx: TenantTx, consultId: string, input: 
   });
   await audit(tx, { action: 'consult.rescheduled', zone: 'clinical', recordTable: RECORD, recordId: old.id, details: { to: consult.id } });
   await audit(tx, { action: 'consult.booked', zone: 'clinical', recordTable: RECORD, recordId: consult.id, details: { ...facts(consult), from: old.id } });
-  await emitEvent(tx, { type: 'consult.rescheduled', recordTable: RECORD, recordId: consult.id, payload: { ...facts(consult), previousConsultId: old.id } });
+  await emitEvent(tx, {
+    type: 'consult.rescheduled',
+    recordTable: RECORD,
+    recordId: consult.id,
+    payload: { ...facts(consult), previousConsultId: old.id, previousClinicianUserId: old.clinicianUserId },
+  });
   return consult;
 }
 

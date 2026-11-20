@@ -106,6 +106,15 @@ export async function bookConsult(
   return rows[0]!.id;
 }
 
+/**
+ * Marks a fixture consult completed, as if it had run its scheduled time.
+ * For tests of what follows a consult (who sees the patient next, reviews);
+ * tests of how a consult completes play the video server instead.
+ */
+export async function completeConsult(consultId: string): Promise<void> {
+  await admin.query("update clinical.consults set status = 'completed', started_at = scheduled_start, ended_at = scheduled_end where id = $1", [consultId]);
+}
+
 /** Signs a body the way the video server does: a short-lived HS256 token carrying the body's hash. */
 export async function videoAuthorization(body: string, secret = process.env.VIDEO_API_SECRET ?? ''): Promise<string> {
   return new SignJWT({ sha256: createHash('sha256').update(body).digest('base64') })

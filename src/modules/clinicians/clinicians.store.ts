@@ -77,6 +77,18 @@ export async function clinicianByUserId(tx: TenantTx, userId: string): Promise<C
   return row ? asRow(row) : null;
 }
 
+/** How screens name each clinician, by user id: the name they were invited under, or null when none was given. */
+export async function clinicianNames(tx: TenantTx, userIds: string[]): Promise<Map<string, string | null>> {
+  if (userIds.length === 0) return new Map();
+  const rows = await tx.db
+    .select({ userId: memberships.userId, displayName: users.displayName })
+    .from(clinicians)
+    .innerJoin(memberships, eq(memberships.id, clinicians.membershipId))
+    .innerJoin(users, eq(users.id, memberships.userId))
+    .where(and(eq(clinicians.tenantId, tx.context.tenantId), inArray(memberships.userId, userIds)));
+  return new Map(rows.map((row) => [row.userId, row.displayName]));
+}
+
 export type CredentialRow = typeof clinicianCredentials.$inferSelect;
 
 export async function credentialsOf(tx: TenantTx, clinicianIds: string[]): Promise<CredentialRow[]> {

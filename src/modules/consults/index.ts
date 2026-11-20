@@ -4,10 +4,12 @@
  */
 import type { FastifyPluginAsync } from 'fastify';
 import { consultsRoutes } from './consults.routes.js';
+import { patientConsultsRoutes } from './patient-consults.routes.js';
 import { videoRoutes } from './video.routes.js';
 
 export const consultRoutes: FastifyPluginAsync = async (app) => {
   await app.register(consultsRoutes);
+  await app.register(patientConsultsRoutes);
   await app.register(videoRoutes);
 };
 
