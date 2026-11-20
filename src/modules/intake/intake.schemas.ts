@@ -9,6 +9,7 @@ const answerValue = z.union([z.boolean(), z.number(), z.string(), z.array(z.stri
 export const intakeParams = z.object({ intakeId: z.uuid() });
 export const stepParams = z.object({ intakeId: z.uuid(), stepKey: z.string().max(48) });
 export const programParams = z.object({ programId: z.uuid() });
+export const brandParams = z.object({ brandId: z.uuid() });
 export const patientParams = z.object({ patientId: z.uuid() });
 
 const question = z.object({
@@ -43,6 +44,8 @@ export const startScreenReply = z.object({
   programName: z.string(),
   privacyNotice: z.object({ documentId: z.uuid(), version: z.number().int(), title: z.string(), body: z.string() }),
 });
+
+export const brandProgramsReply = z.object({ programs: z.array(z.object({ programId: z.uuid(), name: z.string(), condition: z.string() })) });
 
 export const anonymousStartBody = z
   .object({
