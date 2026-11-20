@@ -39,6 +39,9 @@ const OWNERS: Record<string, string[]> = {
   'operational.ticket_flags': ['src/modules/support/'],
   'clinical.ticket_comments': ['src/modules/support/'],
   'operational.macros': ['src/modules/support/'],
+  'operational.help_centre_sections': ['src/modules/help-centre/'],
+  'operational.help_centre_articles': ['src/modules/help-centre/'],
+  'operational.help_centre_article_versions': ['src/modules/help-centre/'],
 };
 
 /** Made-up local data only (src/db/seed.ts refuses anything but development). */

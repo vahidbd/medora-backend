@@ -17,3 +17,4 @@ export const tenantSetupRoutes: FastifyPluginAsyncZod = async (app) => {
 export type { Brand, BrandDomain, PublicBrand } from './brands.schemas.js';
 export { assertAcceptingPatients, getBrand, listBrands } from './brands.service.js';
 export { resolvePublicBrand, type ResolvedBrand } from './platform.service.js';
+export { normaliseHost } from './checks.js';

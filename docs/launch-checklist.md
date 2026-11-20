@@ -19,3 +19,5 @@ ADR 0033. Each line gets a date and a link to its evidence when it is done. The 
 | 13 | Field encryption keys sealed by AWS KMS in Sydney, not an environment variable (ADR 0010, `docs/decisions/field-encryption.md` ENC3) | | |
 | 14 | An email provider that stores and processes email in Australia, with its ADR and data processing agreement (`docs/decisions/messaging.md` CRM3) | | |
 | 15 | The helpdesk's automatic safety reply confirmed word for word by the medical director and legal (`docs/decisions/support.md` SUP4) | | |
+| 16 | No brand's help centre goes live before its publish check refuses prescription-only names from the tenant's catalogue (`docs/decisions/support.md` SUP16) | | |
+| 17 | The support agent's help centre search is pinned to the conversation's brand before a tenant with several brands switches agents on (`docs/decisions/support.md` SUP19) | | |
