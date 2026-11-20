@@ -28,6 +28,8 @@ const OWNERS: Record<string, string[]> = {
   'operational.invoices': ['src/modules/billing/'],
   'operational.invoice_lines': ['src/modules/billing/'],
   'operational.invoice_numbers': ['src/modules/billing/'],
+  'operational.payment_methods': ['src/modules/payments/'],
+  'operational.payments': ['src/modules/billing/'],
   'platform.rate_limit_counters': ['src/lib/rate-limit.ts'],
 };
 

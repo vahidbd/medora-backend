@@ -86,4 +86,97 @@ describe('the Stripe adapter', () => {
     }) as unknown as typeof globalThis.fetch;
     await expect(stripeProcessor({ secretKey: 'sk_test_made_up', fetch }).getAccount('acct_123')).rejects.toMatchObject({ code: 'processor_unavailable' });
   });
+
+  describe('charging a saved card', () => {
+    const charge = {
+      processorAccountId: 'acct_123',
+      processorCustomerId: 'cus_123',
+      processorMethodId: 'pm_123',
+      amountCents: 12900,
+      tenantId: 't-1',
+      invoiceId: 'inv-1',
+      paymentId: 'pay-1',
+    };
+
+    it('confirms an off-session payment intent on the tenant account, with ids only', async () => {
+      const { sent, stripe } = stub(200, { id: 'pi_123', status: 'succeeded' });
+      expect(await stripe.savedMethodCharges!.chargeSavedMethod(charge, 'payment:pay-1')).toEqual({ status: 'succeeded', processorPaymentId: 'pi_123', failureCode: null });
+      expect(sent[0]).toMatchObject({ url: 'https://api.stripe.com/v1/payment_intents', method: 'POST' });
+      expect(sent[0]!.headers).toMatchObject({ 'stripe-account': 'acct_123', 'idempotency-key': 'payment:pay-1' });
+      expect(Object.fromEntries(new URLSearchParams(sent[0]!.body!))).toEqual({
+        amount: '12900',
+        currency: 'aud',
+        customer: 'cus_123',
+        payment_method: 'pm_123',
+        off_session: 'true',
+        confirm: 'true',
+        'metadata[medora_tenant_id]': 't-1',
+        'metadata[medora_invoice_id]': 'inv-1',
+        'metadata[medora_payment_id]': 'pay-1',
+      });
+    });
+
+    it.each([
+      ['processing', 'pending'],
+      ['requires_action', 'requires_action'],
+      ['requires_payment_method', 'failed'],
+    ])('reads a %s payment intent as %s', async (stripeStatus, status) => {
+      const { stripe } = stub(200, { id: 'pi_123', status: stripeStatus });
+      expect(await stripe.savedMethodCharges!.chargeSavedMethod(charge, 'payment:pay-1')).toMatchObject({ status, processorPaymentId: 'pi_123' });
+    });
+
+    it("reads a declined card as failed, keeping the card's reason", async () => {
+      const { stripe } = stub(402, { error: { type: 'card_error', code: 'card_declined', decline_code: 'insufficient_funds', payment_intent: { id: 'pi_123' } } });
+      expect(await stripe.savedMethodCharges!.chargeSavedMethod(charge, 'payment:pay-1')).toEqual({ status: 'failed', processorPaymentId: 'pi_123', failureCode: 'insufficient_funds' });
+    });
+
+    it('reads a card that wants the patient to authenticate as needing action', async () => {
+      const { stripe } = stub(402, { error: { type: 'card_error', code: 'authentication_required', payment_intent: { id: 'pi_123' } } });
+      expect(await stripe.savedMethodCharges!.chargeSavedMethod(charge, 'payment:pay-1')).toEqual({
+        status: 'requires_action',
+        processorPaymentId: 'pi_123',
+        failureCode: 'authentication_required',
+      });
+    });
+
+    it('treats any other 402 as a refusal', async () => {
+      const { stripe } = stub(402, { error: { type: 'invalid_request_error', code: 'amount_too_small' } });
+      await expect(stripe.savedMethodCharges!.chargeSavedMethod(charge, 'payment:pay-1')).rejects.toMatchObject({ code: 'processor_refused', processorCode: 'amount_too_small' });
+    });
+
+    it("checks a pending charge with a GET on the tenant's account", async () => {
+      const { sent, stripe } = stub(200, { id: 'pi_123', status: 'requires_payment_method', last_payment_error: { code: 'card_declined', decline_code: 'do_not_honor' } });
+      expect(await stripe.savedMethodCharges!.checkCharge({ processorAccountId: 'acct_123', processorPaymentId: 'pi_123' })).toEqual({
+        status: 'failed',
+        processorPaymentId: 'pi_123',
+        failureCode: 'do_not_honor',
+      });
+      expect(sent[0]).toMatchObject({ url: 'https://api.stripe.com/v1/payment_intents/pi_123', method: 'GET', body: null });
+      expect(sent[0]!.headers['stripe-account']).toBe('acct_123');
+    });
+  });
+
+  describe('refunding a charge', () => {
+    const input = { processorAccountId: 'acct_123', processorPaymentId: 'pi_123', amountCents: 12900, tenantId: 't-1', paymentId: 'pay-1' };
+
+    it('refunds the amount on the tenant account under the idempotency key', async () => {
+      const { sent, stripe } = stub(200, { id: 're_123', status: 'succeeded' });
+      expect(await stripe.refunds!.refundCharge(input, 'refund:pay-1')).toEqual({ status: 'succeeded', processorRefundId: 're_123' });
+      expect(sent[0]!.headers).toMatchObject({ 'stripe-account': 'acct_123', 'idempotency-key': 'refund:pay-1' });
+      expect(Object.fromEntries(new URLSearchParams(sent[0]!.body!))).toEqual({
+        payment_intent: 'pi_123',
+        amount: '12900',
+        'metadata[medora_tenant_id]': 't-1',
+        'metadata[medora_payment_id]': 'pay-1',
+      });
+    });
+
+    it('reads a pending refund as accepted and a failed one as a refusal', async () => {
+      expect(await stub(200, { id: 're_123', status: 'pending' }).stripe.refunds!.refundCharge(input, 'refund:pay-1')).toEqual({ status: 'pending', processorRefundId: 're_123' });
+      await expect(stub(200, { id: 're_123', status: 'failed' }).stripe.refunds!.refundCharge(input, 'refund:pay-1')).rejects.toMatchObject({
+        code: 'processor_refused',
+        processorCode: 'refund_failed',
+      });
+    });
+  });
 });

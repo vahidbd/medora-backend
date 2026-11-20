@@ -1,6 +1,6 @@
 import type { Job } from '../lib/jobs.js';
 import type { EventHandler } from '../lib/outbox-delivery.js';
-import { nothingClearsYet, renewalsJob } from './billing/index.js';
+import { chargingHandlers, noOrdersYet, nothingClearsYet, renewalsJob } from './billing/index.js';
 import { ledgerBalanceCheck } from './ledger/index.js';
 
 /**
@@ -11,4 +11,5 @@ import { ledgerBalanceCheck } from './ledger/index.js';
 /** Renewals release nothing until consults and orders provide the clearance (BIL24). */
 export const moduleJobs: readonly Job[] = [ledgerBalanceCheck, renewalsJob(nothingClearsYet)];
 
-export const eventHandlers: readonly EventHandler[] = [];
+/** Period invoices are charged once issued; until orders answers, no order takes a payment (BIL30). */
+export const eventHandlers: readonly EventHandler[] = [...chargingHandlers(noOrdersYet)];

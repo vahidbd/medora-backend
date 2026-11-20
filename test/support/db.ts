@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import type { MembershipStatus, Role } from '../../src/db/schema/values.js';
+import { fakeProcessor } from '../../src/modules/payments/processors.js';
 
 /**
  * Fixtures, written as the superuser so they can set up any tenant. Made-up
@@ -44,11 +45,14 @@ export async function tenantWith(...roles: Role[]): Promise<{ tenantId: string; 
 }
 
 /** A payment account at the fake processor, set up and able to take payments. Its company is made up. */
+/** An active Stripe payment account, connected to an account at the fake processor so cards saved on it can be charged. */
 export async function createPaymentAccount(tenantId: string): Promise<string> {
+  const id = randomUUID();
+  const { processorAccountId } = await fakeProcessor('stripe').hostedOnboarding.createAccount({ tenantId, paymentAccountId: id }, `test:${id}`);
   const { rows } = await admin.query<{ id: string }>(
-    `insert into operational.payment_accounts (tenant_id, processor, company_id, name, status, charges_enabled, activated_at)
-     values ($1, 'stripe', $2, 'Test card account', 'active', true, now()) returning id`,
-    [tenantId, randomUUID()],
+    `insert into operational.payment_accounts (id, tenant_id, processor, company_id, name, status, processor_account_id, charges_enabled, activated_at)
+     values ($1, $2, 'stripe', $3, 'Test card account', 'active', $4, true, now()) returning id`,
+    [id, tenantId, randomUUID(), processorAccountId],
   );
   return rows[0]!.id;
 }

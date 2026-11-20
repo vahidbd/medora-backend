@@ -114,6 +114,15 @@ export async function postEntry(tx: TenantTx, input: EntryInput): Promise<Posted
   return writeEntry(tx, input, lines);
 }
 
+/** The entry posted under an idempotency key, or null when nothing was. */
+export async function entryIdForKey(tx: TenantTx, idempotencyKey: string): Promise<string | null> {
+  const [found] = await tx.db
+    .select({ id: ledgerEntries.id })
+    .from(ledgerEntries)
+    .where(and(eq(ledgerEntries.tenantId, tx.context.tenantId), eq(ledgerEntries.idempotencyKey, idempotencyKey)));
+  return found?.id ?? null;
+}
+
 /**
  * Undo an entry with a new one whose lines are its lines negated (ADR 0016:
  * the ledger shows the mistake and its fix). An entry is reversed at most

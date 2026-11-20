@@ -1,17 +1,19 @@
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import { invoiceLines, invoiceNumbers, invoices, paymentAccounts, priceFees } from '../../db/schema/index.js';
-import type { FeeKind, GstTreatment, InvoiceKind, InvoiceStatus } from '../../db/schema/values.js';
+import { invoiceLines, invoiceNumbers, invoices, paymentAccounts, payments, priceFees } from '../../db/schema/index.js';
+import type { FeeKind, GstTreatment, InvoiceKind, InvoiceStatus, PaymentStatus } from '../../db/schema/values.js';
 import type { TenantTx } from '../../db/tenant.js';
 import { audit } from '../../lib/audit.js';
 import { NotFoundError } from '../../lib/errors.js';
 import { emitEvent } from '../../lib/events.js';
 import { gstIncluded, sumCents } from '../../lib/money.js';
-import { type LineInput, postEntry } from '../ledger/index.js';
+import { type LineInput, entryIdForKey, postEntry, reverseEntry } from '../ledger/index.js';
+import { methodLabels } from '../payments/index.js';
 
 /**
  * Issuing invoices (docs/decisions/billing.md BIL23 to BIL27). An invoice is
  * written once, when it is issued: its number, its lines copied from the
- * price's fees, and its ledger entry, all in the caller's transaction.
+ * price's fees, and its ledger entry, all in the caller's transaction. Then
+ * only its status moves, as payments and voids decide (BIL28, BIL29).
  */
 
 export interface InvoiceLine {
@@ -21,6 +23,19 @@ export interface InvoiceLine {
   pharmacyShareCents: number | null;
   gstTreatment: GstTreatment;
   gstCents: number;
+}
+
+/** One attempt to take the invoice's total (BIL28). The failure code is the processor's, for staff. */
+export interface InvoicePayment {
+  paymentId: string;
+  attempt: number;
+  status: PaymentStatus;
+  amountCents: number;
+  card: { brand: string; last4: string } | null;
+  failureCode: string | null;
+  createdAt: string;
+  settledAt: string | null;
+  refundedAt: string | null;
 }
 
 export interface Invoice {
@@ -38,7 +53,10 @@ export interface Invoice {
   totalCents: number;
   gstCents: number;
   issuedAt: string;
+  paidAt: string | null;
+  voidedAt: string | null;
   lines: InvoiceLine[];
+  payments: InvoicePayment[];
 }
 
 const TABLE = 'operational.invoices';
@@ -46,12 +64,13 @@ const FEE_ORDER: Record<FeeKind, number> = { consult: 0, program: 1, medicine: 2
 type FeeRow = typeof priceFees.$inferSelect;
 type Row = typeof invoices.$inferSelect;
 type LineRow = typeof invoiceLines.$inferSelect;
+type PaymentRow = typeof payments.$inferSelect;
 
 export async function feesOf(tx: TenantTx, priceId: string): Promise<FeeRow[]> {
   return tx.db.select().from(priceFees).where(eq(priceFees.priceId, priceId));
 }
 
-function view(row: Row, lines: LineRow[]): Invoice {
+function view(row: Row, lines: LineRow[], attempts: PaymentRow[], cards: Map<string, { brand: string; last4: string }>): Invoice {
   return {
     invoiceId: row.id,
     number: row.number,
@@ -67,6 +86,8 @@ function view(row: Row, lines: LineRow[]): Invoice {
     totalCents: row.totalCents,
     gstCents: row.gstCents,
     issuedAt: row.issuedAt.toISOString(),
+    paidAt: row.paidAt?.toISOString() ?? null,
+    voidedAt: row.voidedAt?.toISOString() ?? null,
     lines: lines
       .map((line) => ({
         feeKind: line.feeKind as FeeKind,
@@ -77,7 +98,36 @@ function view(row: Row, lines: LineRow[]): Invoice {
         gstCents: line.gstCents,
       }))
       .sort((a, b) => FEE_ORDER[a.feeKind] - FEE_ORDER[b.feeKind]),
+    payments: attempts
+      .sort((a, b) => a.attempt - b.attempt)
+      .map((payment) => ({
+        paymentId: payment.id,
+        attempt: payment.attempt,
+        status: payment.status as PaymentStatus,
+        amountCents: payment.amountCents,
+        card: cards.get(payment.paymentMethodId) ?? null,
+        failureCode: payment.failureCode,
+        createdAt: payment.createdAt.toISOString(),
+        settledAt: payment.settledAt?.toISOString() ?? null,
+        refundedAt: payment.refundedAt?.toISOString() ?? null,
+      })),
   };
+}
+
+async function views(tx: TenantTx, rows: Row[]): Promise<Invoice[]> {
+  if (rows.length === 0) return [];
+  const ids = rows.map((row) => row.id);
+  const lines = await tx.db.select().from(invoiceLines).where(inArray(invoiceLines.invoiceId, ids)).orderBy(asc(invoiceLines.id));
+  const attempts = await tx.db.select().from(payments).where(inArray(payments.invoiceId, ids));
+  const cards = await methodLabels(tx, [...new Set(attempts.map((payment) => payment.paymentMethodId))]);
+  return rows.map((row) =>
+    view(
+      row,
+      lines.filter((line) => line.invoiceId === row.id),
+      attempts.filter((payment) => payment.invoiceId === row.id),
+      cards,
+    ),
+  );
 }
 
 export async function listInvoices(tx: TenantTx, filter: { patientId?: string | undefined; subscriptionId?: string | undefined }): Promise<Invoice[]> {
@@ -87,19 +137,13 @@ export async function listInvoices(tx: TenantTx, filter: { patientId?: string | 
     .where(and(filter.patientId ? eq(invoices.patientId, filter.patientId) : undefined, filter.subscriptionId ? eq(invoices.subscriptionId, filter.subscriptionId) : undefined))
     .orderBy(desc(invoices.issuedAt), desc(invoices.number))
     .limit(200);
-  if (rows.length === 0) return [];
-  const lines = await tx.db
-    .select()
-    .from(invoiceLines)
-    .where(inArray(invoiceLines.invoiceId, rows.map((row) => row.id)))
-    .orderBy(asc(invoiceLines.id));
-  return rows.map((row) => view(row, lines.filter((line) => line.invoiceId === row.id)));
+  return views(tx, rows);
 }
 
 export async function getInvoice(tx: TenantTx, id: string): Promise<Invoice> {
   const [row] = await tx.db.select().from(invoices).where(eq(invoices.id, id));
   if (!row) throw new NotFoundError('Invoice');
-  return view(row, await tx.db.select().from(invoiceLines).where(eq(invoiceLines.invoiceId, id)));
+  return (await views(tx, [row]))[0]!;
 }
 
 /**
@@ -132,6 +176,8 @@ function postingLines(patientId: string, partnerPharmacyId: string | null, lines
   if (gst > 0) posting.push({ account: { kind: 'gst_collected' }, amountCents: -gst });
   return posting;
 }
+
+const issuedKey = (invoiceId: string) => `invoice:${invoiceId}:issued`;
 
 export interface InvoiceDraft {
   kind: InvoiceKind;
@@ -178,9 +224,65 @@ export async function issueInvoice(tx: TenantTx, draft: InvoiceDraft): Promise<I
   await tx.db.insert(invoiceLines).values(
     lines.map((line) => ({ tenantId: tx.context.tenantId, invoiceId: invoice.id, orderId: line.feeKind === 'medicine' ? invoice.orderId : null, ...line })),
   );
-  await postEntry(tx, { kind: 'invoice_issued', idempotencyKey: `invoice:${invoice.id}:issued`, lines: postingLines(invoice.patientId, invoice.partnerPharmacyId, lines) });
+  await postEntry(tx, { kind: 'invoice_issued', idempotencyKey: issuedKey(invoice.id), lines: postingLines(invoice.patientId, invoice.partnerPharmacyId, lines) });
   const facts = { patientId: invoice.patientId, subscriptionId: invoice.subscriptionId, kind: invoice.kind, number: invoice.number, totalCents: invoice.totalCents };
   await audit(tx, { action: 'invoice.issued', zone: 'operational', recordTable: TABLE, recordId: invoice.id, details: facts });
   await emitEvent(tx, { type: 'invoice.issued', recordTable: TABLE, recordId: invoice.id, payload: facts });
   return getInvoice(tx, invoice.id);
+}
+
+export type InvoiceRow = Row;
+
+/** The invoice, locked. Callers that also change its subscription lock the subscription first. */
+export async function lockInvoice(tx: TenantTx, id: string): Promise<Row> {
+  const [row] = await tx.db.select().from(invoices).where(eq(invoices.id, id)).for('update');
+  if (!row) throw new NotFoundError('Invoice');
+  return row;
+}
+
+/** The subscription's period invoice that hasn't been paid or voided, if any: there is one at most (BIL29). */
+export async function unpaidPeriodInvoice(tx: TenantTx, subscriptionId: string): Promise<Row | null> {
+  const [row] = await tx.db
+    .select()
+    .from(invoices)
+    .where(and(eq(invoices.subscriptionId, subscriptionId), eq(invoices.kind, 'period'), inArray(invoices.status, ['open', 'past_due'])))
+    .for('update');
+  return row ?? null;
+}
+
+type Settled = 'paid' | 'past_due' | 'voided';
+
+async function settle(tx: TenantTx, row: Row, action: Settled, details: Record<string, string | null>): Promise<void> {
+  const facts = { patientId: row.patientId, subscriptionId: row.subscriptionId, number: row.number, ...details };
+  await audit(tx, { action: `invoice.${action}`, zone: 'operational', recordTable: TABLE, recordId: row.id, details: facts });
+  await emitEvent(tx, { type: `invoice.${action}`, recordTable: TABLE, recordId: row.id, payload: facts });
+}
+
+export async function markInvoicePaid(tx: TenantTx, row: Row): Promise<void> {
+  await tx.db.update(invoices).set({ status: 'paid', paidAt: sql`now()` }).where(eq(invoices.id, row.id));
+  await settle(tx, row, 'paid', {});
+}
+
+/** A charge failed, or there was no card to charge (BIL28). Retries and reminders follow from `invoice.past_due`. */
+export async function markInvoicePastDue(tx: TenantTx, row: Row, reason: 'payment_failed' | 'no_payment_method'): Promise<void> {
+  if (row.status !== 'open') return;
+  await tx.db.update(invoices).set({ status: 'past_due' }).where(eq(invoices.id, row.id));
+  await settle(tx, row, 'past_due', { reason });
+}
+
+export type VoidReason = 'subscription_cancelled' | 'subscription_paused' | 'period_skipped' | 'order_refused';
+
+/**
+ * An unpaid invoice that no longer stands (BIL29): it keeps its number, its
+ * ledger entry is reversed, and its period and order can be issued again.
+ * `invoice.voided` names the order, so orders can release it.
+ */
+export async function voidInvoice(tx: TenantTx, row: Row, reason: VoidReason): Promise<void> {
+  if (row.status === 'void') return;
+  if (row.status === 'paid') throw new Error('A paid invoice is refunded, never voided');
+  const issued = await entryIdForKey(tx, issuedKey(row.id));
+  if (!issued) throw new Error('An issued invoice has no ledger entry');
+  await reverseEntry(tx, issued, `invoice:${row.id}:voided`);
+  await tx.db.update(invoices).set({ status: 'void', voidedAt: sql`now()` }).where(eq(invoices.id, row.id));
+  await settle(tx, row, 'voided', { reason, orderId: row.orderId });
 }

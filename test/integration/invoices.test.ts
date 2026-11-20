@@ -4,7 +4,18 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import type { App } from '../../src/app.js';
 import { closeDatabase } from '../../src/db/health.js';
 import { type TenantContext, withTenant } from '../../src/db/tenant.js';
-import { type Clearance, type ClearanceRequest, type ClearanceSource, renewalsJob, startSubscription, upcomingRenewals } from '../../src/modules/billing/index.js';
+import {
+  type Clearance,
+  type ClearanceRequest,
+  type ClearanceSource,
+  type PaidOrders,
+  chargingHandlers,
+  renewalsJob,
+  startSubscription,
+  upcomingRenewals,
+} from '../../src/modules/billing/index.js';
+import { savePaymentMethod } from '../../src/modules/payments/index.js';
+import { deliverDueEvents } from '../../src/lib/outbox-delivery.js';
 import { releaseDuePeriod } from '../../src/modules/billing/renewals.js';
 import { headers, signIn, testApp } from '../support/app.js';
 import { admin, createPaymentAccount, tenantWith } from '../support/db.js';
@@ -14,7 +25,9 @@ import { recordingLog } from '../support/log.js';
  * Invoices and renewals (docs/decisions/billing.md BIL23 to BIL27). Today is
  * 10 March 2027, 12:00 in Sydney, unless a test moves the clock. Patients,
  * programs, products, orders and pharmacies are made-up ids until those
- * tables merge; a fake stands in for consults and orders.
+ * tables merge; a fake stands in for consults and orders. Every patient has
+ * a saved card at the fake processor, so a released period is paid and
+ * starts when the outbox is delivered (BIL29).
  */
 const NOW = new Date('2027-03-10T01:00:00Z');
 let app: App;
@@ -61,7 +74,22 @@ async function livePrice(fees: object[] = [program], options: { billingModel?: s
   return (await call('POST', `/prices/${draft.body.priceId}/publish`, { gstTreatmentsConfirmed: true }, who)).body;
 }
 
-const start = async (price: { priceId: string }) => inClinic((tx) => startSubscription(tx, { patientId: randomUUID(), priceId: price.priceId, timeZone: 'Australia/Sydney' }));
+const start = (price: { priceId: string }) =>
+  inClinic(async (tx) => {
+    const started = await startSubscription(tx, { patientId: randomUUID(), priceId: price.priceId, timeZone: 'Australia/Sydney' });
+    await savePaymentMethod(tx, {
+      patientId: started.patientId,
+      paymentAccountId: started.paymentAccountId,
+      processorCustomerId: 'cus_fake',
+      processorMethodId: `pm_fake_${randomUUID()}`,
+      brand: 'visa',
+      last4: '4242',
+      expMonth: 12,
+      expYear: 2030,
+      consentedAt: new Date(),
+    });
+    return started;
+  });
 
 /** Consults and orders, as far as billing can tell: held until a test says otherwise. */
 const answers = new Map<string, Clearance | Error>();
@@ -83,8 +111,13 @@ const cleared = (order?: { orderId: string; medicineProductId: string; partnerPh
 const anOrder = () => ({ orderId: randomUUID(), medicineProductId: productA, partnerPharmacyId: randomUUID() });
 
 const log = recordingLog();
+const paid: PaidOrders = { markOrderPaid: async () => 'paid' };
 const runRenewals = () => renewalsJob(fake).run({ name: 'billing-renewals', log });
-const runQuietly = () => runRenewals().catch(() => undefined);
+/** Release what is due, then charge it, as the worker would. */
+const runQuietly = async () => {
+  await runRenewals().catch(() => undefined);
+  await deliverDueEvents(chargingHandlers(paid), log, { perTenant: 1000 });
+};
 const at = (instant: string) => vi.setSystemTime(new Date(instant));
 
 const invoicesOf = async (subscriptionId: string) => (await call('GET', `/invoices?subscriptionId=${subscriptionId}`)).body.invoices;
