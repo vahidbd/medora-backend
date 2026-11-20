@@ -4,6 +4,6 @@
  * docs/decisions/billing.md). The module's front door (ADR 0027).
  */
 export { paymentAccountRoutes } from './payment-accounts.routes.js';
-export { type ChargeableMethod, type PaymentMethodToSave, chargeableMethod, methodLabels, savePaymentMethod } from './payment-methods.service.js';
+export { type ChargeableMethod, type PaymentMethodToSave, chargeableMethod, declinePaymentMethod, methodLabels, savePaymentMethod } from './payment-methods.service.js';
 export { type ChargeResult, ProcessorRefusedError, type RefundResult } from './processor.js';
 export { paymentProcessor } from './processors.js';

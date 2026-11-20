@@ -45,6 +45,10 @@ export const invoices = operational.table(
     paidAt: timestamp('paid_at', { withTimezone: true }),
     /** A void invoice keeps its number; its ledger entry is reversed (BIL29). */
     voidedAt: timestamp('voided_at', { withTimezone: true }),
+    /** The patient's date it went past due, kept once it is paid or void (BIL31). */
+    pastDueOn: date('past_due_on'),
+    /** The patient's date of the next retry; null once the last has started, or when not past due (BIL31). */
+    retryDueOn: date('retry_due_on'),
   },
   (table) => [
     unique('invoices_tenant_id_key').on(table.tenantId, table.id),
@@ -82,6 +86,13 @@ export const invoices = operational.table(
         and ${table.totalCents} > 0 and ${table.gstCents} between 0 and ${table.totalCents}`,
     ),
     check('invoices_settled_check', sql`(${table.status} = 'paid') = (${table.paidAt} is not null) and (${table.status} = 'void') = (${table.voidedAt} is not null)`),
+    check(
+      'invoices_retry_check',
+      sql`(${table.status} <> 'past_due' or ${table.pastDueOn} is not null)
+        and (${table.retryDueOn} is null or (${table.status} = 'past_due' and ${table.retryDueOn} > ${table.pastDueOn}))`,
+    ),
+    // The retries job's question every 15 minutes: which past-due invoices are due again (BIL31).
+    index('invoices_retry_due_idx').on(table.tenantId, table.retryDueOn).where(sql`${table.retryDueOn} is not null`),
   ],
 );
 
@@ -164,8 +175,10 @@ export const payments = operational.table(
     invoiceId: uuid('invoice_id').notNull(),
     paymentAccountId: uuid('payment_account_id').notNull(),
     paymentMethodId: uuid('payment_method_id').notNull(),
-    /** 1 for the first try, then one more for each retry. */
+    /** 1 for the first try, then one more for each later try. */
     attempt: integer('attempt').notNull(),
+    /** Which scheduled retry this was (1 to 4); null for the first try and a new card's (BIL31). */
+    retry: integer('retry'),
     amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
     status: text('status').notNull().default('pending'),
     /** The processor's id for the charge (Stripe's `pi_…`), once it has one. */
@@ -198,7 +211,7 @@ export const payments = operational.table(
     check('payments_status_check', oneOf(table.status, PAYMENT_STATUSES)),
     check(
       'payments_shape_check',
-      sql`${table.attempt} >= 1 and ${table.amountCents} > 0
+      sql`${table.attempt} >= 1 and ${table.amountCents} > 0 and ${table.retry} between 1 and 4 is not false
         and (${table.status} = 'pending') = (${table.settledAt} is null)
         and (${table.status} = 'failed') = (${table.failureCode} is not null)
         and (${table.status} not in ('succeeded', 'refunding', 'refunded') or ${table.processorPaymentId} is not null)

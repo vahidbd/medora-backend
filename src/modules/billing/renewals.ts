@@ -53,14 +53,12 @@ type Outcome = 'issued' | 'held' | 'ended' | 'not_due' | 'awaiting_payment';
  * (BIL29). A clinician's decline ends the subscription instead, charging nothing.
  */
 export async function releaseDuePeriod(tx: TenantTx, subscriptionId: string, source: ClearanceSource): Promise<Outcome> {
-  const { row, interval } = await lockSubscription(tx, subscriptionId);
+  const { row, interval, billingModel } = await lockSubscription(tx, subscriptionId);
   const startsOn = today(row);
   const first = row.status === 'pending';
   const due = first || ((row.status === 'active' || row.status === 'paused') && !row.cancelsAtPeriodEnd && row.nextPeriodStartsOn! <= startsOn);
   if (!due) return 'not_due';
   if (await unpaidPeriodInvoice(tx, subscriptionId)) return 'awaiting_payment';
-  const [price] = await tx.db.select({ billingModel: prices.billingModel }).from(prices).where(eq(prices.id, row.priceId));
-  const billingModel = price!.billingModel as BillingModel;
   const clearance = await source.clearanceForPeriod(tx, { patientId: row.patientId, programId: row.programId, subscriptionId, billingModel, periodStartsOn: startsOn, first });
   if (clearance.status === 'declined') {
     await cancelSubscription(tx, subscriptionId, { when: 'now', reason: 'clinician_declined' });
@@ -91,8 +89,8 @@ export async function releaseDuePeriod(tx: TenantTx, subscriptionId: string, sou
   return 'issued';
 }
 
-/** Renewals happen at 10:00 in the patient's time zone on the period's first day (BIL24); `now` is the job's clock. */
-const releaseDate = (now: Date) => sql`(${now.toISOString()}::timestamptz at time zone ${subscriptions.timeZone} - interval '10 hours')::date`;
+/** Renewals and retries happen at 10:00 in the patient's time zone (BIL24, BIL31): their date as of then. `now` is the job's clock. */
+export const releaseDate = (now: Date) => sql`(${now.toISOString()}::timestamptz at time zone ${subscriptions.timeZone} - interval '10 hours')::date`;
 const localToday = (now: Date) => sql`(${now.toISOString()}::timestamptz at time zone ${subscriptions.timeZone})::date`;
 
 /**

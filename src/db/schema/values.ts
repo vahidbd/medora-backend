@@ -99,7 +99,7 @@ export const SUBSCRIPTION_STATUSES = ['pending', 'active', 'paused', 'cancelled'
 export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
 
 /** Why a subscription ended (BIL21). Codes only: a note could carry patient details. */
-export const CANCEL_REASONS = ['patient_request', 'clinician_declined', 'staff_decision', 'other'] as const;
+export const CANCEL_REASONS = ['patient_request', 'clinician_declined', 'staff_decision', 'payment_failed', 'other'] as const;
 export type CancelReason = (typeof CANCEL_REASONS)[number];
 
 /**

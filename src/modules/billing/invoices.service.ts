@@ -8,6 +8,7 @@ import { emitEvent } from '../../lib/events.js';
 import { gstIncluded, sumCents } from '../../lib/money.js';
 import { type LineInput, entryIdForKey, postEntry, reverseEntry } from '../ledger/index.js';
 import { methodLabels } from '../payments/index.js';
+import { addDays } from './periods.js';
 
 /**
  * Issuing invoices (docs/decisions/billing.md BIL23 to BIL27). An invoice is
@@ -29,6 +30,8 @@ export interface InvoiceLine {
 export interface InvoicePayment {
   paymentId: string;
   attempt: number;
+  /** Which scheduled retry it was (BIL31); null for the first try and a new card's. */
+  retry: number | null;
   status: PaymentStatus;
   amountCents: number;
   card: { brand: string; last4: string } | null;
@@ -55,6 +58,9 @@ export interface Invoice {
   issuedAt: string;
   paidAt: string | null;
   voidedAt: string | null;
+  /** The patient's date it went past due, and of its next retry (BIL31). */
+  pastDueOn: string | null;
+  retryDueOn: string | null;
   lines: InvoiceLine[];
   payments: InvoicePayment[];
 }
@@ -88,6 +94,8 @@ function view(row: Row, lines: LineRow[], attempts: PaymentRow[], cards: Map<str
     issuedAt: row.issuedAt.toISOString(),
     paidAt: row.paidAt?.toISOString() ?? null,
     voidedAt: row.voidedAt?.toISOString() ?? null,
+    pastDueOn: row.pastDueOn,
+    retryDueOn: row.retryDueOn,
     lines: lines
       .map((line) => ({
         feeKind: line.feeKind as FeeKind,
@@ -103,6 +111,7 @@ function view(row: Row, lines: LineRow[], attempts: PaymentRow[], cards: Map<str
       .map((payment) => ({
         paymentId: payment.id,
         attempt: payment.attempt,
+        retry: payment.retry,
         status: payment.status as PaymentStatus,
         amountCents: payment.amountCents,
         card: cards.get(payment.paymentMethodId) ?? null,
@@ -250,27 +259,59 @@ export async function unpaidPeriodInvoice(tx: TenantTx, subscriptionId: string):
   return row ?? null;
 }
 
-type Settled = 'paid' | 'past_due' | 'voided';
+type Settled = 'paid' | 'past_due' | 'retried' | 'voided';
 
-async function settle(tx: TenantTx, row: Row, action: Settled, details: Record<string, string | null>): Promise<void> {
+async function settle(tx: TenantTx, row: Row, action: Settled, details: Record<string, string | number | null>): Promise<void> {
   const facts = { patientId: row.patientId, subscriptionId: row.subscriptionId, number: row.number, ...details };
   await audit(tx, { action: `invoice.${action}`, zone: 'operational', recordTable: TABLE, recordId: row.id, details: facts });
   await emitEvent(tx, { type: `invoice.${action}`, recordTable: TABLE, recordId: row.id, payload: facts });
 }
 
 export async function markInvoicePaid(tx: TenantTx, row: Row): Promise<void> {
-  await tx.db.update(invoices).set({ status: 'paid', paidAt: sql`now()` }).where(eq(invoices.id, row.id));
+  await tx.db.update(invoices).set({ status: 'paid', paidAt: sql`now()`, retryDueOn: null }).where(eq(invoices.id, row.id));
   await settle(tx, row, 'paid', {});
 }
 
-/** A charge failed, or there was no card to charge (BIL28). Retries and reminders follow from `invoice.past_due`. */
-export async function markInvoicePastDue(tx: TenantTx, row: Row, reason: 'payment_failed' | 'no_payment_method'): Promise<void> {
-  if (row.status !== 'open') return;
-  await tx.db.update(invoices).set({ status: 'past_due' }).where(eq(invoices.id, row.id));
-  await settle(tx, row, 'past_due', { reason });
+/** Why a charge didn't take the money: a soft decline, a hard one, or no card that can be charged (BIL28, BIL31). */
+export type Unpaid = 'payment_failed' | 'card_declined' | 'no_payment_method';
+
+/** Days after an invoice went past due that it is tried again, each at 10:00 the patient's time (BIL31). */
+export const RETRY_DAYS = [1, 3, 5, 7] as const;
+
+/** The first retry day after `today`, or null once the last has come: a job that runs late never tries twice in a row (BIL31). */
+export function nextRetryOn(pastDueOn: string, today: string): string | null {
+  return RETRY_DAYS.map((day) => addDays(pastDueOn, day)).find((on) => on > today) ?? null;
 }
 
-export type VoidReason = 'subscription_cancelled' | 'subscription_paused' | 'period_skipped' | 'order_refused';
+/**
+ * The first charge didn't take the money (BIL28): the invoice is past due
+ * from the patient's `today`, and the first retry is the next day (BIL31).
+ */
+export async function markInvoicePastDue(tx: TenantTx, row: Row, reason: Unpaid, today: string): Promise<void> {
+  if (row.status !== 'open') return;
+  const retryDueOn = nextRetryOn(today, today);
+  await tx.db.update(invoices).set({ status: 'past_due', pastDueOn: today, retryDueOn }).where(eq(invoices.id, row.id));
+  await settle(tx, row, 'past_due', { reason, retryDueOn });
+}
+
+/**
+ * A scheduled retry starts (BIL31): the next one is booked before the card is
+ * tried, so a retry is never made twice. Says which retry this is, and the
+ * next one's date, null when this is the last.
+ */
+export async function startRetry(tx: TenantTx, row: Row, today: string): Promise<{ retry: number; retryDueOn: string | null }> {
+  const retry = RETRY_DAYS.findIndex((day) => addDays(row.pastDueOn!, day) === row.retryDueOn) + 1;
+  const retryDueOn = nextRetryOn(row.pastDueOn!, today);
+  await tx.db.update(invoices).set({ retryDueOn }).where(eq(invoices.id, row.id));
+  return { retry, retryDueOn };
+}
+
+/** A retry, or a new card's charge (`retry` null), didn't take the money either: messaging tells the patient (BIL31). */
+export async function markInvoiceRetried(tx: TenantTx, row: Row, outcome: { retry: number | null; unpaid: Unpaid; retryDueOn: string | null }): Promise<void> {
+  await settle(tx, row, 'retried', { retry: outcome.retry, outcome: outcome.unpaid, retryDueOn: outcome.retryDueOn });
+}
+
+export type VoidReason = 'subscription_cancelled' | 'subscription_paused' | 'period_skipped' | 'order_refused' | 'not_cleared' | 'payment_failed';
 
 /**
  * An unpaid invoice that no longer stands (BIL29): it keeps its number, its
@@ -283,6 +324,6 @@ export async function voidInvoice(tx: TenantTx, row: Row, reason: VoidReason): P
   const issued = await entryIdForKey(tx, issuedKey(row.id));
   if (!issued) throw new Error('An issued invoice has no ledger entry');
   await reverseEntry(tx, issued, `invoice:${row.id}:voided`);
-  await tx.db.update(invoices).set({ status: 'void', voidedAt: sql`now()` }).where(eq(invoices.id, row.id));
+  await tx.db.update(invoices).set({ status: 'void', voidedAt: sql`now()`, retryDueOn: null }).where(eq(invoices.id, row.id));
   await settle(tx, row, 'voided', { reason, orderId: row.orderId });
 }

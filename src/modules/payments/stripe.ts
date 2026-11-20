@@ -45,11 +45,48 @@ function chargeStatus(status: string): ChargeResult['status'] {
   return 'failed';
 }
 
+/**
+ * Stripe's decline codes that no retry changes: the card is gone, closed or
+ * refused for good, so the patient needs to pay another way (BIL31).
+ * Everything else, such as insufficient funds, may pass on a later day.
+ */
+const HARD_DECLINES = new Set([
+  'card_not_supported',
+  'currency_not_supported',
+  'do_not_honor_permanently',
+  'do_not_try_again',
+  'expired_card',
+  'fraudulent',
+  'incorrect_number',
+  'invalid_account',
+  'invalid_number',
+  'lost_card',
+  'merchant_blacklist',
+  'new_account_information_available',
+  'not_permitted',
+  'pickup_card',
+  'restricted_card',
+  'revocation_of_all_authorizations',
+  'revocation_of_authorization',
+  'security_violation',
+  'service_not_allowed',
+  'stolen_card',
+  'stop_payment_order',
+  'transaction_not_allowed',
+]);
+
+/** A charge's outcome; one that needs the patient to authenticate counts as a hard decline, since they aren't there to do it. */
+function result(status: ChargeResult['status'], processorPaymentId: string | null, failureCode: string | null): ChargeResult {
+  const hardDecline = status === 'requires_action' || (status === 'failed' && failureCode !== null && HARD_DECLINES.has(failureCode));
+  return { status, processorPaymentId, failureCode, hardDecline };
+}
+
 /** A payment intent as Medora reads it: a failed one keeps the card's reason. */
 const intentResult = paymentIntent.transform((intent): ChargeResult => {
   const status = chargeStatus(intent.status);
   const reason = intent.last_payment_error;
-  return { status, processorPaymentId: intent.id, failureCode: status === 'failed' ? (reason?.decline_code ?? reason?.code ?? intent.status) : null };
+  const failureCode = status === 'failed' || status === 'requires_action' ? (reason?.decline_code ?? reason?.code ?? intent.status) : null;
+  return result(status, intent.id, failureCode);
 });
 
 type Form = Record<string, string>;
@@ -123,6 +160,9 @@ export function stripeProcessor({ secretKey, apiBase = 'https://api.stripe.com/v
     },
 
     savedMethodCharges: {
+      // Stripe keeps idempotency keys for at least 24 hours.
+      keyLifetimeHours: 24,
+
       async chargeSavedMethod(charge, idempotencyKey) {
         // Ids and the amount only: nothing about the patient or what the charge is for clinically.
         return call(intentResult, '/payment_intents', {
@@ -139,11 +179,8 @@ export function stripeProcessor({ secretKey, apiBase = 'https://api.stripe.com/v
           },
           idempotencyKey,
           account: charge.processorAccountId,
-          onCardError: ({ error }) => ({
-            status: error.code === 'authentication_required' ? 'requires_action' : 'failed',
-            processorPaymentId: error.payment_intent?.id ?? null,
-            failureCode: error.decline_code ?? error.code ?? 'card_error',
-          }),
+          onCardError: ({ error }) =>
+            result(error.code === 'authentication_required' ? 'requires_action' : 'failed', error.payment_intent?.id ?? null, error.decline_code ?? error.code ?? 'card_error'),
         });
       },
 

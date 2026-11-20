@@ -1,4 +1,4 @@
-import { and, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { paymentAccounts, paymentMethods } from '../../db/schema/index.js';
 import type { Processor } from '../../db/schema/values.js';
 import type { TenantTx } from '../../db/tenant.js';
@@ -10,7 +10,8 @@ import { emitEvent } from '../../lib/events.js';
  * Patients' saved cards (docs/decisions/billing.md BIL28). The processor
  * holds the card; a payment method is its tokens on the tenant's account and
  * what a patient needs to recognise it. The newest card saved at a payment
- * account is the one period invoices are charged to.
+ * account is the one period invoices are charged to, unless the processor
+ * has hard-declined it (BIL31).
  */
 
 export interface PaymentMethodToSave {
@@ -41,7 +42,7 @@ const TABLE = 'operational.payment_methods';
  * Save a card the processor has set up for later charges, and make it the
  * patient's default at that payment account. The patient app calls this once
  * the processor confirms the card; saving the same card again only makes it
- * the default.
+ * the default, and usable again after a hard decline (BIL31).
  */
 export async function savePaymentMethod(tx: TenantTx, input: PaymentMethodToSave): Promise<{ paymentMethodId: string }> {
   const owner = and(eq(paymentMethods.patientId, input.patientId), eq(paymentMethods.paymentAccountId, input.paymentAccountId));
@@ -54,7 +55,7 @@ export async function savePaymentMethod(tx: TenantTx, input: PaymentMethodToSave
     .values({ tenantId: tx.context.tenantId, ...input, isDefault: true })
     .onConflictDoUpdate({
       target: [paymentMethods.tenantId, paymentMethods.paymentAccountId, paymentMethods.processorMethodId],
-      set: { isDefault: true },
+      set: { isDefault: true, declinedAt: null },
       setWhere: eq(paymentMethods.patientId, input.patientId),
     })
     .returning({ id: paymentMethods.id });
@@ -68,8 +69,8 @@ export async function savePaymentMethod(tx: TenantTx, input: PaymentMethodToSave
 
 /**
  * A card with what its processor needs: the patient's default at a payment
- * account, or a given one (a payment keeps the card it was tried on). Null
- * when there is none.
+ * account, unless it was hard-declined, or a given one (a payment keeps the
+ * card it was tried on). Null when there is none.
  */
 export async function chargeableMethod(
   tx: TenantTx,
@@ -88,10 +89,30 @@ export async function chargeableMethod(
     .where(
       'paymentMethodId' in which
         ? eq(paymentMethods.id, which.paymentMethodId)
-        : and(eq(paymentMethods.patientId, which.patientId), eq(paymentMethods.paymentAccountId, which.paymentAccountId), sql`${paymentMethods.isDefault}`),
+        : and(
+            eq(paymentMethods.patientId, which.patientId),
+            eq(paymentMethods.paymentAccountId, which.paymentAccountId),
+            sql`${paymentMethods.isDefault}`,
+            isNull(paymentMethods.declinedAt),
+          ),
     );
   if (!found?.processorAccountId) return null;
   return { ...found, processor: found.processor as Processor, processorAccountId: found.processorAccountId };
+}
+
+/**
+ * The processor hard-declined the card (BIL31): it is never charged without
+ * the patient again until they save it again.
+ */
+export async function declinePaymentMethod(tx: TenantTx, paymentMethodId: string): Promise<void> {
+  const [declined] = await tx.db
+    .update(paymentMethods)
+    .set({ declinedAt: sql`now()` })
+    .where(and(eq(paymentMethods.id, paymentMethodId), isNull(paymentMethods.declinedAt)))
+    .returning({ patientId: paymentMethods.patientId, paymentAccountId: paymentMethods.paymentAccountId });
+  if (!declined) return;
+  await audit(tx, { action: 'payment_method.declined', zone: 'operational', recordTable: TABLE, recordId: paymentMethodId, details: declined });
+  await emitEvent(tx, { type: 'payment_method.declined', recordTable: TABLE, recordId: paymentMethodId, payload: declined });
 }
 
 /** How a card is shown on an invoice or receipt. */
