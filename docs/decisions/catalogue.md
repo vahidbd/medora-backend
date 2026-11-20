@@ -31,3 +31,8 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 Decision: `catalogue:read` goes to every starting role and `catalogue:manage` to owner, admin and operations. Both are operational-zone permissions. A price change writes an audit entry with the price before and after. No agent gets a tool that changes products or prices. Medora's block rules are readable by everyone signed in, since every tenant needs to know them before adding a product.
 Why: it is operational data everyone needs to see, and few people should be able to change a price.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### CAT6. A product's price is its list price; a program's price decides what a subscriber pays
+
+Decision: `priceCents` is what a product costs bought on its own, outside a program (a one-off device or top-up), and the default offered when someone builds a program's price. A patient on a program pays what the price version they signed up to says (billing's `docs/decisions/billing.md` BIL13), so changing a product's price never changes what a subscriber pays.
+Why: one source of truth per charge; a patient's price can't move under them because someone edited the catalogue.
