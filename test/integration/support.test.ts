@@ -265,6 +265,15 @@ describe('macros (SUP10)', async () => {
     expect((await app.inject({ method: 'GET', url: '/v1/macros', headers: await t.as(t.support) })).json().macros).toEqual([]);
     await app.inject({ method: 'POST', url: `/v1/macros/${macroId}/approve`, headers: manage });
     expect((await app.inject({ method: 'GET', url: '/v1/macros', headers: await t.as(t.support) })).json().macros).toHaveLength(1);
+    const approved = await app.inject({
+      method: 'POST',
+      url: `/v1/tickets/${ticket.id}/replies`,
+      headers: await t.as(t.support),
+      payload: { body: 'Orders arrive in 2 to 5 business days.', macroId },
+    });
+    expect(approved.statusCode).toBe(201);
+    const sent = await admin.query("select template_key from clinical.messages where ticket_id = $1 and direction = 'outbound'", [ticket.id]);
+    expect(sent.rows).toEqual([{ template_key: `macro:${macroId}` }]);
     const edited = await app.inject({ method: 'PATCH', url: `/v1/macros/${macroId}`, headers: manage, payload: { body: 'Orders arrive in 3 to 5 business days.' } });
     expect(edited.json().status).toBe('draft');
     expect((await app.inject({ method: 'POST', url: '/v1/macros', headers: await t.as(t.support), payload: { name: 'Mine', body: 'x' } })).statusCode).toBe(403);
