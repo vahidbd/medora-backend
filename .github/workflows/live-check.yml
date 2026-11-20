@@ -1,0 +1,35 @@
+# Nightly: which commit is live, and is staging keeping up with main (ADR 0024)?
+name: Live check
+
+on:
+  schedule:
+    - cron: '0 20 * * *' # 06:00 or 07:00 in Sydney
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    if: vars.DEPLOYS == 'on'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      STAGING_API_URL: ${{ vars.STAGING_API_URL }}
+      PRODUCTION_API_URL: ${{ vars.PRODUCTION_API_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Compare live commits with main
+        run: |
+          set -e
+          for name in STAGING_API_URL PRODUCTION_API_URL; do test -n "${!name}" || { echo "::error::$name is not set"; exit 1; }; done
+          version() { curl -sf "$1/health" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).version))"; }
+          staging=$(version "$STAGING_API_URL"); production=$(version "$PRODUCTION_API_URL")
+          main=$(git rev-parse origin/main)
+          echo "main $main, staging $staging, production $production"
+          git cat-file -e "$staging" || { echo "::error::Staging runs $staging, which is not a commit in this repo"; exit 1; }
+          behind=$(git log --format=%ct -1 "$(git rev-list "$staging..$main" | tail -1)" 2>/dev/null || echo "")
+          if [ -n "$behind" ] && [ $(( $(date +%s) - behind )) -gt 86400 ]; then
+            echo "::error::Staging is more than a day behind main"; exit 1
+          fi
