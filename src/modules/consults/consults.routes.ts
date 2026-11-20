@@ -7,8 +7,8 @@ import { readConsult, readSchedule, readSlots, scheduleEntry as entryOf } from '
 
 /**
  * The consult schedule and booking (docs/decisions/consults.md CNS11 to
- * CNS16). Agents may book, move and cancel through the same services; only a
- * person marks or reinstates a no-show.
+ * CNS20). Agents may book, move and cancel through the same services, with
+ * or without a clinician named; only a person marks or reinstates a no-show.
  */
 
 const tags = ['consults'];
@@ -29,8 +29,8 @@ export const consultsRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/consults/slots',
     {
-      config: { access: read },
-      schema: { tags, summary: "A clinician's free slots, in their time zone's hours", querystring: slotsQuery, response: { 200: slotsReply } },
+      config: { access: read, agentTool: 'list_consult_times' },
+      schema: { tags, summary: "A clinician's free slots, or with a purpose, every eligible clinician's together", querystring: slotsQuery, response: { 200: slotsReply } },
     },
     async (request) => withTenant(tenantContextOf(request), (tx) => readSlots(tx, request.query)),
   );
@@ -75,7 +75,7 @@ export const consultsRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: { tags, summary: 'Cancel a scheduled consult that hasn’t started', params: consultParams, body: cancelBody, response: { 200: scheduleEntry } },
     },
     async (request) =>
-      withTenant(tenantContextOf(request), async (tx) => entryOf(tx, await cancelConsult(tx, request.params.consultId, request.body.reason))),
+      withTenant(tenantContextOf(request), async (tx) => entryOf(tx, await cancelConsult(tx, request.params.consultId, request.body.reason, { patientId: request.body.patientId }))),
   );
 
   app.post(

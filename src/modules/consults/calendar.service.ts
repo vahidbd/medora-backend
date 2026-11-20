@@ -63,8 +63,13 @@ export function slotStartingAt(calendar: ClinicianCalendar, startsAt: Date): Spa
 
 export const overlapsAny = (span: Span, others: Span[]) => others.some((other) => span.startsAt < other.endsAt && other.startsAt < span.endsAt);
 
+/** The tenant's own zone (ADR 0017). */
+export async function tenantTimeZone(tx: TenantTx): Promise<string> {
+  const [tenant] = await tx.db.select({ timeZone: tenants.timeZone }).from(tenants).where(eq(tenants.id, tx.context.tenantId));
+  return tenant?.timeZone ?? 'Australia/Sydney';
+}
+
 /** "Today" for the tenant: age checks are on its calendar day (ADR 0017). */
 export async function tenantToday(tx: TenantTx, now: Date): Promise<string> {
-  const [tenant] = await tx.db.select({ timeZone: tenants.timeZone }).from(tenants).where(eq(tenants.id, tx.context.tenantId));
-  return localDate(now, tenant?.timeZone ?? 'Australia/Sydney');
+  return localDate(now, await tenantTimeZone(tx));
 }

@@ -6,8 +6,10 @@ import { audit } from '../../lib/audit.js';
 import { BadRequestError, NotFoundError } from '../../lib/errors.js';
 import { clinicianCalendar } from '../clinicians/index.js';
 import { findPatients } from '../patients/index.js';
-import { offeredSlots } from './calendar.service.js';
+import { pooledSlots } from './assignment.service.js';
+import { offeredSlots, tenantTimeZone } from './calendar.service.js';
 import type { ScheduleEntry } from './consults.schemas.js';
+import type { Span } from './slots.js';
 
 /**
  * Reading the schedule (docs/decisions/consults.md CNS11): exactly the
@@ -30,6 +32,7 @@ async function entriesOf(tx: TenantTx, rows: Consult[]): Promise<ScheduleEntry[]
     patientId: row.patientId,
     patientName: patients.get(row.patientId)?.displayName ?? '',
     clinicianUserId: row.clinicianUserId,
+    brandId: row.brandId,
     startsAt: row.scheduledStart.toISOString(),
     endsAt: row.scheduledEnd.toISOString(),
     mode: row.mode as ConsultMode,
@@ -86,13 +89,21 @@ export async function readSchedule(
   return entriesOf(tx, rows);
 }
 
-/** Free slots for one clinician, a range of up to 14 days (a week by default). */
-export async function readSlots(tx: TenantTx, query: { clinicianUserId: string; from?: string; to?: string }, now = new Date()) {
+/**
+ * Free slots, a range of up to 14 days (a week by default): one clinician's,
+ * in their zone, or with only a purpose, every eligible clinician's together
+ * in the tenant's zone (CNS18).
+ */
+export async function readSlots(tx: TenantTx, query: { clinicianUserId?: string; purpose?: ConsultPurpose; from?: string; to?: string }, now = new Date()) {
   const from = query.from ? new Date(query.from) : now;
   const to = query.to ? new Date(query.to) : new Date(from.getTime() + 7 * DAY_MS);
   if (!(to > from) || to.getTime() - from.getTime() > 14 * DAY_MS) throw new BadRequestError('Ask for a range of up to 14 days', 'bad_range');
+  const reply = (timeZone: string, slots: Span[]) => ({ timeZone, slots: slots.map((slot) => ({ startsAt: slot.startsAt.toISOString(), endsAt: slot.endsAt.toISOString() })) });
+  if (!query.clinicianUserId) {
+    if (!query.purpose) throw new BadRequestError('Name a clinician or a purpose', 'clinician_or_purpose');
+    return reply(await tenantTimeZone(tx), await pooledSlots(tx, query.purpose, now, { from, to }));
+  }
   const calendar = await clinicianCalendar(tx, query.clinicianUserId, now);
   if (!calendar) throw new NotFoundError('Clinician');
-  const slots = await offeredSlots(tx, calendar, query.clinicianUserId, now, { from, to });
-  return { timeZone: calendar.timeZone, slots: slots.map((slot) => ({ startsAt: slot.startsAt.toISOString(), endsAt: slot.endsAt.toISOString() })) };
+  return reply(calendar.timeZone, await offeredSlots(tx, calendar, query.clinicianUserId, now, { from, to }));
 }

@@ -1,6 +1,6 @@
 # Consults
 
-Rulings for consults, booking, their evidence and the consult gate (ADRs 0005, 0006, 0008, 0009, 0017, 0020, 0029, 0120). `src/modules/consults/`, tables in the `clinical` schema. The on-demand queue, the phone flow and the video room service add their rulings here as they land.
+Rulings for consults, booking (by staff and by patients), their evidence and the consult gate (ADRs 0005, 0006, 0008, 0009, 0017, 0020, 0029, 0120). `src/modules/consults/`, tables in the `clinical` schema. The on-demand queue, the phone flow and the video room service add their rulings here as they land.
 
 Rulings marked "Decided by: stand-in" were made while the product owner was away and are to be confirmed with Vahid.
 
@@ -107,3 +107,45 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 Decision: `consult.booked`, `consult.rescheduled` (with the previous consult's id), `consult.cancelled` (with the reason), `consult.marked_no_show` and `consult.reinstated` carry the consult, patient and clinician ids, mode, purpose and times. Reminders are sent after commit by messaging, which reads what it needs through the front doors when it sends and skips a consult that is no longer scheduled. The tenant setting that makes the gate stricter is still deferred: nobody has asked, and the floor is safe.
 Why: events reach other modules and outside services; names and contact details stay where they're kept.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### CNS18. Times can be offered without naming a clinician
+
+Decision: asked for a purpose and no clinician, the free times are every eligible clinician's together: in standing, and a prescriber for an initial or review consult (CNS13). Where two clinicians' slots start at once, the shorter is shown. The times are labelled with the tenant's time zone, since patients may be in another state. Staff and agents ask the same way (`list_consult_times`), and patients always do.
+Why: a patient wants a time, not a clinician, and a clinic shouldn't have to choose one before a booking exists.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### CNS19. Who takes a consult booked without a clinician
+
+Decision: among the eligible clinicians free at exactly that time: the one asked for (on a move, the clinician who held it), then the clinician of the patient's latest completed consult, then whoever has the fewest consults on their own calendar day, ties in a fixed order. Nobody free answers "That time is no longer available" (`slot_taken`). The chosen clinician is then booked by the usual rules with their calendar locked, so two bookings can't both take them, and the database's overlap constraint has the last word (CNS12). A move without a clinician named keeps the same clinician when they're free and otherwise reassigns by this rule; staff can still name one. The reply says who holds the consult, and `consult.rescheduled` carries `previousClinicianUserId` so a screen or message can say the clinician changed.
+Why: continuity first, then load, is the smallest fair rule, and a silent change of clinician would surprise both staff and the patient.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### CNS20. A change can name its patient
+
+Decision: staff cancel and move take an optional `patientId`. When it is given and isn't the consult's patient, the answer is 404, as if the consult didn't exist. Medora's agent tools must fill it from the conversation's patient, never let the model choose it.
+Why: an agent working in one patient's conversation must not touch another's consult through a wrong id. A guard the model can leave out protects nothing, so the agent runtime sets it.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### CNS21. What a patient books for themselves
+
+Decision: a patient books an initial consult or a review; follow-ups are the clinic's to book. They hold one upcoming consult (scheduled or in progress) at a time, and move or cancel it to change it; staff can still book a second. A first consult names its program: the program must be live, its brand taking patients, and the patient's newest intake outcome for it (INT18) must be sent. No intake, or a newest one stopped by a hard stop, refuses. A review needs an earlier completed initial consult or review, so a clinic-booked follow-up never opens the way to a prescriber without an intake. There is no freshness limit on the intake at booking: booking runs up to 60 days ahead anyway, and the prescriber sees the intake's stale flag at the consult (INT15). Then the clinic's booking rules apply, with a clinician assigned (CNS19).
+Why: the consult is the clinical gate, and these checks keep a patient from reaching it without the questions the protocol asks.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### CNS22. What a patient sees of their consults
+
+Decision: their own consults only: upcoming ones soonest first, then the last 20 that have passed, newest first. Each shows its status, mode, purpose, times, the clinician's name as the clinic gave it (or none), whether it can be changed online, and whether it can be joined, which stays false until joining arrives. Nothing clinical: no notes, no evidence, no reason beyond the status. Each read is audited as a schedule read.
+Why: enough for the patient app's list and buttons, and nothing a patient's screen doesn't need.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### CNS23. A patient changes their own consult up to two hours ahead
+
+Decision: a patient can move or cancel their own scheduled consult online until two hours before it starts, measured by the server. Inside that they contact the clinic (`too_late_to_change`). A cancellation is recorded as `patient_request`. A move goes to an offered time, keeping the same clinician when they're free (CNS19). One fixed limit, no tenant setting until a clinic asks. Patient routes have no agent tool: agents act for the clinic through the staff routes, with the clinic's permissions and audit trail.
+Why: a late change leaves a clinician with an empty slot nobody else can book, so it goes through a person.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### CNS24. A consult remembers the brand it was booked through
+
+Decision: every consult carries the brand it was booked through, one of the tenant's own (enforced by the database), and the consult events carry `brandId`, so its confirmations and reminders come from that brand. Staff and agents name the brand when they book. A patient books through the brand the patient app is on: a first consult only through its program's brand (another brand's program is not found), and a review through whichever of the tenant's brands they're using. A move keeps the brand. The brand's status isn't checked: a paused brand still looks after its patients, and stopping new patients is the intake's and the brand's job.
+Why: a patient can use more than one of a tenant's brands, so the brand can't be worked out later without guessing, and a message under a brand the patient never used is a privacy problem.
+Decided by: stand-in (Fable 5.2), raised by the support thread, to confirm with Vahid.

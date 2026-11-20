@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { bigint, check, foreignKey, index, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { brands } from './brands.js';
 import { oneOf } from './checks.js';
 import { patients } from './clinical-patients.js';
 import { memberships, tenants } from './platform.js';
@@ -24,6 +25,8 @@ export const consults = clinical.table(
     patientId: uuid('patient_id').notNull(),
     /** The clinician the consult is with: a member of the same tenant. */
     clinicianUserId: uuid('clinician_user_id').notNull(),
+    /** The brand the consult was booked through: its messages come from this brand (CNS24). */
+    brandId: uuid('brand_id').notNull(),
     mode: text('mode').notNull(),
     purpose: text('purpose').notNull(),
     /** The booked slot (CNS12). */
@@ -43,6 +46,8 @@ export const consults = clinical.table(
     unique('consults_tenant_id_key').on(table.tenantId, table.id),
     foreignKey({ columns: [table.tenantId, table.patientId], foreignColumns: [patients.tenantId, patients.id], name: 'consults_patient_fk' }),
     foreignKey({ columns: [table.tenantId, table.clinicianUserId], foreignColumns: [memberships.tenantId, memberships.userId], name: 'consults_clinician_fk' }),
+    foreignKey({ columns: [table.tenantId, table.brandId], foreignColumns: [brands.tenantId, brands.id], name: 'consults_brand_fk' }),
+    index('consults_brand_idx').on(table.tenantId, table.brandId),
     index('consults_patient_idx').on(table.tenantId, table.patientId, table.clinicianUserId),
     index('consults_clinician_idx').on(table.tenantId, table.clinicianUserId, table.scheduledStart),
     foreignKey({ columns: [table.tenantId, table.rescheduledFrom], foreignColumns: [table.tenantId, table.id], name: 'consults_rescheduled_from_fk' }),
