@@ -91,6 +91,37 @@ export type ConsentDecision = (typeof CONSENT_DECISIONS)[number];
 export const CONSENT_CHANNELS = ['web', 'phone', 'in_person'] as const;
 export type ConsentChannel = (typeof CONSENT_CHANNELS)[number];
 
+/** How a scheduled job's last run ended (ADR 0029). */
+export const JOB_OUTCOMES = ['succeeded', 'failed'] as const;
+export type JobOutcome = (typeof JOB_OUTCOMES)[number];
+
+/** How a person reaches a tenant, and how a tenant reaches them. */
+export const CHANNELS = ['email', 'sms', 'chat', 'voice'] as const;
+export type Channel = (typeof CHANNELS)[number];
+
+/** The channels Medora sends on through a provider. */
+export const SENDER_CHANNELS = ['email', 'sms'] as const;
+export type SenderChannel = (typeof SENDER_CHANNELS)[number];
+
+export const MESSAGE_DIRECTIONS = ['inbound', 'outbound'] as const;
+export type MessageDirection = (typeof MESSAGE_DIRECTIONS)[number];
+
+/**
+ * Why a message exists: the helpdesk and care-team messaging, or a service
+ * message a care or order module sends (CRM1). Marketing is never a
+ * message: it is a send, in the marketing zone.
+ */
+export const MESSAGE_KINDS = ['support', 'transactional'] as const;
+export type MessageKind = (typeof MESSAGE_KINDS)[number];
+
+/**
+ * Outbound: queued, then sending (claimed by delivery, so it is never sent
+ * twice), then sent, delivered or failed. Inbound: received. logged: a call
+ * or chat written up by staff, or a chat message shown in the patient app.
+ */
+export const MESSAGE_STATUSES = ['queued', 'sending', 'sent', 'delivered', 'failed', 'received', 'logged'] as const;
+export type MessageStatus = (typeof MESSAGE_STATUSES)[number];
+
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
   { table: 'platform.memberships', column: 'role', values: MEMBERSHIP_ROLES },
@@ -109,4 +140,10 @@ export const CHECKED_VALUES = [
   { table: 'clinical.patient_consents', column: 'kind', values: CONSENT_KINDS },
   { table: 'clinical.patient_consents', column: 'decision', values: CONSENT_DECISIONS },
   { table: 'clinical.patient_consents', column: 'channel', values: CONSENT_CHANNELS },
+  { table: 'platform.job_leases', column: 'last_outcome', values: JOB_OUTCOMES },
+  { table: 'clinical.messages', column: 'direction', values: MESSAGE_DIRECTIONS },
+  { table: 'clinical.messages', column: 'channel', values: CHANNELS },
+  { table: 'clinical.messages', column: 'kind', values: MESSAGE_KINDS },
+  { table: 'clinical.messages', column: 'status', values: MESSAGE_STATUSES },
+  { table: 'clinical.messages', column: 'author_type', values: ACTOR_TYPES },
 ] as const;

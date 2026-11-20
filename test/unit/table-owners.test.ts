@@ -18,7 +18,9 @@ const OWNERS: Record<string, string[]> = {
   'platform.break_glass': ['src/modules/staff/'],
   'platform.sign_ins': ['src/db/session.ts'],
   'platform.audit_log': ['src/lib/audit.ts'],
-  'platform.outbox': ['src/lib/events.ts'],
+  'platform.outbox': ['src/lib/events.ts', 'src/lib/outbox-delivery.ts'],
+  'platform.outbox_deliveries': ['src/lib/outbox-delivery.ts'],
+  'platform.job_leases': ['src/lib/leases.ts'],
   'platform.rate_limit_counters': ['src/lib/rate-limit.ts'],
   'platform.webhook_inbox': ['src/lib/webhooks.ts'],
   'platform.tenant_keys': ['src/lib/field-crypto.ts'],
@@ -28,6 +30,7 @@ const OWNERS: Record<string, string[]> = {
   'clinical.patient_sign_ins': ['src/modules/patients/'],
   'clinical.consent_documents': ['src/modules/patients/'],
   'clinical.patient_consents': ['src/modules/patients/'],
+  'clinical.messages': ['src/modules/messaging/'],
 };
 
 /** Made-up local data only (src/db/seed.ts refuses anything but development). */

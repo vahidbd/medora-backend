@@ -9,6 +9,7 @@ const PATIENT_TEST_KEY = `pk_test_${Buffer.from('patients.clerk.accounts.dev$').
 /** Everything staging needs (ADR 0025). Made-up values. Production also needs the KMS key provider, which doesn't exist yet (ENC3). */
 const production: NodeJS.ProcessEnv = {
   MEDORA_ENV: 'production',
+  EMAIL: 'none',
   DATABASE_URL: 'postgres://medora_api:x@db.internal:5432/medora',
   AUTH_MODE: 'clerk',
   CLERK_PUBLISHABLE_KEY: LIVE_KEY,
@@ -81,6 +82,7 @@ describe('production and staging refuse unsafe settings', () => {
     ["Twilio outside Australia", { TWILIO_REGION: 'us1' }, 'TWILIO_REGION must be au1'],
     ['callbacks over plain http', { PUBLIC_API_URL: 'http://api.example.com.au' }, 'PUBLIC_API_URL must be https'],
     ['Twilio without its signing token', { TWILIO_AUTH_TOKEN: undefined }, 'TWILIO_AUTH_TOKEN is required'],
+    ['fake email', { EMAIL: 'fake' }, 'EMAIL must not be fake in production'],
   ])('refuses %s', (_name, change, message) => {
     expect(refusal({ ...production, ...change })).toContain(message);
   });
