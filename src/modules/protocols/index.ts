@@ -5,8 +5,8 @@
  */
 export { protocolsRoutes } from './protocols.routes.js';
 export { getProgram, listPrograms, type Program } from './programs.service.js';
-export { liveVersionOf } from './protocols.service.js';
-export type { Definition, Question, Rule, Step } from './definition.js';
+export { liveVersionOf, protocolVersionById, withdrawnVersionIds } from './protocols.service.js';
+export { type Definition, type Derived, type Question, questionIndex, type Rule, type Step } from './definition.js';
 export {
   type AnswerProblem,
   type Answers,

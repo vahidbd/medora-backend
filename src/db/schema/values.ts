@@ -11,25 +11,25 @@
  * src/lib/permissions.ts and tenants can't edit them.
  */
 export const ROLES = [
-  "owner",
-  "admin",
-  "medical_director",
-  "prescriber",
-  "clinician",
-  "support",
-  "finance",
-  "operations",
-  "marketing",
-  "compliance",
+  'owner',
+  'admin',
+  'medical_director',
+  'prescriber',
+  'clinician',
+  'support',
+  'finance',
+  'operations',
+  'marketing',
+  'compliance',
 ] as const;
 export type Role = (typeof ROLES)[number];
 
 /** What `platform.memberships.role` may hold: a starting role, or `custom` with `custom_role_id` set (ADM1). */
-export const MEMBERSHIP_ROLES = [...ROLES, "custom"] as const;
+export const MEMBERSHIP_ROLES = [...ROLES, 'custom'] as const;
 export type MembershipRole = (typeof MEMBERSHIP_ROLES)[number];
 
 /** `invited` until the person's first sign-in after the invitation (ADM5). */
-export const MEMBERSHIP_STATUSES = ["active", "suspended", "invited"] as const;
+export const MEMBERSHIP_STATUSES = ['active', 'suspended', 'invited'] as const;
 export type MembershipStatus = (typeof MEMBERSHIP_STATUSES)[number];
 
 /**
@@ -37,16 +37,11 @@ export type MembershipStatus = (typeof MEMBERSHIP_STATUSES)[number];
  * patient acting on their own record (docs/decisions/patients.md IDN2), one
  * of Medora's AI agents, or the system itself.
  */
-export const ACTOR_TYPES = ["person", "patient", "agent", "system"] as const;
+export const ACTOR_TYPES = ['person', 'patient', 'agent', 'system'] as const;
 export type ActorType = (typeof ACTOR_TYPES)[number];
 
 /** The data zones (ADR 0007). */
-export const DATA_ZONES = [
-  "clinical",
-  "operational",
-  "marketing",
-  "platform",
-] as const;
+export const DATA_ZONES = ['clinical', 'operational', 'marketing', 'platform'] as const;
 export type DataZone = (typeof DATA_ZONES)[number];
 
 /**
@@ -54,77 +49,54 @@ export type DataZone = (typeof DATA_ZONES)[number];
  * ENC3). `local` uses FIELD_ENCRYPTION_KEY and is refused in production; the
  * KMS provider is added with its own value and migration.
  */
-export const KEY_PROVIDERS = ["local"] as const;
+export const KEY_PROVIDERS = ['local'] as const;
 export type KeyProvider = (typeof KEY_PROVIDERS)[number];
 
 /** Sex as the HI Service and electronic prescriptions record it (F, M, I, N). */
-export const SEXES = ["female", "male", "intersex", "not_stated"] as const;
+export const SEXES = ['female', 'male', 'intersex', 'not_stated'] as const;
 export type Sex = (typeof SEXES)[number];
 
 /** Whether a patient's identity has been checked against a document (IDN-02). */
-export const IDENTITY_STATUSES = ["unverified", "verified", "failed"] as const;
+export const IDENTITY_STATUSES = ['unverified', 'verified', 'failed'] as const;
 export type IdentityStatus = (typeof IDENTITY_STATUSES)[number];
 
 /** Ways to reach a patient, one row each (ADR 0028). */
-export const CONTACT_KINDS = ["email", "mobile"] as const;
+export const CONTACT_KINDS = ['email', 'mobile'] as const;
 export type ContactKind = (typeof CONTACT_KINDS)[number];
 
-export const ADDRESS_KINDS = ["home"] as const;
+export const ADDRESS_KINDS = ['home'] as const;
 export type AddressKind = (typeof ADDRESS_KINDS)[number];
 
 /**
  * What a patient consents to (IDN-05, docs/decisions/patients.md IDN12).
  * Marketing consent is the messaging module's, in the marketing zone.
  */
-export const CONSENT_KINDS = [
-  "privacy",
-  "telehealth_terms",
-  "identity_check",
-  "pharmacy_sharing",
-] as const;
+export const CONSENT_KINDS = ['privacy', 'telehealth_terms', 'identity_check', 'pharmacy_sharing'] as const;
 export type ConsentKind = (typeof CONSENT_KINDS)[number];
 
-export const CONSENT_DECISIONS = ["given", "withdrawn"] as const;
+export const CONSENT_DECISIONS = ['given', 'withdrawn'] as const;
 export type ConsentDecision = (typeof CONSENT_DECISIONS)[number];
 
 /** How a consent decision reached us. */
-export const CONSENT_CHANNELS = ["web", "phone", "in_person"] as const;
+export const CONSENT_CHANNELS = ['web', 'phone', 'in_person'] as const;
 export type ConsentChannel = (typeof CONSENT_CHANNELS)[number];
 
 /** The documents a patient's identity can be checked against (IDN-02, docs/decisions/patients.md IDN16). */
-export const IDENTITY_DOCUMENTS = [
-  "driver_licence",
-  "passport",
-  "medicare_card",
-] as const;
+export const IDENTITY_DOCUMENTS = ['driver_licence', 'passport', 'medicare_card'] as const;
 export type IdentityDocument = (typeof IDENTITY_DOCUMENTS)[number];
 
 /** How an identity check was done: online against the document, or by staff who sighted it (IDN17). */
-export const IDENTITY_METHODS = ["document", "manual"] as const;
+export const IDENTITY_METHODS = ['document', 'manual'] as const;
 export type IdentityMethod = (typeof IDENTITY_METHODS)[number];
 
 /** `unavailable` is the gateway failing to answer; it doesn't count as a failed attempt. */
-export const IDENTITY_OUTCOMES = [
-  "verified",
-  "not_matched",
-  "unavailable",
-] as const;
+export const IDENTITY_OUTCOMES = ['verified', 'not_matched', 'unavailable'] as const;
 export type IdentityOutcome = (typeof IDENTITY_OUTCOMES)[number];
 
 /** An IHI's number status and record status, as the HI Service returns them (IDN19). */
-export const IHI_STATUSES = [
-  "active",
-  "deceased",
-  "retired",
-  "expired",
-  "resolved",
-] as const;
+export const IHI_STATUSES = ['active', 'deceased', 'retired', 'expired', 'resolved'] as const;
 export type IhiStatus = (typeof IHI_STATUSES)[number];
-export const IHI_RECORD_STATUSES = [
-  "verified",
-  "unverified",
-  "provisional",
-] as const;
+export const IHI_RECORD_STATUSES = ['verified', 'unverified', 'provisional'] as const;
 export type IhiRecordStatus = (typeof IHI_RECORD_STATUSES)[number];
 
 /**
@@ -132,15 +104,10 @@ export type IhiRecordStatus = (typeof IHI_RECORD_STATUSES)[number];
  * is edited; a medical director's sign-off makes it live; going live retires
  * the one before; withdrawing takes a live version off for safety.
  */
-export const PROTOCOL_VERSION_STATUSES = [
-  "draft",
-  "live",
-  "retired",
-  "withdrawn",
-] as const;
+export const PROTOCOL_VERSION_STATUSES = ['draft', 'live', 'retired', 'withdrawn'] as const;
 export type ProtocolVersionStatus = (typeof PROTOCOL_VERSION_STATUSES)[number];
 
-export const PROGRAM_STATUSES = ["draft", "live", "paused", "retired"] as const;
+export const PROGRAM_STATUSES = ['draft', 'live', 'paused', 'retired'] as const;
 export type ProgramStatus = (typeof PROGRAM_STATUSES)[number];
 
 /**
@@ -148,176 +115,86 @@ export type ProgramStatus = (typeof PROGRAM_STATUSES)[number];
  * TRK1); a program names the kinds its patients record. Blood pressure is two
  * readings taken together.
  */
-export const MEASUREMENT_KINDS = [
-  "weight",
-  "waist",
-  "height",
-  "blood_pressure_systolic",
-  "blood_pressure_diastolic",
-  "heart_rate",
-] as const;
+export const MEASUREMENT_KINDS = ['weight', 'waist', 'height', 'blood_pressure_systolic', 'blood_pressure_diastolic', 'heart_rate'] as const;
 export type MeasurementKind = (typeof MEASUREMENT_KINDS)[number];
 
 /** Where an intake stands (INT5 to INT8). */
-export const INTAKE_STATUSES = [
-  "in_progress",
-  "completed",
-  "ineligible",
-  "ended",
-] as const;
+export const INTAKE_STATUSES = ['in_progress', 'completed', 'ineligible', 'ended'] as const;
 export type IntakeStatus = (typeof INTAKE_STATUSES)[number];
 
 /** Why an intake ended without a protocol's hard stop. */
-export const INTAKE_END_REASONS = [
-  "under_age",
-  "version_withdrawn",
-  "expired",
-  "unclaimed",
-] as const;
+export const INTAKE_END_REASONS = ['under_age', 'version_withdrawn', 'expired', 'unclaimed'] as const;
 export type IntakeEndReason = (typeof INTAKE_END_REASONS)[number];
 
 /** Australian states and territories: where a company is registered, and a patient's address. */
-export const AU_STATES = [
-  "NSW",
-  "VIC",
-  "QLD",
-  "WA",
-  "SA",
-  "TAS",
-  "ACT",
-  "NT",
-] as const;
+export const AU_STATES = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT'] as const;
 export type AuState = (typeof AU_STATES)[number];
 
 /** A brand's state: `draft` until it goes live; `paused` stops new sign-ups only (docs/decisions/admin.md ADM16). */
-export const BRAND_STATUSES = ["draft", "live", "paused"] as const;
+export const BRAND_STATUSES = ['draft', 'live', 'paused'] as const;
 export type BrandStatus = (typeof BRAND_STATUSES)[number];
 
 /** The time zones a tenant can work in (ADR 0017): Australia's, by their IANA names. */
 export const TIME_ZONES = [
-  "Australia/Sydney",
-  "Australia/Melbourne",
-  "Australia/Brisbane",
-  "Australia/Adelaide",
-  "Australia/Darwin",
-  "Australia/Perth",
-  "Australia/Hobart",
-  "Australia/Lord_Howe",
-  "Australia/Eucla",
-  "Australia/Broken_Hill",
-  "Indian/Christmas",
-  "Indian/Cocos",
-  "Antarctica/Macquarie",
+  'Australia/Sydney',
+  'Australia/Melbourne',
+  'Australia/Brisbane',
+  'Australia/Adelaide',
+  'Australia/Darwin',
+  'Australia/Perth',
+  'Australia/Hobart',
+  'Australia/Lord_Howe',
+  'Australia/Eucla',
+  'Australia/Broken_Hill',
+  'Indian/Christmas',
+  'Indian/Cocos',
+  'Antarctica/Macquarie',
 ] as const;
 export type TimeZone = (typeof TIME_ZONES)[number];
 
 /** Who wrote a measurement or reported a side effect: the patient, or a staff member for them. */
-export const RECORDED_BY_TYPES = ["patient", "person"] as const;
+export const RECORDED_BY_TYPES = ['patient', 'person'] as const;
 export type RecordedByType = (typeof RECORDED_BY_TYPES)[number];
 
-export const SIDE_EFFECT_SEVERITIES = ["mild", "moderate", "severe"] as const;
+export const SIDE_EFFECT_SEVERITIES = ['mild', 'moderate', 'severe'] as const;
 export type SideEffectSeverity = (typeof SIDE_EFFECT_SEVERITIES)[number];
 
 /** A check-in's answer to "have you missed any doses since your last check-in?" (TRK5). */
-export const MISSED_DOSES = ["none", "some", "most"] as const;
+export const MISSED_DOSES = ['none', 'some', 'most'] as const;
 export type MissedDoses = (typeof MISSED_DOSES)[number];
 
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
-  { table: "platform.memberships", column: "role", values: MEMBERSHIP_ROLES },
-  {
-    table: "platform.memberships",
-    column: "status",
-    values: MEMBERSHIP_STATUSES,
-  },
-  { table: "platform.audit_log", column: "actor_type", values: ACTOR_TYPES },
-  { table: "platform.audit_log", column: "zone", values: DATA_ZONES },
-  { table: "platform.tenant_keys", column: "provider", values: KEY_PROVIDERS },
-  { table: "clinical.patients", column: "sex", values: SEXES },
-  {
-    table: "clinical.patients",
-    column: "identity_status",
-    values: IDENTITY_STATUSES,
-  },
-  { table: "clinical.patient_contacts", column: "kind", values: CONTACT_KINDS },
-  {
-    table: "clinical.patient_addresses",
-    column: "kind",
-    values: ADDRESS_KINDS,
-  },
-  { table: "clinical.patient_addresses", column: "state", values: AU_STATES },
-  {
-    table: "clinical.consent_documents",
-    column: "kind",
-    values: CONSENT_KINDS,
-  },
-  { table: "clinical.patient_consents", column: "kind", values: CONSENT_KINDS },
-  {
-    table: "clinical.patient_consents",
-    column: "decision",
-    values: CONSENT_DECISIONS,
-  },
-  {
-    table: "clinical.patient_consents",
-    column: "channel",
-    values: CONSENT_CHANNELS,
-  },
-  { table: "clinical.patients", column: "ihi_status", values: IHI_STATUSES },
-  {
-    table: "clinical.patients",
-    column: "ihi_record_status",
-    values: IHI_RECORD_STATUSES,
-  },
-  {
-    table: "clinical.identity_checks",
-    column: "method",
-    values: IDENTITY_METHODS,
-  },
-  {
-    table: "clinical.identity_checks",
-    column: "document_type",
-    values: IDENTITY_DOCUMENTS,
-  },
-  {
-    table: "clinical.identity_checks",
-    column: "outcome",
-    values: IDENTITY_OUTCOMES,
-  },
-  {
-    table: "clinical.protocol_versions",
-    column: "status",
-    values: PROTOCOL_VERSION_STATUSES,
-  },
-  { table: "operational.programs", column: "status", values: PROGRAM_STATUSES },
-  {
-    table: "operational.programs",
-    column: "measurements",
-    values: MEASUREMENT_KINDS,
-  },
-  { table: "clinical.intakes", column: "status", values: INTAKE_STATUSES },
-  {
-    table: "clinical.intakes",
-    column: "ended_reason",
-    values: INTAKE_END_REASONS,
-  },
-  { table: "platform.tenants", column: "time_zone", values: TIME_ZONES },
-  { table: "platform.companies", column: "state", values: AU_STATES },
-  { table: "platform.brands", column: "status", values: BRAND_STATUSES },
-  { table: "clinical.measurements", column: "kind", values: MEASUREMENT_KINDS },
-  {
-    table: "clinical.measurements",
-    column: "recorded_by_type",
-    values: RECORDED_BY_TYPES,
-  },
-  {
-    table: "clinical.side_effects",
-    column: "severity",
-    values: SIDE_EFFECT_SEVERITIES,
-  },
-  {
-    table: "clinical.side_effects",
-    column: "reported_by_type",
-    values: RECORDED_BY_TYPES,
-  },
-  { table: "clinical.check_ins", column: "missed_doses", values: MISSED_DOSES },
+  { table: 'platform.memberships', column: 'role', values: MEMBERSHIP_ROLES },
+  { table: 'platform.memberships', column: 'status', values: MEMBERSHIP_STATUSES },
+  { table: 'platform.audit_log', column: 'actor_type', values: ACTOR_TYPES },
+  { table: 'platform.audit_log', column: 'zone', values: DATA_ZONES },
+  { table: 'platform.tenant_keys', column: 'provider', values: KEY_PROVIDERS },
+  { table: 'clinical.patients', column: 'sex', values: SEXES },
+  { table: 'clinical.patients', column: 'identity_status', values: IDENTITY_STATUSES },
+  { table: 'clinical.patient_contacts', column: 'kind', values: CONTACT_KINDS },
+  { table: 'clinical.patient_addresses', column: 'kind', values: ADDRESS_KINDS },
+  { table: 'clinical.patient_addresses', column: 'state', values: AU_STATES },
+  { table: 'clinical.consent_documents', column: 'kind', values: CONSENT_KINDS },
+  { table: 'clinical.patient_consents', column: 'kind', values: CONSENT_KINDS },
+  { table: 'clinical.patient_consents', column: 'decision', values: CONSENT_DECISIONS },
+  { table: 'clinical.patient_consents', column: 'channel', values: CONSENT_CHANNELS },
+  { table: 'clinical.patients', column: 'ihi_status', values: IHI_STATUSES },
+  { table: 'clinical.patients', column: 'ihi_record_status', values: IHI_RECORD_STATUSES },
+  { table: 'clinical.identity_checks', column: 'method', values: IDENTITY_METHODS },
+  { table: 'clinical.identity_checks', column: 'document_type', values: IDENTITY_DOCUMENTS },
+  { table: 'clinical.identity_checks', column: 'outcome', values: IDENTITY_OUTCOMES },
+  { table: 'clinical.protocol_versions', column: 'status', values: PROTOCOL_VERSION_STATUSES },
+  { table: 'operational.programs', column: 'status', values: PROGRAM_STATUSES },
+  { table: 'operational.programs', column: 'measurements', values: MEASUREMENT_KINDS },
+  { table: 'clinical.intakes', column: 'status', values: INTAKE_STATUSES },
+  { table: 'clinical.intakes', column: 'ended_reason', values: INTAKE_END_REASONS },
+  { table: 'platform.tenants', column: 'time_zone', values: TIME_ZONES },
+  { table: 'platform.companies', column: 'state', values: AU_STATES },
+  { table: 'platform.brands', column: 'status', values: BRAND_STATUSES },
+  { table: 'clinical.measurements', column: 'kind', values: MEASUREMENT_KINDS },
+  { table: 'clinical.measurements', column: 'recorded_by_type', values: RECORDED_BY_TYPES },
+  { table: 'clinical.side_effects', column: 'severity', values: SIDE_EFFECT_SEVERITIES },
+  { table: 'clinical.side_effects', column: 'reported_by_type', values: RECORDED_BY_TYPES },
+  { table: 'clinical.check_ins', column: 'missed_doses', values: MISSED_DOSES },
 ] as const;
