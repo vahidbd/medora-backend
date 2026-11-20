@@ -1,6 +1,6 @@
 # Admin and staff access
 
-Rulings for staff access, roles, invitations, two-step sign-in, sign-in history and break-glass (PRD ADM-03, ADM-06, ADM-07; ADRs 0011, 0012, 0030 and 0036 set the rules). Tenant settings, brands and onboarding rulings follow in this file as they land.
+Rulings for staff access, roles, invitations, two-step sign-in, sign-in history and break-glass (ADM1 to ADM8; PRD ADM-03, ADM-06, ADM-07; ADRs 0011, 0012, 0030 and 0220 set the rules), and for a tenant's set-up: platform staff, companies, brands, domains, settings and the onboarding checklist (ADM14 to ADM20; PRD ADM-01, ADM-02, TEN-03, TEN-08; ADRs 0006, 0017 and 0023). The web app's rulings for the same screens are ADM9 to ADM13 and ADM21 onward in its own copy of this file.
 
 Rulings marked "Decided by: stand-in" were made while the product owner was away, by the model the product owner named to stand in, and are to be confirmed with them.
 
@@ -50,3 +50,45 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 
 Decision: a route may declare `access: 'member'`: signed in, a member of the tenant it names, with a second factor, and no permission of its own. Opening and closing break-glass use it, because whether break-glass is allowed depends on the role's clinical permissions, not on a key.
 Why: `'signed-in'` alone would skip the tenant and the second factor, and inventing a permission for "may open break-glass" would duplicate what the role already says.
+
+### ADM14. Only platform staff create tenants
+
+Decision: a tenant is created by platform staff with `POST /v1/platform/tenants`: its name, its time zone and its first owner's email (and optionally a name). The reviewed function `platform.create_tenant` makes the tenant and an ordinary owner invitation, and writes `tenant.created` and `membership.invited` audit entries and events in the new tenant. The invitation email goes out after commit, as for any invitation (ADM5). While nobody has accepted, platform staff can send it again (`POST /v1/platform/tenants/:tenantId/owner-invitation`), which restarts its 14 days. Platform staff get no membership in the tenant they create.
+Why: a tenant is a contract with Medora, so it starts with Medora's own team; making the owner an ordinary invitation means one acceptance path for everyone.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### ADM15. Platform staff, and verifying a brand's domains
+
+Decision: platform staff are Medora's own team, marked by `platform.users.platform_staff`. Only a reviewed migration or an operator working as the owner role sets it; the API's role can't write it. A route for them declares `access: 'platform'`: signed in, a second factor, platform staff, and no tenant. They see tenant names, brands and domains through reviewed functions, never a tenant's staff, patients or settings, and every change they make is audited in the tenant it touches. A tenant adds and removes its brands' domains; a domain does nothing until platform staff have checked its DNS points at Medora and marked it verified (`platform.verify_domain`, which records who and when). A domain belongs to one brand across Medora. A domain never changes: to move, add the new one and remove the old. The API's role can't insert a verified domain or mark one verified (a restrictive row policy and no update grant). Reading tenant names and domains isn't audited: none of it is personal or clinical.
+Why: the PRD's platform team runs Medora without seeing patient data. A verified domain is what lets patients reach a brand, so a tenant must not be able to claim someone else's.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### ADM16. A brand's life: draft, live, paused
+
+Decision: a brand starts as a draft. Going live needs `brands:manage`, a support email (the database also checks it) and a domain platform staff have verified. Pausing stops new sign-ups only: existing patients keep full service. Resuming is going live again, with the same checks. A brand never goes back to draft. A live or paused brand keeps at least one verified domain and its support email. Its slug is unique across Medora and never changes, because public pages can find a brand by it. Public pages find their brand through `platform.resolve_brand`, by a verified domain or a slug, live or paused only; `GET /v1/public/brands/by-host/:host` answers what a page shows (name, status, colour, logo, support contacts, the tenant's time zone) and may be cached for a minute.
+Why: a brand patients can reach must say how to get help; pausing must never strand someone mid-treatment.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### ADM17. A brand's colour stays readable
+
+Decision: a brand's colour is stored as `#rrggbb`. The API refuses a colour unless white or near-black (`#0a0a0a`) text reaches 4.5:1 on it (WCAG AA), the same test the web app's brand pages use before they apply it. A logo is an `https://` address.
+Why: buttons in the brand's colour carry text; a colour nobody can read on fails patients, and refusing it when it is saved beats silently ignoring it on the page.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### ADM18. The onboarding checklist keeps new patients out until it is done
+
+Decision: a tenant's onboarding checklist is worked out from its data, never ticked by hand (`GET /v1/tenant/onboarding`): a company; a live brand with a verified domain; an active medical director; and at least one active prescriber (an active membership in that starting role, or in a custom role copied from it, not past its end date). Until every item is done, `assertAcceptingPatients(tx, brandId)` from the brands module refuses a new patient (`tenant_not_ready`), as it does for a brand that isn't live (`brand_not_accepting`). Patient sign-up calls it before it creates anyone. Later modules gate their own actions (a script needs a prescriber, a charge needs a payment provider). The pen test and the privacy impact assessment stay on Medora's launch checklist, not the tenant's.
+Why: a patient who signs up to a clinic with no prescriber or medical director is a patient nobody can treat.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid. The owner should confirm that the checklist blocks sign-ups rather than only warning, and whether a medical director's registration should be checked against AHPRA.
+
+### ADM19. Companies and their ABNs
+
+Decision: a company is a legal entity under a tenant, with a legal name, an optional trading name, the state it is registered in, and an ABN, which is required, checked against the ATO's checksum by the API and the database (`platform.abn_valid`), and unique within the tenant. People may type it with spaces. There is no company kind. Every brand belongs to one company. A live or paused brand can't move to another company, and a company with a live or paused brand keeps its ABN. A company with brands can't be deleted. Companies are managed with `tenant:manage` (owner and admin) and read by anyone in the tenant.
+Why: invoices and payouts name a legal entity, and an ABN that changes under a trading brand would put the wrong business on them.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid. The owner should confirm whether a live brand may ever change company.
+
+### ADM20. Tenant settings
+
+Decision: a tenant sets its display name and its time zone, one of Australia's (`TIME_ZONES` in `src/db/schema/values.ts`, checked by the database), with `tenant:manage` (owner and admin). Everyone in the tenant reads them (`GET /v1/tenant`). A change writes `tenant.changed`, with the old and new time zone.
+Why: the time zone decides whose "today" a tenant's dates use (ADR 0017); everything else a tenant configures belongs to the module it configures.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.

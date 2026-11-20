@@ -1,6 +1,6 @@
 # Patients, patient sign-in and identity
 
-Rulings for the identity part of the patient record, patient accounts and patient sign-in (PRD section 3). ADR 0035 sets the system-level rule; ADRs 0006, 0007, 0008, 0010 and 0028 apply throughout. Rulings marked "Decided by: stand-in" were decided by the product owner's stand-in while the product owner was away, and are listed in the pull request to confirm.
+Rulings for the identity part of the patient record, patient accounts and patient sign-in (PRD section 3). ADR 0100 sets the system-level rule; ADRs 0006, 0007, 0008, 0010 and 0028 apply throughout. Rulings marked "Decided by: stand-in" were decided by the product owner's stand-in while the product owner was away, and are listed in the pull request to confirm.
 
 ### IDN1. One patient record per person per tenant
 
@@ -10,7 +10,7 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid
 
 ### IDN2. Patients sign in on their own instance, and act as themselves
 
-Decision: patient routes accept only tokens from the patient sign-in instance (ADR 0035), carrying a session id (`sid`). A patient changing their own record is recorded as `actor_type = 'patient'` with their patient id. Creating the account is audited as the new patient. Clerk holds the email, mobile and sign-in methods only.
+Decision: patient routes accept only tokens from the patient sign-in instance (ADR 0100), carrying a session id (`sid`). A patient changing their own record is recorded as `actor_type = 'patient'` with their patient id. Creating the account is audited as the new patient. Clerk holds the email, mobile and sign-in methods only.
 Why: staff sign-up stays closed while patients sign themselves up; one kind of token can't open the other door; the audit log says who really acted.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid
 
@@ -19,11 +19,10 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid
 Decision: a patient route answers 403 `date_of_birth_needed` until the current sign-in session has confirmed the patient's date of birth (`POST /v1/patient/confirm-date-of-birth`), stored in `clinical.patient_sign_ins` against the session id. Creating the account confirms the session it was made in. Five wrong dates per patient in 15 minutes answer 429 until the window passes. Each wrong date writes `patient.date_of_birth_refused`, committed before the refusal.
 Why: IDN-07 asks for the date of birth on first use, as a second thing only the patient knows on top of the one-time code. Checking it per session in the backend means no screen can skip it.
 
-### IDN4. Until brands exist, a patient request names its tenant
+### IDN4. A patient request names its tenant
 
-Decision: a patient request names its tenant in `x-medora-tenant`, set by the patient app's server, not typed by the patient. A tenant that doesn't exist answers 403 `tenant_unavailable`. When brands land, the brand's host (`x-medora-brand-host`, resolved to a live or paused brand) replaces it, and new sign-ups stop on a paused brand.
-Why: brands are being built in parallel. The tenant id is not a secret worth guarding here: anyone may sign up with any tenant's service, so naming one reveals nothing.
-Replaced by: a later ruling when the brand host is wired in.
+Decision: a patient request names its tenant in `x-medora-tenant`, set by the patient app's server from the brand it found for its host (`GET /v1/public/brands/by-host/:host`), not typed by the patient. A tenant that doesn't exist answers 403 `tenant_unavailable`. Creating an account also names the brand (IDN20).
+Why: the patient app already knows its brand and tenant before the first API call, so the API doesn't need to resolve a host on every request. The tenant id is not a secret worth guarding here: anyone may sign up with any tenant's service, so naming one reveals nothing.
 
 ### IDN5. Medicare is optional, checked and sealed
 
@@ -88,3 +87,33 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid
 Decision: `patients:read` and `patients:manage` are `operational`-zone permissions, although the rows they show are in the `clinical` schema: they show who the patient is, how to reach them and their consent decisions, which support, orders and billing need without break-glass. Every key that shows clinical content (intake answers, protocols' patient results, notes, scripts, care plans) is a separate key in the `clinical` zone, so it works only for a clinical role or under break-glass. `consents:manage` is `platform`: it publishes the tenant's own text and shows no patient.
 Why: the data zone of a permission decides who may use it without break-glass (admin rulings); marking identity clinical would put every support call behind break-glass, while the rows staying in the clinical schema still keeps marketing code from reaching them (ADR 0007, IDN10).
 Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN16. A patient checks one document online; three that don't match go to support
+
+Decision: the patient enters one document (driver licence, passport or Medicare card) and the check runs through an identity gateway behind an interface (`src/modules/patients/identity-gateway.ts`), after the patient has given the `identity_check` consent. The document must match the legal name and date of birth on the record. The document number goes to the gateway only and is never stored or returned; the check keeps the document type, the outcome and the gateway's reference (`clinical.identity_checks`, insert-only). Three checks that don't match set the status to `failed` and emit `patient.identity_failed`; online checks then stay locked until support reopens them with a reason. The gateway being down doesn't count as an attempt. Once verified, the legal name, date of birth and sex lock (IDN6); support corrects them with a reason (`POST /v1/patients/:patientId/legal-details`), which sets the status back to unverified and clears the IHI, so the patient is checked again. The real gateway is a new provider: its row in `docs/providers.md`, an ADR and a data processing agreement come before it is switched on. Until then development, tests and staging use the fake (`IDENTITY_GATEWAY=fake`), and production can't start with the fake.
+Why: IDN-02 needs a verified identity before a script; storing the document number would add a breach risk for no use, and a cap on attempts stops someone trying documents until one fits.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN17. Staff verify by sighting the document, with a reason
+
+Decision: a staff member holding `patients:verify_identity` (owner and medical director) may mark a patient verified after sighting their document, with the document type and a reason. It is recorded as a `manual` check with who did it, audited, never done by an agent, and prescribers see "verified manually" (`identityVerification.method` in `getPatientForPrescribing`). It is the launch fallback if the gateway's contract is late (`IDENTITY_GATEWAY=none`). The permission is `operational`: it shows no clinical content.
+Why: some patients can't pass an online check (a new name, an overseas document), and the clinic must still be able to treat them; a named person with a reason is accountable for it.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN18. Identity is checked before the first script, and by default before booking
+
+Decision: the platform floor is a verified identity before the first script: prescribing calls `assertIdentityVerified(tx, patientId)` (or `isIdentityVerified`) from the front door, which refuses with 409 `identity_not_verified`. Booking a consult calls the same check by default; a tenant setting "verify before booking" (default on) will let a tenant turn that off, down to the floor and never below it, when tenant settings land.
+Why: an unverified patient wastes a prescriber's consult; the script is the line that must never be crossed.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN19. The IHI is looked up after verification, under the tenant's own HI Service details
+
+Decision: once a patient is verified, Medora looks up their Individual Healthcare Identifier through the HI Service, behind an interface (`src/modules/patients/hi-service.ts`) that takes the tenant: the tenant is the healthcare provider, so a real lookup runs under the tenant's HPI-O and certificate, with Medora as its contracted service provider. It sends the legal name, date of birth, sex (stored with the HI Service's values) and the Medicare number if given. The IHI is sealed (ADR 0010), stays in the clinical zone, is opened only for prescribing (`getPatientForPrescribing`, audited) and never appears in an event, log, prompt or staff screen; staff see whether one was found and its status. Not finding one never blocks care in v1; prescribers see it. Staff with `patients:manage` can look again. It is not a launch gate from this side: the fake ships (`HI_SERVICE=fake`, refused in production), and the real client needs a NASH certificate and conformance first.
+Why: IDN-04 asks for the IHI; it is the national identifier, so it is protected like Medicare. Vahid should confirm the launch position, because IDN-04 is P0 in the PRD; the prescribing thread decides whether Parchment needs an IHI.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN20. Creating an account names the brand, and a paused brand takes no new sign-ups
+
+Decision: creating a patient account names the brand the person is signing up through (`brandId`). The API refuses it when the brand isn't the tenant's (404), isn't live (409 `brand_not_accepting`), or the tenant isn't ready to take patients (409 `tenant_not_ready`), as an anonymous intake's start already does through its program's brand. A patient who already has an account keeps full service on a paused brand, including starting a new intake (ADM16).
+Why: pausing a brand must stop new sign-ups in the API, not only on the brand site. The brand is named in the body because only account creation needs it.
+Decided by: us, on the admin thread's suggestion, to confirm with Vahid

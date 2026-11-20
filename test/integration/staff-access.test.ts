@@ -189,10 +189,14 @@ describe('sign-in history (ADM6)', () => {
 });
 
 describe('break-glass (ADM3)', () => {
-  it('is not needed while no role holds a clinical permission it cannot use', async () => {
-    const { tenantId, members } = await tenantWith('owner');
-    const reply = await call('POST', '/v1/break-glass', members[0]!.email, tenantId, { reason: 'Checking a reported incident' });
-    expect(reply.json().error.code).toBe('break_glass_not_needed');
+  it('is not needed by a role with no clinical permission it cannot use, and is open to the owner, who holds some', async () => {
+    const { tenantId, members } = await tenantWith('admin', 'clinician', 'owner');
+    for (const member of members.slice(0, 2)) {
+      const reply = await call('POST', '/v1/break-glass', member.email, tenantId, { reason: 'Checking a reported incident' });
+      expect(reply.json().error.code).toBe('break_glass_not_needed');
+    }
+    const owner = await call('POST', '/v1/break-glass', members[2]!.email, tenantId, { reason: 'Checking a reported incident' });
+    expect(owner.statusCode).toBe(201);
   });
 
   it('is reviewed by the medical director, never by the person who opened it, and only in its tenant', async () => {
@@ -218,8 +222,11 @@ describe('break-glass (ADM3)', () => {
     );
     expect((await call('POST', `/v1/break-glass/${own.rows[0]!.id}/review`, director.email, tenantId, {})).json().error.code).toBe('own_break_glass');
 
-    const closed = await call('POST', `/v1/break-glass/${id}/close`, owner.email, tenantId);
-    expect(new Date(closed.json().endsAt).getTime()).toBeLessThanOrEqual(Date.now());
+    const closed = await call('POST', '/v1/break-glass/close', owner.email, tenantId);
+    expect(closed.json().breakGlass).toMatchObject([{ breakGlassId: id }]);
+    expect(new Date(closed.json().breakGlass[0].endsAt).getTime()).toBeLessThanOrEqual(Date.now());
+    const again = await call('POST', '/v1/break-glass/close', owner.email, tenantId);
+    expect(again.json().breakGlass).toEqual([]);
 
     const stranger = await tenantWith('owner');
     const seen = await withTenant({ tenantId: stranger.tenantId, actor: { type: 'person', userId: stranger.members[0]!.id }, requestId: 'test' }, (tx) =>

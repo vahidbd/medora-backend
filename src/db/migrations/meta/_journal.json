@@ -26,22 +26,29 @@
     {
       "idx": 3,
       "version": "7",
-      "when": 1795149079451,
-      "tag": "0003_intake_identity",
+      "when": 1795149992214,
+      "tag": "0003_tenant_onboarding",
       "breakpoints": true
     },
     {
       "idx": 4,
       "version": "7",
-      "when": 1795149717789,
-      "tag": "0004_webhook_inbox",
+      "when": 1795150954937,
+      "tag": "0004_intake_identity",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "7",
-      "when": 1795149836172,
-      "tag": "0005_workforce",
+      "when": 1795152365793,
+      "tag": "0005_webhook_inbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795152471567,
+      "tag": "0006_workforce",
       "breakpoints": true
     }
   ]

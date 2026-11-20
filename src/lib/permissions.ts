@@ -26,6 +26,17 @@ export const PERMISSIONS = [
   'clinicians:read',
   // Add clinicians, check credentials, review conditions, suspend (WRK4). Never about yourself.
   'clinicians:manage',
+  // Mark a patient's identity verified after sighting their document (IDN17).
+  'patients:verify_identity',
+  // Protocols and programs (docs/decisions/intake.md INT4, INT11).
+  'protocols:read',
+  'protocols:manage',
+  'protocols:sign_off',
+  'programs:manage',
+  // A patient's intake answers and the prescriber's summary: clinical content.
+  'intakes:read',
+  'tenant:manage',
+  'brands:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -45,6 +56,15 @@ export const PERMISSION_ZONES: Record<Permission, DataZone> = {
   'consents:manage': 'platform',
   'clinicians:read': 'operational',
   'clinicians:manage': 'operational',
+  'patients:verify_identity': 'operational',
+  'protocols:read': 'operational',
+  'protocols:manage': 'operational',
+  // Signing off works only for a clinical role, so an owner who isn't one needs break-glass (INT4).
+  'protocols:sign_off': 'clinical',
+  'programs:manage': 'operational',
+  'intakes:read': 'clinical',
+  'tenant:manage': 'platform',
+  'brands:manage': 'platform',
 };
 
 const ALL: readonly Permission[] = PERMISSIONS;
@@ -52,10 +72,35 @@ const ALL: readonly Permission[] = PERMISSIONS;
 /** The starting roles' permissions (ADM2). Tenants can't edit these; they copy one into a custom role instead. */
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   owner: ALL,
-  admin: ['staff:read', 'staff:manage', 'roles:manage', 'patients:read', 'patients:manage', 'consents:manage', 'clinicians:read', 'clinicians:manage'],
-  medical_director: ['staff:read', 'break_glass:review', 'patients:read', 'clinicians:read', 'clinicians:manage'],
-  prescriber: ['staff:read', 'patients:read', 'clinicians:read'],
-  clinician: ['staff:read', 'patients:read', 'clinicians:read'],
+  admin: [
+    'staff:read',
+    'staff:manage',
+    'roles:manage',
+    'tenant:manage',
+    'brands:manage',
+    'patients:read',
+    'patients:manage',
+    'consents:manage',
+    'protocols:read',
+    'programs:manage',
+    'clinicians:read',
+    'clinicians:manage',
+  ],
+  medical_director: [
+    'staff:read',
+    'break_glass:review',
+    'patients:read',
+    'patients:verify_identity',
+    'protocols:read',
+    'protocols:manage',
+    'protocols:sign_off',
+    'programs:manage',
+    'intakes:read',
+    'clinicians:read',
+    'clinicians:manage',
+  ],
+  prescriber: ['staff:read', 'patients:read', 'protocols:read', 'intakes:read', 'clinicians:read'],
+  clinician: ['staff:read', 'patients:read', 'protocols:read', 'intakes:read', 'clinicians:read'],
   support: ['staff:read', 'patients:read', 'patients:manage', 'clinicians:read'],
   finance: ['staff:read'],
   operations: ['staff:read'],

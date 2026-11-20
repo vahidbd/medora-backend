@@ -38,7 +38,7 @@ const envSchema = z.object({
   CONSOLE_URL: z.preprocess((value) => (value === '' ? undefined : value), z.url().optional()),
 
   /**
-   * Patients sign in on their own Clerk instance (ADR 0035): open sign-up,
+   * Patients sign in on their own Clerk instance (ADR 0100): open sign-up,
    * one-time codes, passkeys. Patient routes accept only its tokens, and staff
    * routes never do.
    */
@@ -54,6 +54,16 @@ const envSchema = z.object({
    */
   FIELD_KEY_PROVIDER: z.enum(['local']).default('local'),
   FIELD_ENCRYPTION_KEY: optionalText,
+
+  /**
+   * Outside checks of a patient's identity (docs/decisions/patients.md IDN16,
+   * IDN19). `fake` answers from the document number and the name, for
+   * development, tests and staging; `none` turns online checks off, leaving
+   * manual verification. Production refuses `fake`. A real gateway and the HI
+   * Service each arrive with their own value, provider row and ADR.
+   */
+  IDENTITY_GATEWAY: z.enum(['none', 'fake']).default('fake'),
+  HI_SERVICE: z.enum(['none', 'fake']).default('fake'),
 
   /** Files (none yet): S3-compatible storage in an Australian region once deployed (ADRs 0005, 0025). */
   STORAGE_MODE: z.enum(['local', 's3']).default('local'),
@@ -127,7 +137,7 @@ function authProblems(config: Env): string[] {
     if (!resolveClerkIssuer(config)) problems.push('CLERK_PUBLISHABLE_KEY or CLERK_ISSUER is required when AUTH_MODE=clerk');
     const patientIssuer = resolveClerkIssuer({ CLERK_ISSUER: config.CLERK_PATIENT_ISSUER, CLERK_PUBLISHABLE_KEY: config.CLERK_PATIENT_PUBLISHABLE_KEY });
     if (patientIssuer && patientIssuer === resolveClerkIssuer(config)) {
-      problems.push('The patient Clerk instance must not be the staff instance (ADR 0035)');
+      problems.push('The patient Clerk instance must not be the staff instance (ADR 0100)');
     }
   } catch (error) {
     problems.push(error instanceof Error ? error.message : String(error));
@@ -171,7 +181,7 @@ export function deployedProblems(config: Env): string[] {
   if (parseAuthorizedParties(config.CLERK_AUTHORIZED_PARTIES).length === 0) {
     problems.push('CLERK_AUTHORIZED_PARTIES is required (the web app origins, e.g. https://console.example.com.au)');
   }
-  if (!config.CLERK_PATIENT_PUBLISHABLE_KEY) problems.push('CLERK_PATIENT_PUBLISHABLE_KEY is required (the patient sign-in instance, ADR 0035)');
+  if (!config.CLERK_PATIENT_PUBLISHABLE_KEY) problems.push('CLERK_PATIENT_PUBLISHABLE_KEY is required (the patient sign-in instance, ADR 0100)');
   if (config.MEDORA_ENV === 'production' && config.CLERK_PATIENT_PUBLISHABLE_KEY && !config.CLERK_PATIENT_PUBLISHABLE_KEY.startsWith('pk_live_')) {
     problems.push('CLERK_PATIENT_PUBLISHABLE_KEY must be a production instance key (pk_live_) in production');
   }
@@ -187,6 +197,8 @@ export function deployedProblems(config: Env): string[] {
   if (config.MEDORA_ENV === 'production' && config.FIELD_KEY_PROVIDER === 'local') {
     problems.push('FIELD_KEY_PROVIDER must be a KMS provider in production: a key in an environment variable is not enough for patient data (ADR 0010)');
   }
+  if (config.MEDORA_ENV === 'production' && config.IDENTITY_GATEWAY === 'fake') problems.push('IDENTITY_GATEWAY must not be fake in production (none leaves manual checks)');
+  if (config.MEDORA_ENV === 'production' && config.HI_SERVICE === 'fake') problems.push('HI_SERVICE must not be fake in production');
   if ((config.FORWARDED_IP_SECRET ?? '').length < 32) problems.push('FORWARDED_IP_SECRET of at least 32 characters is required');
   // docs/decisions/telephony.md TEL1: a fake can't reach patients, and later it could make up consult evidence.
   if (config.TELEPHONY !== 'twilio') problems.push('TELEPHONY must be twilio');

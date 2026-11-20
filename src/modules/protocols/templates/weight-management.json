@@ -1,0 +1,245 @@
+{
+  "key": "weight-management",
+  "version": 1,
+  "name": "Weight management",
+  "condition": "Weight management",
+  "summary": "Adults 18 to 75 with a BMI of 30 or more, or 27 or more with a weight-related condition.",
+  "clinicalReview": null,
+  "definition": {
+    "steps": [
+      {
+        "key": "body",
+        "title": "Your height and weight",
+        "intro": "We use these to work out your body mass index (BMI).",
+        "questions": [
+          { "key": "height", "label": "How tall are you?", "kind": "number", "unit": "cm", "min": 120, "max": 230 },
+          { "key": "weight", "label": "How much do you weigh?", "kind": "number", "unit": "kg", "min": 35, "max": 350 }
+        ]
+      },
+      {
+        "key": "pregnancy",
+        "title": "Pregnancy",
+        "questions": [
+          {
+            "key": "pregnant_or_breastfeeding",
+            "label": "Are you pregnant, breastfeeding, or trying to get pregnant?",
+            "help": "If this doesn't apply to you, answer No.",
+            "kind": "yes_no"
+          }
+        ]
+      },
+      {
+        "key": "health",
+        "title": "Your health",
+        "questions": [
+          {
+            "key": "weight_conditions",
+            "label": "Do you have any of these?",
+            "help": "Choose all that apply, or leave them all unticked.",
+            "kind": "multi_choice",
+            "required": false,
+            "options": [
+              { "value": "type2_diabetes", "label": "Type 2 diabetes or prediabetes" },
+              { "value": "high_blood_pressure", "label": "High blood pressure" },
+              { "value": "high_cholesterol", "label": "High cholesterol" },
+              { "value": "sleep_apnoea", "label": "Sleep apnoea" },
+              { "value": "heart_disease", "label": "Heart disease" }
+            ]
+          },
+          {
+            "key": "history",
+            "label": "Have you, or has anyone in your family, had any of these?",
+            "help": "Thyroid cancer and MEN2 count for you or your family. The others count for you only.",
+            "kind": "multi_choice",
+            "required": false,
+            "options": [
+              { "value": "medullary_thyroid_cancer", "label": "Medullary thyroid cancer, or MEN2 (you or your family)" },
+              { "value": "pancreatitis", "label": "Pancreatitis" },
+              { "value": "type1_diabetes", "label": "Type 1 diabetes" },
+              { "value": "gallbladder", "label": "Gallbladder disease or gallstones" },
+              { "value": "kidney", "label": "Kidney disease" },
+              { "value": "liver", "label": "Liver disease" },
+              { "value": "diabetic_eye", "label": "Eye damage from diabetes (retinopathy)" },
+              { "value": "gut", "label": "Severe stomach or bowel disease, such as slow stomach emptying" }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "wellbeing",
+        "title": "Your wellbeing",
+        "questions": [
+          {
+            "key": "eating_disorder",
+            "label": "Have you ever had an eating disorder, such as anorexia or bulimia?",
+            "kind": "single_choice",
+            "options": [
+              { "value": "never", "label": "No" },
+              { "value": "past", "label": "Yes, in the past" },
+              { "value": "current", "label": "Yes, now" }
+            ]
+          },
+          { "key": "depression_history", "label": "Have you ever had depression, or thoughts of suicide?", "kind": "yes_no" },
+          { "key": "harm_thoughts_now", "label": "Are you having thoughts of ending your life, or of harming yourself, right now?", "kind": "yes_no" }
+        ]
+      },
+      {
+        "key": "treatment",
+        "title": "Treatment so far",
+        "questions": [
+          {
+            "key": "bariatric_surgery",
+            "label": "Have you had weight-loss surgery?",
+            "kind": "single_choice",
+            "options": [
+              { "value": "never", "label": "No" },
+              { "value": "within_12_months", "label": "Yes, in the last 12 months" },
+              { "value": "earlier", "label": "Yes, more than 12 months ago" }
+            ]
+          },
+          { "key": "prior_weight_medicine", "label": "Have you used a prescription medicine for weight loss before?", "kind": "yes_no" },
+          { "key": "glucose_lowering_medicine", "label": "Do you take insulin, or another medicine that lowers your blood sugar?", "kind": "yes_no" },
+          { "key": "treated_elsewhere", "label": "Are you being treated for your weight by another doctor or service now?", "kind": "yes_no" }
+        ]
+      },
+      {
+        "key": "reaction",
+        "title": "Your last weight-loss medicine",
+        "showIf": { "answer": "prior_weight_medicine", "is": "equals", "value": true },
+        "questions": [{ "key": "serious_reaction", "label": "Did you have a serious reaction to it, such as an allergic reaction or a stay in hospital?", "kind": "yes_no" }]
+      },
+      {
+        "key": "anything_else",
+        "title": "Anything else",
+        "questions": [
+          { "key": "other_medicines", "label": "What medicines do you take now, including ones from the pharmacy or supermarket?", "kind": "text", "required": false },
+          { "key": "notes", "label": "Is there anything else the doctor should know?", "kind": "text", "required": false }
+        ]
+      }
+    ],
+    "derived": [
+      {
+        "key": "bmi",
+        "label": "BMI",
+        "unit": "kg/m²",
+        "decimals": 1,
+        "formula": {
+          "op": "divide",
+          "of": [
+            { "op": "multiply", "of": [{ "answer": "weight" }, 10000] },
+            { "op": "multiply", "of": [{ "answer": "height" }, { "answer": "height" }] }
+          ]
+        }
+      }
+    ],
+    "rules": [
+      {
+        "key": "harm_now",
+        "outcome": "hard_stop",
+        "when": { "answer": "harm_thoughts_now", "is": "equals", "value": true },
+        "prescriberLabel": "Current thoughts of self-harm",
+        "patientMessage": "Thank you for telling us. We can't help with this here, and we want you to get support today.",
+        "urgentHelp": true
+      },
+      {
+        "key": "over_75",
+        "outcome": "hard_stop",
+        "when": { "derived": "age", "is": "greater_than", "value": 75 },
+        "prescriberLabel": "Over 75",
+        "patientMessage": "This program is for adults up to 75. Your GP can talk with you about other options."
+      },
+      {
+        "key": "pregnancy_stop",
+        "outcome": "hard_stop",
+        "when": { "answer": "pregnant_or_breastfeeding", "is": "equals", "value": true },
+        "prescriberLabel": "Pregnant, breastfeeding or trying to conceive",
+        "patientMessage": "This treatment isn't safe during pregnancy or breastfeeding, or while trying to get pregnant. Your GP can help with other options."
+      },
+      {
+        "key": "thyroid",
+        "outcome": "hard_stop",
+        "when": { "answer": "history", "is": "includes", "value": "medullary_thyroid_cancer" },
+        "prescriberLabel": "Medullary thyroid cancer or MEN2 (personal or family)",
+        "patientMessage": "Based on your answers, this treatment isn't safe for you. Please talk to your GP."
+      },
+      {
+        "key": "pancreatitis",
+        "outcome": "hard_stop",
+        "when": { "answer": "history", "is": "includes", "value": "pancreatitis" },
+        "prescriberLabel": "History of pancreatitis",
+        "patientMessage": "Based on your answers, this treatment isn't safe for you. Please talk to your GP."
+      },
+      {
+        "key": "type1_diabetes",
+        "outcome": "hard_stop",
+        "when": { "answer": "history", "is": "includes", "value": "type1_diabetes" },
+        "prescriberLabel": "Type 1 diabetes",
+        "patientMessage": "This program isn't right for people with type 1 diabetes. Your diabetes team can help with other options."
+      },
+      {
+        "key": "eating_disorder_now",
+        "outcome": "hard_stop",
+        "when": { "answer": "eating_disorder", "is": "equals", "value": "current" },
+        "prescriberLabel": "Current eating disorder",
+        "patientMessage": "This program isn't right for you while you're managing an eating disorder. Your GP can help you find support."
+      },
+      {
+        "key": "recent_surgery",
+        "outcome": "hard_stop",
+        "when": { "answer": "bariatric_surgery", "is": "equals", "value": "within_12_months" },
+        "prescriberLabel": "Weight-loss surgery in the last 12 months",
+        "patientMessage": "This program isn't right for you within 12 months of weight-loss surgery. Your surgical team can advise you."
+      },
+      {
+        "key": "serious_reaction_stop",
+        "outcome": "hard_stop",
+        "when": { "answer": "serious_reaction", "is": "equals", "value": true },
+        "prescriberLabel": "Serious reaction to a weight-loss medicine",
+        "patientMessage": "Because of your reaction to a past weight-loss medicine, this program isn't safe for you. Please talk to your GP."
+      },
+      {
+        "key": "bmi_under_27",
+        "outcome": "hard_stop",
+        "when": { "derived": "bmi", "is": "less_than", "value": 27 },
+        "prescriberLabel": "BMI under 27",
+        "patientMessage": "This program is for people with a BMI of 27 or more. Your GP can talk with you about other support."
+      },
+      {
+        "key": "bmi_27_to_30_without_condition",
+        "outcome": "hard_stop",
+        "when": {
+          "all": [
+            { "derived": "bmi", "is": "at_least", "value": 27 },
+            { "derived": "bmi", "is": "less_than", "value": 30 },
+            {
+              "not": {
+                "any": [
+                  { "answer": "weight_conditions", "is": "includes", "value": "type2_diabetes" },
+                  { "answer": "weight_conditions", "is": "includes", "value": "high_blood_pressure" },
+                  { "answer": "weight_conditions", "is": "includes", "value": "high_cholesterol" },
+                  { "answer": "weight_conditions", "is": "includes", "value": "sleep_apnoea" },
+                  { "answer": "weight_conditions", "is": "includes", "value": "heart_disease" }
+                ]
+              }
+            }
+          ]
+        },
+        "prescriberLabel": "BMI 27 to 29.9 without a weight-related condition",
+        "patientMessage": "With a BMI under 30, this program needs a weight-related health condition as well. Your GP can talk with you about other support."
+      },
+      { "key": "age_65_plus", "outcome": "red_flag", "when": { "derived": "age", "is": "at_least", "value": 65 }, "prescriberLabel": "Aged 65 to 75" },
+      { "key": "implausible_size", "outcome": "red_flag", "when": { "derived": "bmi", "is": "greater_than", "value": 70 }, "prescriberLabel": "Height or weight may be wrong (BMI over 70)" },
+      { "key": "gallbladder", "outcome": "red_flag", "when": { "answer": "history", "is": "includes", "value": "gallbladder" }, "prescriberLabel": "Gallbladder disease" },
+      { "key": "kidney", "outcome": "red_flag", "when": { "answer": "history", "is": "includes", "value": "kidney" }, "prescriberLabel": "Kidney disease" },
+      { "key": "liver", "outcome": "red_flag", "when": { "answer": "history", "is": "includes", "value": "liver" }, "prescriberLabel": "Liver disease" },
+      { "key": "diabetic_eye", "outcome": "red_flag", "when": { "answer": "history", "is": "includes", "value": "diabetic_eye" }, "prescriberLabel": "Diabetic eye disease" },
+      { "key": "gut", "outcome": "red_flag", "when": { "answer": "history", "is": "includes", "value": "gut" }, "prescriberLabel": "Severe stomach or bowel disease" },
+      { "key": "depression_flag", "outcome": "red_flag", "when": { "answer": "depression_history", "is": "equals", "value": true }, "prescriberLabel": "History of depression or suicidal thoughts" },
+      { "key": "eating_disorder_past", "outcome": "red_flag", "when": { "answer": "eating_disorder", "is": "equals", "value": "past" }, "prescriberLabel": "Past eating disorder" },
+      { "key": "earlier_surgery", "outcome": "red_flag", "when": { "answer": "bariatric_surgery", "is": "equals", "value": "earlier" }, "prescriberLabel": "Weight-loss surgery over 12 months ago" },
+      { "key": "used_weight_medicine", "outcome": "red_flag", "when": { "answer": "prior_weight_medicine", "is": "equals", "value": true }, "prescriberLabel": "Has used weight-loss medicine before" },
+      { "key": "glucose_lowering", "outcome": "red_flag", "when": { "answer": "glucose_lowering_medicine", "is": "equals", "value": true }, "prescriberLabel": "Takes insulin or another glucose-lowering medicine" },
+      { "key": "treated_elsewhere_flag", "outcome": "red_flag", "when": { "answer": "treated_elsewhere", "is": "equals", "value": true }, "prescriberLabel": "Being treated for weight elsewhere" }
+    ]
+  }
+}
