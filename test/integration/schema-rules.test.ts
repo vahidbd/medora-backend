@@ -80,7 +80,8 @@ describe('allowed values (ADR 0028)', () => {
       `select pg_get_constraintdef(oid) as def from pg_constraint where conrelid = $1::regclass and contype = 'c'`,
       [table],
     );
-    const def = defs.map((d) => d.def).find((d) => new RegExp(`\\b${column}\\b`).test(d) && d.includes('ARRAY['));
+    // Postgres writes a one-value list as `column = 'value'::text`, and longer ones as `= ANY (ARRAY[...])`.
+    const def = defs.map((d) => d.def).find((d) => new RegExp(`\\b${column}\\b`).test(d) && /ARRAY\[|= '[^']+'::text/.test(d));
     expect(def, `a CHECK on ${column}`).toBeDefined();
     const inDatabase = [...(def ?? '').matchAll(/'([^']+)'::text/g)].map((m) => m[1]);
     expect(inDatabase.sort()).toEqual([...values].sort());

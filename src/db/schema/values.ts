@@ -20,10 +20,19 @@ export type ActorType = (typeof ACTOR_TYPES)[number];
 export const DATA_ZONES = ['clinical', 'operational', 'marketing', 'platform'] as const;
 export type DataZone = (typeof DATA_ZONES)[number];
 
+/**
+ * Who seals tenants' data keys (ADR 0010, docs/decisions/field-encryption.md
+ * ENC3). `local` uses FIELD_ENCRYPTION_KEY and is refused in production; the
+ * KMS provider is added with its own value and migration.
+ */
+export const KEY_PROVIDERS = ['local'] as const;
+export type KeyProvider = (typeof KEY_PROVIDERS)[number];
+
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
   { table: 'platform.memberships', column: 'role', values: ROLES },
   { table: 'platform.memberships', column: 'status', values: MEMBERSHIP_STATUSES },
   { table: 'platform.audit_log', column: 'actor_type', values: ACTOR_TYPES },
   { table: 'platform.audit_log', column: 'zone', values: DATA_ZONES },
+  { table: 'platform.tenant_keys', column: 'provider', values: KEY_PROVIDERS },
 ] as const;

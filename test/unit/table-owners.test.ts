@@ -17,6 +17,7 @@ const OWNERS: Record<string, string[]> = {
   'platform.audit_log': ['src/lib/audit.ts'],
   'platform.outbox': ['src/lib/events.ts'],
   'platform.rate_limit_counters': ['src/lib/rate-limit.ts'],
+  'platform.tenant_keys': ['src/lib/field-crypto.ts'],
 };
 
 /** Made-up local data only (src/db/seed.ts refuses anything but development). */

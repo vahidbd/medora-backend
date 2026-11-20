@@ -4,7 +4,7 @@ import { loadEnv } from '../../src/config/env.js';
 const LIVE_KEY = `pk_live_${Buffer.from('clerk.example.com.au$').toString('base64')}`;
 const TEST_KEY = `pk_test_${Buffer.from('example.clerk.accounts.dev$').toString('base64')}`;
 
-/** Everything production needs (ADR 0025). Made-up values. */
+/** Everything staging needs (ADR 0025). Made-up values. Production also needs the KMS key provider, which doesn't exist yet (ENC3). */
 const production: NodeJS.ProcessEnv = {
   MEDORA_ENV: 'production',
   DATABASE_URL: 'postgres://medora_api:x@db.internal:5432/medora',
@@ -18,7 +18,10 @@ const production: NodeJS.ProcessEnv = {
   S3_SECRET_ACCESS_KEY: 'key',
   FORWARDED_IP_SECRET: 'a'.repeat(40),
   RELEASE_SHA: '0123456789abcdef0123456789abcdef01234567',
+  FIELD_KEY_PROVIDER: 'local',
+  FIELD_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString('base64'),
 };
+const staging: NodeJS.ProcessEnv = { ...production, MEDORA_ENV: 'staging' };
 
 function refusal(source: NodeJS.ProcessEnv): string {
   try {
@@ -30,8 +33,20 @@ function refusal(source: NodeJS.ProcessEnv): string {
 }
 
 describe('production and staging refuse unsafe settings', () => {
-  it('starts with everything in place', () => {
-    expect(loadEnv(production).MEDORA_ENV).toBe('production');
+  it('starts staging with everything in place', () => {
+    expect(loadEnv(staging).MEDORA_ENV).toBe('staging');
+  });
+
+  it('refuses production while field keys are sealed by an environment variable (ENC3)', () => {
+    expect(refusal(production)).toContain('FIELD_KEY_PROVIDER must be a KMS provider in production');
+  });
+
+  it.each([
+    ['no field key', { FIELD_ENCRYPTION_KEY: undefined }, 'FIELD_ENCRYPTION_KEY must be base64 of 32 random bytes'],
+    ['a short field key', { FIELD_ENCRYPTION_KEY: Buffer.alloc(16, 1).toString('base64') }, 'FIELD_ENCRYPTION_KEY must be base64 of 32 random bytes'],
+    ['the example field key', { FIELD_ENCRYPTION_KEY: 'bWVkb3JhLWxvY2FsLWRldmVsb3BtZW50LWtleS0zMmI=' }, 'must not be the example key'],
+  ])('refuses %s in staging', (_name, change, message) => {
+    expect(refusal({ ...staging, ...change })).toContain(message);
   });
 
   it.each([
@@ -48,7 +63,7 @@ describe('production and staging refuse unsafe settings', () => {
   });
 
   it('lets staging use a Clerk development instance', () => {
-    expect(loadEnv({ ...production, MEDORA_ENV: 'staging', CLERK_PUBLISHABLE_KEY: TEST_KEY }).MEDORA_ENV).toBe('staging');
+    expect(loadEnv({ ...staging, CLERK_PUBLISHABLE_KEY: TEST_KEY }).MEDORA_ENV).toBe('staging');
   });
 });
 
@@ -57,6 +72,7 @@ describe('outside a deployed service', () => {
     MEDORA_ENV: 'development',
     DATABASE_URL: 'postgres://medora_api:medora_api@127.0.0.1:5432/medora',
     DEV_JWT_SECRET: 'x'.repeat(40),
+    FIELD_ENCRYPTION_KEY: Buffer.alloc(32, 3).toString('base64'),
   };
 
   it('connects to a local database', () => {

@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { bigint, check, index, integer, jsonb, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { oneOf } from './checks.js';
-import { ACTOR_TYPES, DATA_ZONES, MEMBERSHIP_STATUSES, ROLES } from './values.js';
+import { ACTOR_TYPES, DATA_ZONES, KEY_PROVIDERS, MEMBERSHIP_STATUSES, ROLES } from './values.js';
 import { platform } from './zones.js';
 
 /**
@@ -128,3 +128,27 @@ export const rateLimitCounters = platform.table('rate_limit_counters', {
   windowStartedAt: timestamp('window_started_at', { withTimezone: true }).notNull(),
   count: integer('count').notNull(),
 });
+
+/**
+ * Each tenant's data key for field encryption (ADR 0010), stored only wrapped
+ * by the key provider. Made the first time the tenant encrypts a field
+ * (docs/decisions/field-encryption.md ENC2). Never updated or deleted: a
+ * rotation adds a row, and old values keep naming the key they were sealed with.
+ */
+export const tenantKeys = platform.table(
+  'tenant_keys',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    provider: text('provider').notNull(),
+    /** The data key, sealed by the provider; never the key itself. */
+    wrappedKey: text('wrapped_key').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('tenant_keys_tenant_key').on(table.tenantId),
+    check('tenant_keys_provider_check', oneOf(table.provider, KEY_PROVIDERS)),
+  ],
+);

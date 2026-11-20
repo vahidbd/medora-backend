@@ -33,6 +33,14 @@ const envSchema = z.object({
   /** The web app origins a token may be issued for, comma-separated. */
   CLERK_AUTHORIZED_PARTIES: optionalText,
 
+  /**
+   * Field encryption (ADR 0010, docs/decisions/field-encryption.md ENC3).
+   * `local` seals tenants' data keys with FIELD_ENCRYPTION_KEY (base64 of 32
+   * random bytes); production refuses it until the KMS provider exists.
+   */
+  FIELD_KEY_PROVIDER: z.enum(['local']).default('local'),
+  FIELD_ENCRYPTION_KEY: optionalText,
+
   /** Files (none yet): S3-compatible storage in an Australian region once deployed (ADRs 0005, 0025). */
   STORAGE_MODE: z.enum(['local', 's3']).default('local'),
   S3_BUCKET: optionalText,
@@ -55,6 +63,9 @@ const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
+/** The field key in .env.example, which anyone with the repo has. Deployed services refuse it. */
+const EXAMPLE_FIELD_KEY = 'bWVkb3JhLWxvY2FsLWRldmVsb3BtZW50LWtleS0zMmI=';
+
 /** Australian AWS regions: Sydney and Melbourne. */
 const AUSTRALIAN_REGIONS = new Set(['ap-southeast-2', 'ap-southeast-4']);
 
@@ -69,7 +80,7 @@ export function loadEnv(source: NodeJS.ProcessEnv): Env {
     throw new Error(`Invalid environment configuration:\n${details}`);
   }
   const config = parsed.data;
-  const problems = [...authProblems(config), ...(isDeployedService(source) ? deployedProblems(config) : [])];
+  const problems = [...authProblems(config), ...fieldKeyProblems(config), ...(isDeployedService(source) ? deployedProblems(config) : [])];
   if (problems.length > 0) {
     throw new Error(`Refusing to start (MEDORA_ENV=${config.MEDORA_ENV}):\n${problems.map((p) => `  ${p}`).join('\n')}`);
   }
@@ -87,6 +98,13 @@ function authProblems(config: Env): string[] {
     problems.push(error instanceof Error ? error.message : String(error));
   }
   return problems;
+}
+
+/** The local provider needs a real 32-byte key wherever it runs (ENC3). */
+function fieldKeyProblems(config: Env): string[] {
+  if (config.FIELD_KEY_PROVIDER !== 'local') return [];
+  const key = Buffer.from(config.FIELD_ENCRYPTION_KEY ?? '', 'base64');
+  return key.length === 32 ? [] : ['FIELD_ENCRYPTION_KEY must be base64 of 32 random bytes when FIELD_KEY_PROVIDER=local (openssl rand -base64 32)'];
 }
 
 /**
@@ -108,6 +126,10 @@ export function deployedProblems(config: Env): string[] {
   if (!config.S3_REGION || !AUSTRALIAN_REGIONS.has(config.S3_REGION)) problems.push('S3_REGION must be an Australian region (ap-southeast-2 or ap-southeast-4)');
   for (const name of ['S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const) {
     if (!config[name]) problems.push(`${name} is required`);
+  }
+  if (config.FIELD_ENCRYPTION_KEY === EXAMPLE_FIELD_KEY) problems.push('FIELD_ENCRYPTION_KEY must not be the example key from .env.example');
+  if (config.MEDORA_ENV === 'production' && config.FIELD_KEY_PROVIDER === 'local') {
+    problems.push('FIELD_KEY_PROVIDER must be a KMS provider in production: a key in an environment variable is not enough for patient data (ADR 0010)');
   }
   if ((config.FORWARDED_IP_SECRET ?? '').length < 32) problems.push('FORWARDED_IP_SECRET of at least 32 characters is required');
   if (!/^[0-9a-f]{40}$/.test(config.RELEASE_SHA ?? '')) problems.push('the release commit is unknown (build with scripts/build.mjs, or set RELEASE_SHA)');
