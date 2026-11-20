@@ -1,4 +1,4 @@
-import type { TenantTx } from '../db/tenant.js';
+import type { Actor, TenantTx } from '../db/tenant.js';
 import { auditLog } from '../db/schema/index.js';
 import type { DataZone } from '../db/schema/values.js';
 
@@ -17,12 +17,25 @@ export interface AuditEntry {
   details?: Record<string, string | number | boolean | null>;
 }
 
+function actorIdOf(actor: Actor): string | null {
+  switch (actor.type) {
+    case 'person':
+      return actor.userId;
+    case 'patient':
+      return actor.patientId;
+    case 'agent':
+      return actor.agentId;
+    case 'system':
+      return null;
+  }
+}
+
 export async function audit(tx: TenantTx, entry: AuditEntry): Promise<void> {
   const { actor, tenantId, requestId } = tx.context;
   await tx.db.insert(auditLog).values({
     tenantId,
     actorType: actor.type,
-    actorId: actor.type === 'person' ? actor.userId : actor.type === 'agent' ? actor.agentId : null,
+    actorId: actorIdOf(actor),
     action: entry.action,
     zone: entry.zone,
     recordTable: entry.recordTable,

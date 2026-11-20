@@ -1,6 +1,8 @@
 import { sql } from 'drizzle-orm';
 import { db, type DbTx } from './client.js';
 
+export type { DbTx } from './client.js';
+
 /**
  * The only way feature code reaches the database (ADR 0006). One transaction
  * that names its tenant and the person or agent acting, with
@@ -9,7 +11,12 @@ import { db, type DbTx } from './client.js';
  * the rest: inside, only this tenant's rows exist.
  */
 
-export type Actor = { type: 'person'; userId: string } | { type: 'agent'; agentId: string } | { type: 'system' };
+/** Who is acting: a staff member, a patient on their own record (IDN2), one of Medora's agents, or the system. */
+export type Actor =
+  | { type: 'person'; userId: string }
+  | { type: 'patient'; patientId: string }
+  | { type: 'agent'; agentId: string }
+  | { type: 'system' };
 
 export interface TenantContext {
   tenantId: string;
@@ -34,5 +41,23 @@ export async function withTenant<T>(context: TenantContext, work: (tx: TenantTx)
       sql`select set_config('app.tenant_id', ${context.tenantId}, true), set_config('app.user_id', ${userId}, true)`,
     );
     return work({ db: dbTx, context });
+  });
+}
+
+/**
+ * A transaction for the signed-in person's own rows when no tenant is chosen,
+ * such as their sign-in history (docs/decisions/admin.md ADM6). Only
+ * `app.user_id` is set, so every tenant policy matches nothing.
+ */
+export interface PersonTx {
+  readonly db: DbTx;
+  readonly userId: string;
+}
+
+export async function withPerson<T>(userId: string, work: (tx: PersonTx) => Promise<T>): Promise<T> {
+  if (!UUID.test(userId)) throw new Error('withPerson needs a user id');
+  return db.transaction(async (dbTx) => {
+    await dbTx.execute(sql`select set_config('app.tenant_id', '', true), set_config('app.user_id', ${userId}, true)`);
+    return work({ db: dbTx, userId });
   });
 }

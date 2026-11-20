@@ -3,7 +3,7 @@ import { env } from '../config/env.js';
 
 /**
  * Made-up data for local development: one tenant with an owner and a
- * clinician. Development only, as the owner role. Never real people, and
+ * clinician, and two made-up patients. Development only, as the owner role. Never real people, and
  * never a copy of production, not even de-identified.
  */
 if (env.MEDORA_ENV !== 'development') throw new Error('The seed is for local development only');
@@ -26,6 +26,21 @@ try {
       [email],
     );
     await client.query(`insert into platform.memberships (tenant_id, user_id, role) values ($1, $2, $3)`, [tenantId, user.rows[0]?.id, role]);
+  }
+  // Made-up patients, signed in as dev_patient-<n> (npm run dev:token -- --patient <n>).
+  for (const [n, given, family, born, sex] of [
+    ['1', 'Sam', 'Sample', '1985-03-14', 'female'],
+    ['2', 'Riley', 'Placeholder', '1992-11-02', 'male'],
+  ] as const) {
+    const patient = await client.query<{ id: string }>(
+      `insert into clinical.patients (tenant_id, clerk_user_id, given_name, family_name, date_of_birth, sex) values ($1, $2, $3, $4, $5, $6) returning id`,
+      [tenantId, `dev_patient-${n}`, given, family, born, sex],
+    );
+    await client.query(`insert into clinical.patient_contacts (tenant_id, patient_id, kind, value) values ($1, $2, 'email', $3)`, [
+      tenantId,
+      patient.rows[0]?.id,
+      `patient-${n}@example.test`,
+    ]);
   }
   await client.query('commit');
   process.stdout.write(`Seeded tenant ${tenantId} with owner@example.test and clinician@example.test.\nMake a token: npm run dev:token -- owner@example.test\n`);

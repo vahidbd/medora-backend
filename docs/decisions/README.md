@@ -30,5 +30,10 @@ Prefixes are unique across both repos, so this table lists both.
 | CON | `console.md` | `medora-front` | The staff console: sign-in gate, tenant switch, shell, page security, preview mode |
 | WHK | `webhooks.md` | `medora-backend` | The one webhook inbox: storing, processing once, retries |
 | TEL | `telephony.md` | `medora-backend` | Phone and SMS through Twilio's Australian region |
+| ADM | `admin.md` | both | Admin, staff access, roles, invitations, two-step sign-in, tenant onboarding |
+| CAT | `catalogue.md` | both | Product catalogue and blocked items |
+| GOV | `governance.md` | both | Clinical governance: incidents, complaints, deadlines, retention, masking |
+| ENC | `field-encryption.md` | `medora-backend` | Sealing sensitive fields with each tenant's own key |
+| IDN | `patients.md` | `medora-backend` | Patients, patient sign-in, identity and consent |
 
 Add a row in both repos when you add a file. A prefix is two to four capital letters and is never reused.

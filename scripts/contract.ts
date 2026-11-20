@@ -10,6 +10,7 @@ process.env.MEDORA_ENV = 'test';
 process.env.DATABASE_URL ??= 'postgres://medora_api:medora_api@127.0.0.1:5432/medora';
 process.env.AUTH_MODE = 'dev';
 process.env.DEV_JWT_SECRET ??= 'contract-generation-only-secret-xxxxxxxxxxxx';
+process.env.FIELD_ENCRYPTION_KEY ??= Buffer.alloc(32, 1).toString('base64');
 
 const { buildApp } = await import('../src/app.js');
 const app = await buildApp();

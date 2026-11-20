@@ -15,6 +15,7 @@ const NO_TENANT_COLUMN: Record<string, string> = {
   'platform.tenants': 'the tenant itself: its policy matches its own id',
   'platform.users': 'a person is held once across tenants: visible to themselves and to the tenants they belong to',
   'platform.rate_limit_counters': 'counts attempts before anyone is known, keyed by address',
+  'platform.sign_ins': "a person's sign-ins, before any tenant is chosen: visible to themselves and to the tenants they belong to (ADM6)",
 };
 
 /** Tables whose tenant_id may be null, and why. */
@@ -23,7 +24,7 @@ const NULLABLE_TENANT: Record<string, string> = {
 };
 
 /** The reviewed cross-tenant functions (ADR 0006). */
-const SECURITY_DEFINER = ['platform.claim_user', 'platform.my_memberships'];
+const SECURITY_DEFINER = ['platform.claim_user', 'platform.my_memberships', 'platform.my_access', 'platform.accept_invitations', 'platform.invite_person'];
 
 async function rows<T>(query: string, params: unknown[] = []): Promise<T[]> {
   return (await admin.query(query, params)).rows as T[];
@@ -80,7 +81,11 @@ describe('allowed values (ADR 0028)', () => {
       `select pg_get_constraintdef(oid) as def from pg_constraint where conrelid = $1::regclass and contype = 'c'`,
       [table],
     );
-    const def = defs.map((d) => d.def).find((d) => new RegExp(`\\b${column}\\b`).test(d) && d.includes('ARRAY['));
+    // Postgres writes a one-value list as `CHECK ((column = 'value'::text))`, and longer ones with `= ANY (ARRAY[...])`.
+    const listed = defs.map((d) => d.def);
+    const def =
+      listed.find((d) => new RegExp(`\\b${column}\\b`).test(d) && d.includes('ARRAY[')) ??
+      listed.find((d) => new RegExp(`^CHECK \\(\\(${column} = '[^']+'::text\\)\\)$`).test(d));
     expect(def, `a CHECK on ${column}`).toBeDefined();
     const inDatabase = [...(def ?? '').matchAll(/'([^']+)'::text/g)].map((m) => m[1]);
     expect(inDatabase.sort()).toEqual([...values].sort());
