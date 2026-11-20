@@ -5,3 +5,4 @@ export * from './clinical-patients.js';
 export * from './clinical-consents.js';
 export * from './messaging.js';
 export * from './brands.js';
+export * from './support.js';

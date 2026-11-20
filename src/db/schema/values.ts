@@ -95,6 +95,25 @@ export type ConsentChannel = (typeof CONSENT_CHANNELS)[number];
 export const JOB_OUTCOMES = ['succeeded', 'failed'] as const;
 export type JobOutcome = (typeof JOB_OUTCOMES)[number];
 
+/** Helpdesk (docs/decisions/support.md). */
+export const TICKET_STATUSES = ['open', 'waiting', 'solved'] as const;
+export type TicketStatus = (typeof TICKET_STATUSES)[number];
+
+/** Which team a ticket waits for: the clinical queue is read only with support:clinical (SUP2). */
+export const TICKET_QUEUES = ['support', 'clinical'] as const;
+export type TicketQueue = (typeof TICKET_QUEUES)[number];
+
+/** What a patient said a ticket is about in the patient app; care_team goes to the clinical queue. */
+export const TICKET_TOPICS = ['care_team', 'orders', 'billing', 'account', 'other'] as const;
+export type TicketTopic = (typeof TICKET_TOPICS)[number];
+
+export const TICKET_PRIORITIES = ['normal', 'urgent'] as const;
+export type TicketPriority = (typeof TICKET_PRIORITIES)[number];
+
+/** What triage or a person marked on a ticket (SUP3, SUP6). */
+export const TICKET_FLAGS = ['emergency', 'self_harm', 'clinical', 'possible_adverse_event', 'possible_complaint', 'legal', 'person_requested'] as const;
+export type TicketFlag = (typeof TICKET_FLAGS)[number];
+
 /** How a person reaches a tenant, and how a tenant reaches them. */
 export const CHANNELS = ['email', 'sms', 'chat', 'voice'] as const;
 export type Channel = (typeof CHANNELS)[number];
@@ -144,6 +163,10 @@ export const TIME_ZONES = [
 ] as const;
 export type TimeZone = (typeof TIME_ZONES)[number];
 
+/** How a staff member confirmed who they were talking to (SUP8); patient_app: the patient was signed in. */
+export const VERIFICATION_METHODS = ['date_of_birth', 'call_back', 'patient_app'] as const;
+export type VerificationMethod = (typeof VERIFICATION_METHODS)[number];
+
 /** A brand's address on a channel: service (helpdesk and service messages) or marketing, kept apart (CRM5). */
 export const SENDER_PURPOSES = ['service', 'marketing'] as const;
 export type SenderPurpose = (typeof SENDER_PURPOSES)[number];
@@ -172,6 +195,14 @@ export const CHECKED_VALUES = [
   { table: 'clinical.messages', column: 'kind', values: MESSAGE_KINDS },
   { table: 'clinical.messages', column: 'status', values: MESSAGE_STATUSES },
   { table: 'clinical.messages', column: 'author_type', values: ACTOR_TYPES },
+  { table: 'operational.tickets', column: 'status', values: TICKET_STATUSES },
+  { table: 'operational.tickets', column: 'queue', values: TICKET_QUEUES },
+  { table: 'operational.tickets', column: 'priority', values: TICKET_PRIORITIES },
+  { table: 'operational.tickets', column: 'channel', values: CHANNELS },
+  { table: 'operational.tickets', column: 'topic', values: TICKET_TOPICS },
+  { table: 'operational.tickets', column: 'patient_verified_method', values: VERIFICATION_METHODS },
+  { table: 'operational.ticket_flags', column: 'flag', values: TICKET_FLAGS },
+  { table: 'operational.ticket_flags', column: 'set_by_type', values: ACTOR_TYPES },
   { table: 'operational.senders', column: 'channel', values: SENDER_CHANNELS },
   { table: 'operational.senders', column: 'purpose', values: SENDER_PURPOSES },
   { table: 'platform.tenants', column: 'time_zone', values: TIME_ZONES },
