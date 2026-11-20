@@ -3,7 +3,7 @@ import { consults } from '../../db/schema/index.js';
 import type { ConsultMode, ConsultPurpose, ConsultStatus } from '../../db/schema/values.js';
 import type { TenantTx } from '../../db/tenant.js';
 import { audit } from '../../lib/audit.js';
-import { BadRequestError, BusinessRuleError } from '../../lib/errors.js';
+import { BadRequestError, BusinessRuleError, NotFoundError } from '../../lib/errors.js';
 import { assertAcceptingPatients } from '../brands/index.js';
 import { clinicianNames } from '../clinicians/index.js';
 import { latestIntakeFor } from '../intake/index.js';
@@ -88,6 +88,8 @@ export async function bookForPatient(tx: TenantTx, patientId: string, input: Pat
   if (input.purpose === 'initial') {
     if (!input.programId) throw new BadRequestError('A first consult names its program', 'program_needed');
     const program = await getProgram(tx, input.programId);
+    // CNS24: a first consult is booked through the program's own brand.
+    if (program.brandId !== input.brandId) throw new NotFoundError('Program');
     if (program.status !== 'live') throw new BusinessRuleError("This program isn't taking new patients right now", 'program_not_accepting');
     await assertAcceptingPatients(tx, program.brandId);
     const intake = await latestIntakeFor(tx, { patientId, programId: program.programId });
@@ -101,7 +103,7 @@ export async function bookForPatient(tx: TenantTx, patientId: string, input: Pat
       .limit(1);
     if (!earlier) throw new BusinessRuleError('A review follows a consult you have had', 'no_earlier_consult');
   }
-  const consult = await bookConsult(tx, { patientId, mode: input.mode, purpose: input.purpose, startsAt: input.startsAt }, now);
+  const consult = await bookConsult(tx, { patientId, brandId: input.brandId, mode: input.mode, purpose: input.purpose, startsAt: input.startsAt }, now);
   return (await viewsOf(tx, [consult], now))[0]!;
 }
 

@@ -3,7 +3,7 @@ import { closeDatabase } from '../../src/db/health.js';
 import { withTenant } from '../../src/db/tenant.js';
 import { markNoShow } from '../../src/modules/consults/booking.service.js';
 import { headers, signIn, testApp } from '../support/app.js';
-import { bookConsult, createPatient, createPrescriber, giveCareConsents, giveHours, playVideo } from '../support/consults.js';
+import { bookConsult, brandOf, createPatient, createPrescriber, giveCareConsents, giveHours, playVideo } from '../support/consults.js';
 import { addMember, admin, createTenant, createUser } from '../support/db.js';
 
 /** Booking consults (docs/decisions/consults.md CNS11 to CNS16). Made-up people only. */
@@ -36,6 +36,7 @@ async function clinic() {
 
 const booking = (patientId: string, clinicianUserId: string, startsAt: Date, extra: object = {}) => ({
   patientId,
+  brandId: brandOf(patientId),
   clinicianUserId,
   mode: 'video',
   purpose: 'initial',
@@ -238,9 +239,9 @@ describe('no-shows (CNS16)', () => {
     const theirs = await bookConsult(b.tenantId, { patientId: b.patientId, clinicianUserId: b.doctor.userId });
     await expect(
       admin.query(
-        `insert into clinical.consults (tenant_id, patient_id, clinician_user_id, mode, purpose, scheduled_start, scheduled_end, rescheduled_from)
-         values ($1, $2, $3, 'video', 'initial', now() + interval '1 day', now() + interval '1 day 15 minutes', $4)`,
-        [a.tenantId, a.patientId, a.doctor.userId, theirs],
+        `insert into clinical.consults (tenant_id, patient_id, clinician_user_id, brand_id, mode, purpose, scheduled_start, scheduled_end, rescheduled_from)
+         values ($1, $2, $3, $4, 'video', 'initial', now() + interval '1 day', now() + interval '1 day 15 minutes', $5)`,
+        [a.tenantId, a.patientId, a.doctor.userId, brandOf(a.patientId), theirs],
       ),
     ).rejects.toThrow(/foreign key/);
   });

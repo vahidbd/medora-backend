@@ -28,6 +28,8 @@ export const scheduleEntry = z.object({
   patientId: z.uuid(),
   patientName: z.string(),
   clinicianUserId: z.uuid(),
+  /** The brand it was booked through (CNS24). */
+  brandId: z.uuid(),
   startsAt: instant,
   endsAt: instant,
   mode: z.enum(CONSULT_MODES),
@@ -48,6 +50,8 @@ export const slotsReply = z.object({
 
 export const bookBody = z.object({
   patientId: z.uuid(),
+  /** The brand the patient is booked through; its messages come from it (CNS24). */
+  brandId: z.uuid(),
   /** Left out, a clinician free then is assigned (CNS19). */
   clinicianUserId: z.uuid().optional(),
   mode: z.enum(CONSULT_MODES),
@@ -80,7 +84,9 @@ export const patientBookBody = z
     purpose: z.enum(PATIENT_PURPOSES),
     mode: z.enum(CONSULT_MODES),
     startsAt: instant,
-    /** The program a first consult is for; its intake must be done (CNS21). */
+    /** The brand the patient app is on (CNS24). */
+    brandId: z.uuid(),
+    /** The program a first consult is for, one of this brand's; its intake must be done (CNS21). */
     programId: z.uuid().optional(),
   })
   .strict();

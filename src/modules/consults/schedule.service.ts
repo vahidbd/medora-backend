@@ -32,6 +32,7 @@ async function entriesOf(tx: TenantTx, rows: Consult[]): Promise<ScheduleEntry[]
     patientId: row.patientId,
     patientName: patients.get(row.patientId)?.displayName ?? '',
     clinicianUserId: row.clinicianUserId,
+    brandId: row.brandId,
     startsAt: row.scheduledStart.toISOString(),
     endsAt: row.scheduledEnd.toISOString(),
     mode: row.mode as ConsultMode,

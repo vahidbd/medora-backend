@@ -6,6 +6,7 @@ import { audit } from '../../lib/audit.js';
 import { postgresError } from '../../lib/database-errors.js';
 import { AppError, BusinessRuleError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import { emitEvent } from '../../lib/events.js';
+import { getBrand } from '../brands/index.js';
 import { clinicianCalendar, clinicianStanding } from '../clinicians/index.js';
 import { ageOn, assertConsents, findPatient, findPatientContact, MINIMUM_AGE } from '../patients/index.js';
 import { BOOKING_HORIZON_DAYS, BOOKING_NOTICE_MINUTES, bookingWindow, busyFor, overlapsAny, slotStartingAt, tenantToday } from './calendar.service.js';
@@ -26,6 +27,7 @@ function facts(consult: Consult) {
     patientId: consult.patientId,
     consultId: consult.id,
     clinicianUserId: consult.clinicianUserId,
+    brandId: consult.brandId,
     mode: consult.mode,
     purpose: consult.purpose,
     startsAt: consult.scheduledStart.toISOString(),
@@ -109,12 +111,14 @@ async function insertConsult(tx: TenantTx, values: typeof consults.$inferInsert)
 /** CNS12, CNS13; without a clinician named, one is assigned (CNS19). */
 export async function bookConsult(tx: TenantTx, input: BookConsult, now = new Date()): Promise<Consult> {
   const startsAt = new Date(input.startsAt);
+  await getBrand(tx, input.brandId);
   const clinicianUserId = await bookableClinician(tx, { ...input, startsAt }, now);
   const { endsAt } = await assertOffered(tx, { patientId: input.patientId, clinicianUserId, startsAt }, now);
   const consult = await insertConsult(tx, {
     tenantId: tx.context.tenantId,
     patientId: input.patientId,
     clinicianUserId,
+    brandId: input.brandId,
     mode: input.mode,
     purpose: input.purpose,
     scheduledStart: startsAt,
@@ -206,6 +210,7 @@ export async function rescheduleConsult(
   const consult = await insertConsult(tx, {
     tenantId: tx.context.tenantId,
     ...next,
+    brandId: old.brandId,
     scheduledStart: startsAt,
     scheduledEnd: endsAt,
     rescheduledFrom: old.id,

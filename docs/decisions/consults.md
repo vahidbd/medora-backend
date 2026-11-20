@@ -143,3 +143,9 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 Decision: a patient can move or cancel their own scheduled consult online until two hours before it starts, measured by the server. Inside that they contact the clinic (`too_late_to_change`). A cancellation is recorded as `patient_request`. A move goes to an offered time, keeping the same clinician when they're free (CNS19). One fixed limit, no tenant setting until a clinic asks. Patient routes have no agent tool: agents act for the clinic through the staff routes, with the clinic's permissions and audit trail.
 Why: a late change leaves a clinician with an empty slot nobody else can book, so it goes through a person.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### CNS24. A consult remembers the brand it was booked through
+
+Decision: every consult carries the brand it was booked through, one of the tenant's own (enforced by the database), and the consult events carry `brandId`, so its confirmations and reminders come from that brand. Staff and agents name the brand when they book. A patient books through the brand the patient app is on: a first consult only through its program's brand (another brand's program is not found), and a review through whichever of the tenant's brands they're using. A move keeps the brand. The brand's status isn't checked: a paused brand still looks after its patients, and stopping new patients is the intake's and the brand's job.
+Why: a patient can use more than one of a tenant's brands, so the brand can't be worked out later without guessing, and a message under a brand the patient never used is a privacy problem.
+Decided by: stand-in (Fable 5.2), raised by the support thread, to confirm with Vahid.

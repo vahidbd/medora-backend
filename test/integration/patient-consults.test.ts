@@ -63,7 +63,7 @@ async function answerIntake(c: Clinic, p: Awaited<ReturnType<typeof patient>>, e
   return answered;
 }
 
-const first = (c: Clinic, startsAt: string) => ({ purpose: 'initial', mode: 'video', startsAt, programId: c.programId });
+const first = (c: Clinic, startsAt: string) => ({ purpose: 'initial', mode: 'video', startsAt, brandId: c.brandId, programId: c.programId });
 
 describe('booking for themselves (CNS21)', async () => {
   const c = await clinic();
@@ -108,15 +108,34 @@ describe('booking for themselves (CNS21)', async () => {
 
   it('books a review only after a first consult or review the patient has had, and never a follow-up', async () => {
     const p = await patient(c);
-    const review = { purpose: 'review', mode: 'video', startsAt: tomorrowAt('13:00') };
+    const review = { purpose: 'review', mode: 'video', startsAt: tomorrowAt('13:00'), brandId: c.brandId };
     expect((await p.as('POST', '/patient/consults', review)).json().error.code).toBe('no_earlier_consult');
     const followUp = await bookConsult(c.tenantId, { patientId: p.patientId, clinicianUserId: c.doctor.userId, purpose: 'follow_up' });
     await completeConsult(followUp);
     expect((await p.as('POST', '/patient/consults', review)).json().error.code).toBe('no_earlier_consult');
-    const earlier = await bookConsult(c.tenantId, { patientId: p.patientId, clinicianUserId: c.doctor.userId });
+    const earlier = await bookConsult(c.tenantId, { patientId: p.patientId, clinicianUserId: c.doctor.userId, brandId: c.brandId });
     await completeConsult(earlier);
     expect((await p.as('POST', '/patient/consults', review)).statusCode).toBe(201);
     expect((await p.as('POST', '/patient/consults', { ...review, purpose: 'follow_up' })).statusCode).toBe(400);
+  });
+});
+
+describe('the brand they book through (CNS24)', async () => {
+  const c = await clinic();
+
+  it('books a review through the brand the app is on, and a first consult only through its program’s brand', async () => {
+    const p = await patient(c);
+    const other = (await createBrand(c.tenantId, { status: 'live' })).brandId;
+    const earlier = await bookConsult(c.tenantId, { patientId: p.patientId, clinicianUserId: c.doctor.userId, brandId: c.brandId });
+    await completeConsult(earlier);
+    const review = await p.as('POST', '/patient/consults', { purpose: 'review', mode: 'video', startsAt: tomorrowAt('14:00'), brandId: other });
+    expect(review.statusCode).toBe(201);
+    const stored = await admin.query('select brand_id from clinical.consults where id = $1', [review.json().consultId]);
+    expect(stored.rows[0].brand_id).toBe(other);
+
+    const q = await patient(c);
+    await answerIntake(c, q, false);
+    expect((await q.as('POST', '/patient/consults', { ...first(c, tomorrowAt('14:00')), brandId: other })).statusCode).toBe(404);
   });
 });
 
@@ -130,7 +149,7 @@ describe('seeing and changing their consults (CNS22, CNS23)', async () => {
     await completeConsult(past);
     const theirs = await bookConsult(c.tenantId, { patientId: someoneElse.patientId, clinicianUserId: c.doctor.userId, startsAt: new Date(tomorrowAt('16:00')) });
     const soon = new Date(Math.ceil((Date.now() + 60 * 60_000) / QUARTER) * QUARTER).toISOString();
-    const { consultId: near } = (await staff('POST', '/consults', c.desk.email, c.tenantId, { patientId: p.patientId, clinicianUserId: c.doctor.userId, mode: 'video', purpose: 'review', startsAt: soon })).json();
+    const { consultId: near } = (await staff('POST', '/consults', c.desk.email, c.tenantId, { patientId: p.patientId, brandId: c.brandId, clinicianUserId: c.doctor.userId, mode: 'video', purpose: 'review', startsAt: soon })).json();
 
     const listed = (await p.as('GET', '/patient/consults')).json().consults;
     expect(listed.map((x: { consultId: string; status: string; canChange: boolean }) => [x.consultId, x.status, x.canChange])).toEqual([
@@ -142,7 +161,7 @@ describe('seeing and changing their consults (CNS22, CNS23)', async () => {
     expect((await p.as('POST', `/patient/consults/${theirs}/reschedule`, { startsAt: tomorrowAt('17:00') })).statusCode).toBe(404);
 
     await staff('POST', `/consults/${near}/cancel`, c.desk.email, c.tenantId, { reason: 'other' });
-    const { consultId } = (await p.as('POST', '/patient/consults', { purpose: 'review', mode: 'video', startsAt: tomorrowAt('09:00') })).json();
+    const { consultId } = (await p.as('POST', '/patient/consults', { purpose: 'review', mode: 'video', startsAt: tomorrowAt('09:00'), brandId: c.brandId })).json();
     const moved = await p.as('POST', `/patient/consults/${consultId}/reschedule`, { startsAt: tomorrowAt('09:30') });
     expect(moved.statusCode).toBe(201);
     expect(moved.json()).toMatchObject({ startsAt: tomorrowAt('09:30'), status: 'scheduled', canChange: true });

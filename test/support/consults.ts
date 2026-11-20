@@ -3,7 +3,7 @@ import { SignJWT } from 'jose';
 import type { App } from '../../src/app.js';
 import type { ConsultMode, ConsultPurpose } from '../../src/db/schema/values.js';
 import { consultRoomName, participantIdentity, type Participant } from '../../src/modules/consults/index.js';
-import { addMember, admin, createUser } from './db.js';
+import { addMember, admin, createBrand, createUser } from './db.js';
 
 /**
  * Patients, prescribers and consults for tests (docs/decisions/consults.md).
@@ -13,12 +13,33 @@ import { addMember, admin, createUser } from './db.js';
  * Build the app (testApp) before calling these.
  */
 
+const brands = new Map<string, Promise<string>>();
+const brandOfPatient = new Map<string, string>();
+
+/** A brand for the tenant's consults (CNS24), made once per tenant. */
+export function consultBrand(tenantId: string): Promise<string> {
+  let brand = brands.get(tenantId);
+  if (!brand) {
+    brand = createBrand(tenantId).then((made) => made.brandId);
+    brands.set(tenantId, brand);
+  }
+  return brand;
+}
+
+/** The brand a patient made here is booked through. */
+export function brandOf(patientId: string): string {
+  const brandId = brandOfPatient.get(patientId);
+  if (!brandId) throw new Error('Make the patient with createPatient first');
+  return brandId;
+}
+
 export async function createPatient(tenantId: string, options: { dateOfBirth?: string; mobile?: string } = {}): Promise<string> {
   const { rows } = await admin.query<{ id: string }>(
     `insert into clinical.patients (tenant_id, given_name, family_name, date_of_birth, sex) values ($1, 'Sam', 'Example', $2, 'not_stated') returning id`,
     [tenantId, options.dateOfBirth ?? '1988-03-14'],
   );
   const patientId = rows[0]!.id;
+  brandOfPatient.set(patientId, await consultBrand(tenantId));
   if (options.mobile) {
     await admin.query(`insert into clinical.patient_contacts (tenant_id, patient_id, kind, value) values ($1, $2, 'mobile', $3)`, [tenantId, patientId, options.mobile]);
   }
@@ -94,14 +115,14 @@ let nextSlot = 0;
  */
 export async function bookConsult(
   tenantId: string,
-  input: { patientId: string; clinicianUserId: string; mode?: ConsultMode; purpose?: ConsultPurpose; startsAt?: Date; minutes?: number },
+  input: { patientId: string; clinicianUserId: string; brandId?: string; mode?: ConsultMode; purpose?: ConsultPurpose; startsAt?: Date; minutes?: number },
 ): Promise<string> {
   const startsAt = input.startsAt ?? new Date(SLOT_BASE + nextSlot++ * 15 * 60_000);
   const endsAt = new Date(startsAt.getTime() + (input.minutes ?? 15) * 60_000);
   const { rows } = await admin.query<{ id: string }>(
-    `insert into clinical.consults (tenant_id, patient_id, clinician_user_id, mode, purpose, scheduled_start, scheduled_end)
-     values ($1, $2, $3, $4, $5, $6, $7) returning id`,
-    [tenantId, input.patientId, input.clinicianUserId, input.mode ?? 'video', input.purpose ?? 'initial', startsAt, endsAt],
+    `insert into clinical.consults (tenant_id, patient_id, clinician_user_id, brand_id, mode, purpose, scheduled_start, scheduled_end)
+     values ($1, $2, $3, $4, $5, $6, $7, $8) returning id`,
+    [tenantId, input.patientId, input.clinicianUserId, input.brandId ?? (await consultBrand(tenantId)), input.mode ?? 'video', input.purpose ?? 'initial', startsAt, endsAt],
   );
   return rows[0]!.id;
 }

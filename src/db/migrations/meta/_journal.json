@@ -71,6 +71,13 @@
       "when": 1795192468052,
       "tag": "0009_consult_booking",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795192968677,
+      "tag": "0010_consult_brand",
+      "breakpoints": true
     }
   ]
 }

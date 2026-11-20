@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { closeDatabase } from '../../src/db/health.js';
 import { addDays, instantAt, localDate } from '../../src/lib/time.js';
 import { headers, signIn, testApp } from '../support/app.js';
-import { bookConsult, completeConsult, createPatient, createPrescriber, giveCareConsents, giveHours } from '../support/consults.js';
+import { bookConsult, brandOf, completeConsult, consultBrand, createPatient, createPrescriber, giveCareConsents, giveHours } from '../support/consults.js';
 import { addMember, admin, createTenant, createUser } from '../support/db.js';
 
 /** Times without a clinician named, and who takes them (docs/decisions/consults.md CNS18 to CNS20). Made-up people only. */
@@ -42,7 +42,7 @@ async function clinic() {
   return { tenantId, desk, first: doctors[0]!, second: doctors[1]!, patient };
 }
 
-const unnamed = (patientId: string, startsAt: Date, extra: object = {}) => ({ patientId, mode: 'video', purpose: 'initial', startsAt: startsAt.toISOString(), ...extra });
+const unnamed = (patientId: string, startsAt: Date, extra: object = {}) => ({ patientId, brandId: brandOf(patientId), mode: 'video', purpose: 'initial', startsAt: startsAt.toISOString(), ...extra });
 
 describe('times without a clinician (CNS18)', () => {
   it('offers every eligible clinician’s free slots together, in the tenant’s zone, and only prescribers for a first consult', async () => {
@@ -136,5 +136,24 @@ describe('naming the patient on a change (CNS20)', () => {
     expect(moved.statusCode).toBe(201);
     const cancelled = await call(desk.email, tenantId, 'POST', `/consults/${moved.json().consultId}/cancel`, { reason: 'other', patientId });
     expect(cancelled.json().status).toBe('cancelled');
+  });
+});
+
+describe('the brand it was booked through (CNS24)', () => {
+  it('keeps the named brand through a move, says it in the events, and refuses another tenant’s brand', async () => {
+    const { tenantId, desk, first, patient } = await clinic();
+    const patientId = await patient();
+    const elsewhere = await createTenant();
+    const foreign = await call(desk.email, tenantId, 'POST', '/consults', unnamed(patientId, tomorrowAt('16:00'), { brandId: await consultBrand(elsewhere) }));
+    expect(foreign.statusCode).toBe(404);
+    const booked = await call(desk.email, tenantId, 'POST', '/consults', unnamed(patientId, tomorrowAt('16:00'), { clinicianUserId: first.userId }));
+    expect(booked.json().brandId).toBe(brandOf(patientId));
+    const moved = await call(desk.email, tenantId, 'POST', `/consults/${booked.json().consultId}/reschedule`, { startsAt: tomorrowAt('16:30').toISOString() });
+    expect(moved.json().brandId).toBe(brandOf(patientId));
+    const events = await admin.query("select type, payload->>'brandId' as brand from platform.outbox where tenant_id = $1 and type like 'consult.%' order by id", [tenantId]);
+    expect(events.rows).toEqual([
+      { type: 'consult.booked', brand: brandOf(patientId) },
+      { type: 'consult.rescheduled', brand: brandOf(patientId) },
+    ]);
   });
 });
