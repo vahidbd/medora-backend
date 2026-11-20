@@ -30,6 +30,6 @@ Prefixes are unique across both repos, so this table lists both.
 | CON | `console.md` | `medora-front` | The staff console: sign-in gate, tenant switch, shell, page security, preview mode |
 | ENC | `field-encryption.md` | `medora-backend` | Sealing sensitive fields with each tenant's own key |
 | IDN | `patients.md` | `medora-backend` | Patients, patient sign-in, identity and consent |
-| PA | `patient-app.md` | `medora-front` | The patient app: brand hosts, patient sign-in screens, the signed-in frame, Home and Account |
+| APP | `patient-app.md` | `medora-front` | The patient app: brand hosts, patient sign-in screens, the signed-in frame, Home and Account |
 
 Add a row in both repos when you add a file. A prefix is two to four capital letters and is never reused.
