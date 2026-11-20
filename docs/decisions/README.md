@@ -35,5 +35,7 @@ Prefixes are unique across both repos, so this table lists both.
 | GOV | `governance.md` | both | Clinical governance: incidents, complaints, deadlines, retention, masking |
 | ENC | `field-encryption.md` | `medora-backend` | Sealing sensitive fields with each tenant's own key |
 | IDN | `patients.md` | `medora-backend` | Patients, patient sign-in, identity and consent |
+| JOB | `jobs.md` | `medora-backend` | The worker service: scheduled jobs, leases, outbox delivery |
+| BIL | `billing.md` | `medora-backend` and `medora-front` | Billing and payments: payment accounts, the ledger, subscriptions, invoices, refunds |
 
 Add a row in both repos when you add a file. A prefix is two to four capital letters and is never reused.
