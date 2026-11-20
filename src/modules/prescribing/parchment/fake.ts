@@ -7,8 +7,6 @@ import { ParchmentFailure, type ParchmentClient, type ParchmentPatientDetails, t
  * what was sent, and make the next call fail.
  */
 export class FakeParchment implements ParchmentClient {
-  /** The secret the fake's webhooks are signed with, in development and tests only. */
-  readonly webhookSecret = 'fake-parchment-webhook-secret-for-tests';
   readonly patients = new Map<string, ParchmentPatientDetails>();
   readonly users: ParchmentUser[] = [];
   readonly calls: string[] = [];

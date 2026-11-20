@@ -1,4 +1,4 @@
-import { env, isDeployed } from '../../../config/env.js';
+import { env } from '../../../config/env.js';
 import { parseParchmentOrganizations, type ParchmentOrganization } from '../../../config/parchment.js';
 import { BusinessRuleError } from '../../../lib/errors.js';
 import { liveParchment } from './client.js';
@@ -45,15 +45,4 @@ export function requireParchment(tenantId: string): ParchmentConnection {
   const connection = parchmentConnection(tenantId);
   if (!connection) throw new BusinessRuleError("Prescribing isn't set up for this clinic yet. Ask an owner to connect Parchment.", 'prescribing_not_set_up');
   return connection;
-}
-
-/**
- * The secret a tenant's Parchment webhooks are signed with, or null when
- * none is accepted. The fake's secret works only in development and tests.
- */
-export function webhookSecretOf(tenantId: string): string | null {
-  const org = organizationOf(tenantId);
-  if (org) return org.webhookSecret;
-  if (env.PARCHMENT_MODE === 'fake' && !isDeployed) return fakeParchment.webhookSecret;
-  return null;
 }
