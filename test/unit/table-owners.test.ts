@@ -20,6 +20,13 @@ const OWNERS: Record<string, string[]> = {
   'platform.audit_log': ['src/lib/audit.ts'],
   'platform.outbox': ['src/lib/events.ts'],
   'platform.rate_limit_counters': ['src/lib/rate-limit.ts'],
+  // AI agents (docs/decisions/agents.md AGT3): written only by the agents module.
+  'platform.agent_settings': ['src/modules/agents/'],
+  'platform.agent_tenant_settings': ['src/modules/agents/'],
+  'platform.agent_runs': ['src/modules/agents/'],
+  'clinical.agent_conversations': ['src/modules/agents/'],
+  'clinical.agent_messages': ['src/modules/agents/'],
+  'clinical.agent_proposals': ['src/modules/agents/'],
 };
 
 /** Made-up local data only (src/db/seed.ts refuses anything but development). */

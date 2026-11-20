@@ -17,8 +17,10 @@ export interface AuditEntry {
   details?: Record<string, string | number | boolean | null>;
 }
 
+/** An agent's entries also say which run it was and who approved the change (AGT2). */
 export async function audit(tx: TenantTx, entry: AuditEntry): Promise<void> {
   const { actor, tenantId, requestId } = tx.context;
+  const details = actor.type === 'agent' ? { ...entry.details, agentRunId: actor.runId, approvedBy: actor.approvedBy } : (entry.details ?? {});
   await tx.db.insert(auditLog).values({
     tenantId,
     actorType: actor.type,
@@ -28,6 +30,6 @@ export async function audit(tx: TenantTx, entry: AuditEntry): Promise<void> {
     recordTable: entry.recordTable,
     recordId: entry.recordId,
     requestId,
-    details: entry.details ?? {},
+    details,
   });
 }

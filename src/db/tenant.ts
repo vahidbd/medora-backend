@@ -11,7 +11,11 @@ export type { DbTx } from './client.js';
  * the rest: inside, only this tenant's rows exist.
  */
 
-export type Actor = { type: 'person'; userId: string } | { type: 'agent'; agentId: string } | { type: 'system' };
+export type Actor =
+  | { type: 'person'; userId: string }
+  /** An agent's settings row, the run it is doing, and who approved the change, if a person did (AGT2). */
+  | { type: 'agent'; agentId: string; runId: string; approvedBy: string | null }
+  | { type: 'system' };
 
 export interface TenantContext {
   tenantId: string;

@@ -103,7 +103,7 @@ describe('invitations (ADM5)', () => {
   it('refuses an agent, even inside the service (ADM4)', async () => {
     const { tenantId } = await tenantWith('owner');
     await expect(
-      withTenant({ tenantId, actor: { type: 'agent', agentId: crypto.randomUUID() }, requestId: 'test' }, (tx) =>
+      withTenant({ tenantId, actor: { type: 'agent', agentId: crypto.randomUUID(), runId: crypto.randomUUID(), approvedBy: null }, requestId: 'test' }, (tx) =>
         inviteStaff(tx, { email: 'z@example.test', role: 'support' }),
       ),
     ).rejects.toMatchObject({ code: 'person_only' });
@@ -189,8 +189,8 @@ describe('sign-in history (ADM6)', () => {
 });
 
 describe('break-glass (ADM3)', () => {
-  it('is not needed while no role holds a clinical permission it cannot use', async () => {
-    const { tenantId, members } = await tenantWith('owner');
+  it('is not needed by a role that holds no clinical permission', async () => {
+    const { tenantId, members } = await tenantWith('support');
     const reply = await call('POST', '/v1/break-glass', members[0]!.email, tenantId, { reason: 'Checking a reported incident' });
     expect(reply.json().error.code).toBe('break_glass_not_needed');
   });

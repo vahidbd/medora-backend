@@ -9,6 +9,7 @@ import { postgresError } from './lib/database-errors.js';
 import { REDACT_PATHS, maskText, safeErrorMessage } from './lib/redact.js';
 import { createResponseSerializer } from './lib/response-schema.js';
 import { registerModules } from './modules/index.js';
+import { agentToolsPlugin } from './plugins/agent-tools.js';
 import { authPlugin } from './plugins/auth.js';
 import { clientIpPlugin } from './plugins/client-ip.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
@@ -59,6 +60,7 @@ export async function buildApp(): Promise<App> {
   app.setSerializerCompiler(createResponseSerializer({ strict: isTest, log: app.log }));
 
   await app.register(routeRulesPlugin);
+  await app.register(agentToolsPlugin);
   await app.register(securityHeadersPlugin);
   await app.register(clientIpPlugin);
   await app.register(errorHandlerPlugin);

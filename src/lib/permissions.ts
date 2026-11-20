@@ -11,7 +11,7 @@ import { BusinessRuleError, ForbiddenError } from './errors.js';
  * ROLE_PERMISSIONS that should hold it. The owner holds every key without
  * being listed. Code checks permissions, never role keys.
  */
-export const PERMISSIONS = ['staff:read', 'staff:manage', 'roles:manage', 'break_glass:review'] as const;
+export const PERMISSIONS = ['staff:read', 'staff:manage', 'roles:manage', 'break_glass:review', 'agents:read', 'agents:manage', 'agents:transcripts'] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 /**
@@ -24,6 +24,10 @@ export const PERMISSION_ZONES: Record<Permission, DataZone> = {
   'staff:manage': 'platform',
   'roles:manage': 'platform',
   'break_glass:review': 'platform',
+  // AI agents (docs/decisions/agents.md AGT4): run metadata and settings carry no text; transcripts do.
+  'agents:read': 'platform',
+  'agents:manage': 'platform',
+  'agents:transcripts': 'clinical',
 };
 
 const ALL: readonly Permission[] = PERMISSIONS;
@@ -31,15 +35,15 @@ const ALL: readonly Permission[] = PERMISSIONS;
 /** The starting roles' permissions (ADM2). Tenants can't edit these; they copy one into a custom role instead. */
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   owner: ALL,
-  admin: ['staff:read', 'staff:manage', 'roles:manage'],
-  medical_director: ['staff:read', 'break_glass:review'],
-  prescriber: ['staff:read'],
-  clinician: ['staff:read'],
+  admin: ['staff:read', 'staff:manage', 'roles:manage', 'agents:read'],
+  medical_director: ['staff:read', 'break_glass:review', 'agents:read', 'agents:transcripts'],
+  prescriber: ['staff:read', 'agents:transcripts'],
+  clinician: ['staff:read', 'agents:transcripts'],
   support: ['staff:read'],
-  finance: ['staff:read'],
+  finance: ['staff:read', 'agents:read'],
   operations: ['staff:read'],
   marketing: ['staff:read'],
-  compliance: ['staff:read'],
+  compliance: ['staff:read', 'agents:read'],
 };
 
 /** Starting roles that see patients clinically, so their clinical permissions work without break-glass (ADM3). */

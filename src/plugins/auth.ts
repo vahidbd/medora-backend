@@ -5,10 +5,11 @@ import { env } from '../config/env.js';
 import { findSignedInUser, type SignInIdentity, type SignInMembership } from '../db/session.js';
 import type { TenantContext } from '../db/tenant.js';
 import type { MembershipRole } from '../db/schema/values.js';
+import { type AgentClaims, verifyAgentCredential } from '../lib/agent-credential.js';
 import { clerkJwksUrl, parseAuthorizedParties, resolveClerkIssuer } from '../lib/clerk.js';
 import { describeDevice } from '../lib/device.js';
 import { BadRequestError, ForbiddenError, TooManyRequestsError, UnauthorizedError } from '../lib/errors.js';
-import { heldPermissions, isClinicalRole, usablePermissions, type Permission, type RoleGrant } from '../lib/permissions.js';
+import { AGENT_FORBIDDEN_PERMISSIONS, heldPermissions, isClinicalRole, usablePermissions, type Permission, type RoleGrant } from '../lib/permissions.js';
 import { blockedFor, countAttempt, type Limit } from '../lib/rate-limit.js';
 import type { Access } from './route-rules.js';
 
@@ -25,6 +26,10 @@ import type { Access } from './route-rules.js';
  * and be able to use it (clinical permissions need a clinical role or
  * break-glass, ADM3), and the session must have verified a second factor
  * (ADM6).
+ *
+ * An agent calls a route in-process with `Authorization: Agent <credential>`
+ * (docs/decisions/agents.md AGT2). It may call only routes that need a
+ * permission, in the tenant its credential names, holding that permission.
  */
 export const TENANT_HEADER = 'x-medora-tenant';
 
@@ -55,6 +60,8 @@ export interface Auth {
 declare module 'fastify' {
   interface FastifyRequest {
     auth: Auth | null;
+    /** Set instead of `auth` when one of Medora's agents is calling. */
+    agent: AgentClaims | null;
   }
 }
 
@@ -154,12 +161,34 @@ export function grantOf(membership: Pick<SignInMembership, 'role' | 'customRole'
   return { role: membership.role, customPermissions: membership.customRole?.permissions ?? null, customClinical: membership.customRole?.clinical ?? null };
 }
 
+function namedTenant(request: FastifyRequest): string | undefined {
+  const raw = request.headers[TENANT_HEADER];
+  return (Array.isArray(raw) ? raw[0] : raw)?.toLowerCase();
+}
+
+async function authenticateAgent(request: FastifyRequest, access: Exclude<Access, 'public'>, token: string): Promise<void> {
+  if (typeof access === 'string') throw new ForbiddenError('Agents may call only routes that need a permission', 'agent_route');
+  let claims: AgentClaims;
+  try {
+    claims = await verifyAgentCredential(token);
+  } catch {
+    throw new UnauthorizedError('The agent credential is not valid');
+  }
+  if (namedTenant(request) !== claims.tenantId) throw new ForbiddenError("The agent credential is for another tenant", 'not_a_member');
+  if (!claims.permissions.includes(access.permission) || AGENT_FORBIDDEN_PERMISSIONS.has(access.permission)) throw new ForbiddenError();
+  request.agent = claims;
+}
+
 export const authPlugin = fp(async (app: FastifyInstance) => {
   app.decorateRequest('auth', null);
+  app.decorateRequest('agent', null);
 
   app.addHook('onRequest', async (request) => {
     const access: Access | undefined = request.routeOptions.config?.access;
     if (access === undefined || access === 'public') return;
+
+    const header = request.headers.authorization;
+    if (header?.startsWith('Agent ')) return authenticateAgent(request, access, header.slice('Agent '.length));
 
     const identity = await identify(request);
     const user = await findSignedInUser(identity, {
@@ -196,15 +225,24 @@ export const authPlugin = fp(async (app: FastifyInstance) => {
   });
 });
 
-/** The tenant a route that declared a permission is acting in. */
+/** The tenant a route that declared a permission is acting in, for a person. Agents get tenantContextOf only. */
 export function requireTenant(request: FastifyRequest): { auth: Auth; tenant: TenantAccess } {
+  if (request.agent) throw new ForbiddenError('Only a person may do this', 'person_only');
   const auth = request.auth;
   if (!auth?.tenant) throw new BadRequestError(`Choose a tenant first (${TENANT_HEADER})`, 'tenant_required');
   return { auth, tenant: auth.tenant };
 }
 
-/** The tenant scope for withTenant: the tenant this request acts in, and the person acting. */
+/** The tenant scope for withTenant: the tenant this request acts in, and the person or agent acting. */
 export function tenantContextOf(request: FastifyRequest): TenantContext {
+  const agent = request.agent;
+  if (agent) {
+    return {
+      tenantId: agent.tenantId,
+      actor: { type: 'agent', agentId: agent.agentId, runId: agent.runId, approvedBy: agent.approvedBy },
+      requestId: request.id,
+    };
+  }
   const { auth, tenant } = requireTenant(request);
   return { tenantId: tenant.tenantId, actor: { type: 'person', userId: auth.userId }, requestId: request.id };
 }

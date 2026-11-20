@@ -53,6 +53,15 @@ const envSchema = z.object({
   /** A Sentry-compatible server in Australia (ADR 0026). Unset: error tracking is off. */
   SENTRY_DSN: z.preprocess((value) => (value === '' ? undefined : value), z.url().optional()),
 
+  /** The platform switch for every agent (docs/decisions/agents.md AGT5): anything but `true` keeps them all off. */
+  AGENTS_ENABLED: z.enum(['true', 'false']).default('false'),
+  /** bedrock: Claude through Amazon Bedrock. stand-in: a scripted model for development and preview, no network (AGT17). */
+  AGENT_MODEL_CLIENT: z.enum(['bedrock', 'stand-in']).default('stand-in'),
+  /** Bedrock's region: Australian only (ADR 0005). Credentials come from the AWS default chain, in the agents service only. */
+  AGENT_BEDROCK_REGION: z.string().default('ap-southeast-2'),
+  /** Where each agent's recorded eval results are (AGT10). */
+  AGENT_EVAL_RESULTS_DIR: z.string().default('evals/results'),
+
   /** The commit being served. Baked in by the build; RELEASE_SHA or Railway's commit variable override it. */
   RELEASE_SHA: optionalText,
 });
@@ -73,7 +82,7 @@ export function loadEnv(source: NodeJS.ProcessEnv): Env {
     throw new Error(`Invalid environment configuration:\n${details}`);
   }
   const config = parsed.data;
-  const problems = [...authProblems(config), ...(isDeployedService(source) ? deployedProblems(config) : [])];
+  const problems = [...authProblems(config), ...agentProblems(config), ...(isDeployedService(source) ? deployedProblems(config) : [])];
   if (problems.length > 0) {
     throw new Error(`Refusing to start (MEDORA_ENV=${config.MEDORA_ENV}):\n${problems.map((p) => `  ${p}`).join('\n')}`);
   }
@@ -91,6 +100,13 @@ function authProblems(config: Env): string[] {
     problems.push(error instanceof Error ? error.message : String(error));
   }
   return problems;
+}
+
+function agentProblems(config: Env): string[] {
+  if (config.AGENT_MODEL_CLIENT === 'bedrock' && !AUSTRALIAN_REGIONS.has(config.AGENT_BEDROCK_REGION)) {
+    return ['AGENT_BEDROCK_REGION must be an Australian region (ap-southeast-2 or ap-southeast-4)'];
+  }
+  return [];
 }
 
 /**
@@ -119,6 +135,9 @@ export function deployedProblems(config: Env): string[] {
     if (!config[name]) problems.push(`${name} is required`);
   }
   if ((config.FORWARDED_IP_SECRET ?? '').length < 32) problems.push('FORWARDED_IP_SECRET of at least 32 characters is required');
+  if (config.AGENTS_ENABLED === 'true' && config.AGENT_MODEL_CLIENT !== 'bedrock') {
+    problems.push('AGENT_MODEL_CLIENT must be bedrock when AGENTS_ENABLED is true (the stand-in is for development)');
+  }
   if (!/^[0-9a-f]{40}$/.test(config.RELEASE_SHA ?? '')) problems.push('the release commit is unknown (build with scripts/build.mjs, or set RELEASE_SHA)');
   return problems;
 }
