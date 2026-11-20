@@ -77,7 +77,7 @@ const step = (c: Clinic, intakeId: string, token: string, key: string, answers: 
 async function signUp(c: Clinic) {
   const subject = `user_${randomUUID()}`;
   const token = await patientSignIn(subject, { email: `${subject}@example.test` });
-  const reply = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, c.tenantId), payload: { givenName: 'Sam', familyName: 'Sample', dateOfBirth: '1990-05-01', sex: 'not_stated' } });
+  const reply = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, c.tenantId), payload: { brandId: c.brandId, givenName: 'Sam', familyName: 'Sample', dateOfBirth: '1990-05-01', sex: 'not_stated' } });
   expect(reply.statusCode).toBe(201);
   return { token, patientId: reply.json().patientId as string };
 }
