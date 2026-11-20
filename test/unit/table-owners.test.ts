@@ -15,6 +15,8 @@ const OWNERS: Record<string, string[]> = {
   'platform.companies': ['src/modules/brands/'],
   'platform.brands': ['src/modules/brands/'],
   'platform.brand_domains': ['src/modules/brands/'],
+  'operational.products': ['src/modules/catalogue/'],
+  'platform.block_rules': [],
   'platform.users': [],
   'platform.memberships': ['src/modules/staff/'],
   'platform.roles': ['src/modules/staff/'],
