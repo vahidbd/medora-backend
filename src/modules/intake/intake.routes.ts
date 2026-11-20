@@ -8,6 +8,8 @@ import { PATIENT_TENANT_HEADER, patientContextOf, requirePatient } from '../../p
 import { findPatient } from '../patients/index.js';
 import {
   anonymousStartBody,
+  brandParams,
+  brandProgramsReply,
   claimBody,
   claimReply,
   intakeList,
@@ -21,7 +23,7 @@ import {
   stepBody,
   stepParams,
 } from './intake.schemas.js';
-import { claimIntakes, readIntake, saveStep, startAnonymous, startForPatient, startScreen, submitIntake } from './intakes.service.js';
+import { claimIntakes, programsOnBrand, readIntake, saveStep, startAnonymous, startForPatient, startScreen, submitIntake } from './intakes.service.js';
 import { intakeSummary, intakesOf } from './summary.service.js';
 import { settleIntakes } from './upkeep.js';
 
@@ -79,6 +81,15 @@ async function asTokenHolder<T>(request: FastifyRequest, work: (context: TenantC
 }
 
 export const intakeRoutes: FastifyPluginAsyncZod = async (app) => {
+  app.get(
+    '/public/brands/:brandId/programs',
+    {
+      config: { access: 'public' },
+      schema: { tags: ['intakes'], summary: 'The programs a person can start on a brand’s site', params: brandParams, response: { 200: brandProgramsReply } },
+    },
+    async (request) => ({ programs: await withTenant(publicContext(request), (tx) => programsOnBrand(tx, request.params.brandId)) }),
+  );
+
   app.get(
     '/public/programs/:programId/intake-start',
     {
@@ -141,7 +152,7 @@ export const intakeRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/patient/intakes',
     {
-      config: { access: 'patient', audit: ['intake.started'], events: ['intake.started'], agentTool: AGENT_LATER },
+      config: { access: 'patient', audit: ['intake.started', 'patient.read'], events: ['intake.started'], agentTool: AGENT_LATER },
       schema: { tags: ['intakes'], summary: 'Start an intake, or pick up the one in progress for that program', body: patientStartBody, response: { 201: intakeView } },
     },
     async (request, reply) => reply.code(201).send(await withTenant(patientContextOf(request), (tx) => startForPatient(tx, requirePatient(request).patientId, request.body.programId))),
@@ -169,7 +180,7 @@ export const intakeRoutes: FastifyPluginAsyncZod = async (app) => {
   app.put(
     '/patient/intakes/:intakeId/steps/:stepKey',
     {
-      config: { access: 'patient', audit: ['intake.answered', 'intake.ineligible', ...LAPSES], events: ENDED, agentTool: AGENT_LATER },
+      config: { access: 'patient', audit: ['intake.answered', 'intake.ineligible', 'patient.read', ...LAPSES], events: ENDED, agentTool: AGENT_LATER },
       schema: { tags: ['intakes'], summary: 'Answer one step of an intake', params: stepParams, body: stepBody, response: { 200: intakeView } },
     },
     async (request) => {
@@ -182,7 +193,7 @@ export const intakeRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/patient/intakes/:intakeId/submit',
     {
-      config: { access: 'patient', audit: ['intake.submitted', 'intake.ineligible', ...LAPSES], events: ['intake.completed', 'intake.ended'], agentTool: AGENT_LATER },
+      config: { access: 'patient', audit: ['intake.submitted', 'intake.ineligible', 'patient.read', ...LAPSES], events: ['intake.completed', 'intake.ended'], agentTool: AGENT_LATER },
       schema: { tags: ['intakes'], summary: 'Send a finished intake to the prescriber', params: intakeParams, response: { 200: intakeView } },
     },
     async (request) => {

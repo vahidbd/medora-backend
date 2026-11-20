@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { intakes } from '../../db/schema/index.js';
 import type { IntakeEndReason, IntakeStatus } from '../../db/schema/values.js';
 import type { TenantTx } from '../../db/tenant.js';
@@ -68,6 +68,43 @@ export async function programsOfPatient(tx: TenantTx, patientId: string): Promis
   return (await listPrograms(tx))
     .filter((program) => wanted.has(program.programId))
     .map(({ programId, name, measurements, checkInEveryDays }) => ({ programId, name, measurements, checkInEveryDays }));
+}
+
+export interface LatestIntake {
+  intakeId: string;
+  status: 'completed' | 'ineligible';
+  /** When it was sent, or for an ineligible one, when the hard stop ended it. */
+  submittedAt: string;
+}
+
+/**
+ * The patient's newest intake for a program that reached an outcome, sent or
+ * stopped (INT18), for booking a first consult: a later hard stop outranks an
+ * earlier completed intake. Intakes started with another date of birth don't
+ * count (INT17). Whether a person was stopped is clinical, so the read is
+ * audited, found or not.
+ */
+export async function latestIntakeFor(tx: TenantTx, of: { patientId: string; programId: string }): Promise<LatestIntake | null> {
+  const patient = await findPatient(tx, of.patientId);
+  const [row] = patient
+    ? await tx.db
+        .select({ id: intakes.id, status: intakes.status, submittedAt: intakes.submittedAt, endedAt: intakes.endedAt })
+        .from(intakes)
+        .where(
+          and(
+            eq(intakes.tenantId, tx.context.tenantId),
+            eq(intakes.patientId, of.patientId),
+            eq(intakes.programId, of.programId),
+            eq(intakes.dateOfBirth, patient.dateOfBirth),
+            inArray(intakes.status, ['completed', 'ineligible']),
+          ),
+        )
+        .orderBy(desc(sql`coalesce(${intakes.submittedAt}, ${intakes.endedAt})`), desc(intakes.startedAt))
+        .limit(1)
+    : [];
+  await audit(tx, { action: 'intake.outcome_read', zone: 'clinical', recordTable: INTAKES, recordId: of.patientId, details: { programId: of.programId, intakeId: row?.id ?? null } });
+  if (!row) return null;
+  return { intakeId: row.id, status: row.status as LatestIntake['status'], submittedAt: (row.submittedAt ?? row.endedAt)!.toISOString() };
 }
 
 export interface IntakeSummary {

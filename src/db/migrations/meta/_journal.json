@@ -33,22 +33,22 @@
     {
       "idx": 4,
       "version": "7",
-      "when": 1795150954937,
-      "tag": "0004_intake_identity",
+      "when": 1795152182490,
+      "tag": "0004_catalogue",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "7",
-      "when": 1795151120258,
-      "tag": "0005_tracking",
+      "when": 1795192041863,
+      "tag": "0005_intake_identity",
       "breakpoints": true
     },
     {
       "idx": 6,
       "version": "7",
-      "when": 1795151716818,
-      "tag": "0006_notification_preferences",
+      "when": 1795192265877,
+      "tag": "0006_tracking",
       "breakpoints": true
     }
   ]
