@@ -11,4 +11,4 @@ process.env.DATABASE_URL = urlFor(database, { user: 'medora_api', password: TEST
 process.env.TEST_ADMIN_DATABASE_URL = urlFor(database);
 process.env.AUTH_MODE = 'dev';
 process.env.DEV_JWT_SECRET = 'test-only-secret-that-is-at-least-32-characters';
-for (const name of ['DATABASE_MIGRATION_URL', 'RELEASE_SHA', 'SENTRY_DSN', 'FORWARDED_IP_SECRET', 'CLERK_PUBLISHABLE_KEY']) delete process.env[name];
+for (const name of ['DATABASE_MIGRATION_URL', 'RELEASE_SHA', 'SENTRY_DSN', 'FORWARDED_IP_SECRET', 'CLERK_PUBLISHABLE_KEY', 'STRIPE_SECRET_KEY', 'CONSOLE_URL']) delete process.env[name];

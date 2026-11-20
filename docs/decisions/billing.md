@@ -26,7 +26,7 @@ Why: the ledger shows the mistake and its fix (ADR 0016). A partial refund is no
 
 ### BIL5. Columns that will point at another feature's table wait for it, and a test says so
 
-Decision: `patient_id`, `payment_account_id` and `partner_pharmacy_id` on ledger accounts are uuids without a foreign key until those tables merge (patients from intake, payment accounts from billing's next part, partner pharmacies from orders). `FOREIGN_KEYS_OWED` in `test/integration/schema-rules.test.ts` lists each with the table it will reference; the test fails as soon as that table exists, so the foreign key is added in the next migration and the column leaves the list.
+Decision: `patient_id` and `partner_pharmacy_id` on ledger accounts, and `company_id` on payment accounts, are uuids without a foreign key until those tables merge (patients from intake, partner pharmacies from orders, companies from tenant settings). `payment_account_id` got its foreign key, through the tenant, when payment accounts arrived. `FOREIGN_KEYS_OWED` in `test/integration/schema-rules.test.ts` lists each with the table it will reference; the test fails as soon as that table exists, so the foreign key is added in the next migration and the column leaves the list.
 Why: billing is built alongside those features; waiting for them would stall it, and a forgotten foreign key is exactly what ADR 0028 forbids. The tenant id's foreign key and row-level security are real from the start.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 
@@ -40,3 +40,31 @@ Why: the PRD gives finance the money; support works from invoices and payments, 
 Decision: prices are stored GST-inclusive, as the patient sees them. The GST in a taxable line is one eleventh of it, rounded to the nearest cent (`gstIncluded` in `src/lib/money.ts`), worked out per line, so an invoice's GST is the sum of its lines'.
 Why: Australian prices shown to consumers include GST; per-line rounding makes every line's figures add up on the tax invoice.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### BIL8. A tenant connects Stripe on Stripe's own pages, and is charged on its own account
+
+Decision: Stripe through Connect with Standard accounts and direct charges (ADR 0037). Adding a Stripe payment account opens nothing; the first onboarding link opens the tenant's Stripe account (country AU, with Medora's tenant and payment account ids as metadata and nothing else) and sends staff to Stripe's onboarding pages. Coming back lands on `/settings/payment-accounts/<id>?onboarding=returned` in the console, or `?onboarding=expired` when the link ran out, and the console asks the API to refresh. Until Stripe's events are processed, the refresh route (`POST /v1/payment-accounts/:id/refresh`) is how the account's state is read.
+Why: the tenant's business, bank and identity details stay with Stripe, Medora holds no tenant's keys, and patients' money never passes through Medora. Standard accounts give the tenant Stripe's full dashboard for disputes and payouts.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### BIL9. A payment account is setting up, active or closed, and is never deleted
+
+Decision: a new payment account is `setting_up`. It becomes `active` the first time the processor says it can take payments (`charges_enabled`), and stays active if the processor later stops them, with `chargesEnabled` showing the processor's latest word and an event saying it changed. Staff can close an account to new subscriptions (its subscriptions carry on) and reopen it, which returns it to active if it was ever active, or to setting up. There is no delete, for any role: invoices and the ledger point at payment accounts.
+Why: closing instead of removing keeps every past invoice and ledger line pointing at a real account, and a processor pausing payments is an alert for staff, not a change of what the account is.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### BIL10. A processor account is opened once, and a payment account keeps it
+
+Decision: the processor account is opened after the commit that recorded who asked (`payment_account.onboarding_started`), with `payment-account-open:<payment account id>` as the idempotency key, so a second click or a retry gets the same account. Its id is then recorded; once set it never changes (a trigger refuses), and one processor account can belong to only one payment account in all of Medora.
+Why: ADR 0029 (outside calls after commit, with a key). Pointing a payment account at another processor account would send its patients' money somewhere else without anyone choosing that. If the recording fails after Stripe opened the account and more than a day passes before a retry (Stripe keeps keys for 24 hours), a second Stripe account can be opened; the first is left unused with Medora's ids on it, for support to remove.
+
+### BIL11. One default payment account per tenant, and always an active one
+
+Decision: new subscriptions use the payment account their price names, or else the tenant's default (a brand's default can come later). The first payment account to become active is made the default when the tenant has none. Staff move the default by making another active account the default; the default can't be closed until another one is. The database allows one default per tenant and only an active one. Changes lock all the tenant's payment accounts in id order, so two staff choosing different defaults at once leave exactly one.
+Why: a subscription must always resolve to an account that can take payments, and a tenant with one account shouldn't have to choose it twice.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### BIL12. Finance and the owner manage payment accounts; no agent does
+
+Decision: every payment account route needs `payment_accounts:manage`, held by finance and the owner. No agent tool adds, connects, closes or changes one. Each change writes an audit entry and an event (`payment_account.created`, `.connected`, `.processor_state_changed`, `.activated`, `.made_default`, `.renamed`, `.closed`, `.reopened`); asking for an onboarding link is audited too (`payment_account.onboarding_started`), because the link opens the tenant's bank details. Events carry ids and facts only.
+Why: where a tenant's money goes is a person's decision (ADR 0012), and the PRD gives money to finance.

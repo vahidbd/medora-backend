@@ -42,3 +42,13 @@ export async function tenantWith(...roles: Role[]): Promise<{ tenantId: string; 
   }
   return { tenantId, members };
 }
+
+/** A payment account at the fake processor, set up and able to take payments. Its company is made up. */
+export async function createPaymentAccount(tenantId: string): Promise<string> {
+  const { rows } = await admin.query<{ id: string }>(
+    `insert into operational.payment_accounts (tenant_id, processor, company_id, name, status, charges_enabled, activated_at)
+     values ($1, 'stripe', $2, 'Test card account', 'active', true, now()) returning id`,
+    [tenantId, randomUUID()],
+  );
+  return rows[0]!.id;
+}

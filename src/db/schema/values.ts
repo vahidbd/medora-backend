@@ -62,6 +62,18 @@ export const LEDGER_ENTRY_KINDS = [
 ] as const;
 export type LedgerEntryKind = (typeof LEDGER_ENTRY_KINDS)[number];
 
+/** The companies that move card payments for Medora's tenants (ADR 0019). */
+export const PROCESSORS = ['stripe', 'eway'] as const;
+export type Processor = (typeof PROCESSORS)[number];
+
+/**
+ * A payment account's life (docs/decisions/billing.md BIL9): `setting_up`
+ * until the processor first says it can take payments, then `active`.
+ * `closed` takes no new subscriptions; the ones it already has carry on.
+ */
+export const PAYMENT_ACCOUNT_STATUSES = ['setting_up', 'active', 'closed'] as const;
+export type PaymentAccountStatus = (typeof PAYMENT_ACCOUNT_STATUSES)[number];
+
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
   { table: 'platform.memberships', column: 'role', values: ROLES },
@@ -73,4 +85,6 @@ export const CHECKED_VALUES = [
   { table: 'operational.ledger_accounts', column: 'currency', values: CURRENCIES },
   { table: 'operational.ledger_entries', column: 'kind', values: LEDGER_ENTRY_KINDS },
   { table: 'operational.ledger_lines', column: 'fee_kind', values: FEE_KINDS },
+  { table: 'operational.payment_accounts', column: 'processor', values: PROCESSORS },
+  { table: 'operational.payment_accounts', column: 'status', values: PAYMENT_ACCOUNT_STATUSES },
 ] as const;
