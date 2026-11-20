@@ -6,6 +6,7 @@ import { audit } from '../../lib/audit.js';
 import { BadRequestError } from '../../lib/errors.js';
 import { emitEvent } from '../../lib/events.js';
 import type { Measurement, ReadingInput } from './tracking.schemas.js';
+import { recordActivity } from '../adherence/index.js';
 import { recorderOf, recordedByOf } from './recorder.js';
 
 /**
@@ -95,6 +96,8 @@ export async function recordMeasurements(
     await audit(tx, { action: 'measurement.recorded', zone: 'clinical', recordTable: RECORD, recordId: row.id, details: { patientId: input.patientId, kind: row.kind } });
     await emitEvent(tx, { type: 'measurement.recorded', recordTable: RECORD, recordId: row.id, payload: { patientId: input.patientId, kind: row.kind } });
   }
+  // Readings taken together are one action of the patient's (docs/decisions/adherence.md ADH1).
+  await recordActivity(tx, { patientId: input.patientId, kind: 'measurement_recorded', source: { table: RECORD, id: rows[0]!.id } });
   return rows.map(toMeasurement);
 }
 

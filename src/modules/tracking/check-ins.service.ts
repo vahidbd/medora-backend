@@ -4,6 +4,7 @@ import type { MissedDoses } from '../../db/schema/values.js';
 import type { TenantTx } from '../../db/tenant.js';
 import { audit } from '../../lib/audit.js';
 import { emitEvent } from '../../lib/events.js';
+import { recordActivity } from '../adherence/index.js';
 import { checkReadings, measurementsOfCheckIns, recordMeasurements } from './measurements.service.js';
 import { checkStartedOn, reportSideEffect, sideEffectsOfCheckIns } from './side-effects.service.js';
 import type { CheckIn, CheckInInput } from './tracking.schemas.js';
@@ -32,6 +33,7 @@ export async function submitCheckIn(tx: TenantTx, patientId: string, input: Chec
   const facts = { patientId, missedDoses: submitted.missedDoses, feeling: submitted.feeling };
   await audit(tx, { action: 'check_in.submitted', zone: 'clinical', recordTable: RECORD, recordId: submitted.id, details: facts });
   await emitEvent(tx, { type: 'check_in.submitted', recordTable: RECORD, recordId: submitted.id, payload: facts });
+  await recordActivity(tx, { patientId, kind: 'check_in_submitted', source: { table: RECORD, id: submitted.id } });
 
   const readings = input.readings ? await recordMeasurements(tx, { patientId, readings: input.readings, measuredAt: now, checkInId: submitted.id }) : [];
   const sideEffect = input.sideEffect ? await reportSideEffect(tx, { patientId, checkInId: submitted.id, ...input.sideEffect }) : null;

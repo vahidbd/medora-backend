@@ -6,6 +6,7 @@ import { audit } from '../../lib/audit.js';
 import { BadRequestError } from '../../lib/errors.js';
 import { emitEvent } from '../../lib/events.js';
 import { localDate } from '../../lib/time.js';
+import { flagSideEffect, recordActivity } from '../adherence/index.js';
 import { recordedByOf, recorderOf } from './recorder.js';
 import type { SideEffect, SideEffectInput } from './tracking.schemas.js';
 
@@ -13,8 +14,9 @@ import type { SideEffect, SideEffectInput } from './tracking.schemas.js';
  * Side effects (docs/decisions/tracking.md TRK4): the patient's words and how
  * bad it is. A report is clinical text, so it never goes into an audit
  * detail or an event: those carry the id and the severity only. A severe
- * report is the care team's to act on first; `side_effect.reported` tells
- * whoever reacts (the adherence flags, governance's adverse events).
+ * report is the care team's to act on first: its adherence flag is raised in
+ * the same transaction (ADR 0260), and `side_effect.reported` tells whoever
+ * else reacts (governance's adverse events).
  */
 
 const RECORD = 'clinical.side_effects';
@@ -65,6 +67,9 @@ export async function reportSideEffect(tx: TenantTx, input: { patientId: string;
   const facts = { patientId: input.patientId, severity: reported.severity };
   await audit(tx, { action: 'side_effect.reported', zone: 'clinical', recordTable: RECORD, recordId: reported.id, details: facts });
   await emitEvent(tx, { type: 'side_effect.reported', recordTable: RECORD, recordId: reported.id, payload: facts });
+  // Written with the report, so a severe one can't exist without its flag (ADR 0260, docs/decisions/adherence.md ADH4).
+  await flagSideEffect(tx, { patientId: input.patientId, sideEffectId: reported.id, severity: input.severity });
+  await recordActivity(tx, { patientId: input.patientId, kind: 'side_effect_reported', source: { table: RECORD, id: reported.id } });
   return toSideEffect(reported);
 }
 

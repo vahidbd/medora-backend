@@ -222,6 +222,40 @@ export type SideEffectSeverity = (typeof SIDE_EFFECT_SEVERITIES)[number];
 export const MISSED_DOSES = ["none", "some", "most"] as const;
 export type MissedDoses = (typeof MISSED_DOSES)[number];
 
+/**
+ * What a patient did that shows how they are keeping up (docs/decisions/adherence.md
+ * ADH1): the adherence activity stream. Only the patient's own actions.
+ */
+export const ACTIVITY_KINDS = [
+  "app_opened",
+  "measurement_recorded",
+  "side_effect_reported",
+  "check_in_submitted",
+  "message_sent",
+  "order_placed",
+] as const;
+export type ActivityKind = (typeof ACTIVITY_KINDS)[number];
+
+/** What raised an adherence flag (ADH4). A new rule adds its kind here and a migration. */
+export const FLAG_KINDS = ["side_effect_reported"] as const;
+export type FlagKind = (typeof FLAG_KINDS)[number];
+
+/** How soon the care team should look; the same words as a clinician task's urgency. */
+export const FLAG_URGENCIES = ["urgent", "soon", "routine"] as const;
+export type FlagUrgency = (typeof FLAG_URGENCIES)[number];
+
+export const FLAG_STATUSES = ["open", "resolved"] as const;
+export type FlagStatus = (typeof FLAG_STATUSES)[number];
+
+/** What the staff member who resolved a flag did about it (ADH7). */
+export const FLAG_OUTCOMES = [
+  "contacted_patient",
+  "booked_review",
+  "referred_to_prescriber",
+  "no_action_needed",
+] as const;
+export type FlagOutcome = (typeof FLAG_OUTCOMES)[number];
+
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
   { table: "platform.memberships", column: "role", values: MEMBERSHIP_ROLES },
@@ -320,4 +354,9 @@ export const CHECKED_VALUES = [
     values: RECORDED_BY_TYPES,
   },
   { table: "clinical.check_ins", column: "missed_doses", values: MISSED_DOSES },
+  { table: "clinical.adherence_activity", column: "kind", values: ACTIVITY_KINDS },
+  { table: "clinical.adherence_flags", column: "kind", values: FLAG_KINDS },
+  { table: "clinical.adherence_flags", column: "urgency", values: FLAG_URGENCIES },
+  { table: "clinical.adherence_flags", column: "status", values: FLAG_STATUSES },
+  { table: "clinical.adherence_flags", column: "outcome", values: FLAG_OUTCOMES },
 ] as const;

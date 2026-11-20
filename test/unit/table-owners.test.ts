@@ -38,6 +38,8 @@ const OWNERS: Record<string, string[]> = {
   'clinical.measurements': ['src/modules/tracking/'],
   'clinical.side_effects': ['src/modules/tracking/'],
   'clinical.check_ins': ['src/modules/tracking/'],
+  'clinical.adherence_activity': ['src/modules/adherence/'],
+  'clinical.adherence_flags': ['src/modules/adherence/'],
 };
 
 /** Made-up local data only (src/db/seed.ts refuses anything but development). */

@@ -9763,6 +9763,36 @@
           }
         }
       }
+    },
+    "/v1/patient/activity/app-opened": {
+      "post": {
+        "summary": "The signed-in patient opened their app: counted once on each of their calendar days",
+        "tags": [
+          "adherence"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "openedOn": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    }
+                  },
+                  "required": [
+                    "openedOn"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "security": [

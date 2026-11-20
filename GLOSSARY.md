@@ -53,6 +53,8 @@ One word per thing (ADR 0032). Use these words in table names, API fields, route
 | A reading of the body, by the patient or their care team (weight, waist, blood pressure) | **Measurement** | metric, vital, observation, reading (in code) |
 | Something unwanted a patient reports while on treatment | **Side effect** | symptom, adverse reaction (unless it is reported as an adverse event) |
 | A patient's short answer, between consults, to how their care is going | **Check-in** | survey, review form, questionnaire |
+| What a patient did that shows how they keep up: opened the app, recorded readings, checked in | **Activity** (the adherence activity stream) | event, engagement, log |
+| A risk a rule spotted for the care team to look at and resolve, such as a severe side effect | **Adherence flag** (never "flag" alone) | alert, risk, warning, red flag, flag |
 
 ## Platform
 

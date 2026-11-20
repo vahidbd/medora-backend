@@ -43,6 +43,13 @@
       "when": 1795151120258,
       "tag": "0005_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795152376651,
+      "tag": "0006_adherence",
+      "breakpoints": true
     }
   ]
 }
