@@ -18,6 +18,12 @@ const production: NodeJS.ProcessEnv = {
   S3_SECRET_ACCESS_KEY: 'key',
   FORWARDED_IP_SECRET: 'a'.repeat(40),
   RELEASE_SHA: '0123456789abcdef0123456789abcdef01234567',
+  PUBLIC_API_URL: 'https://api.example.com.au',
+  TELEPHONY: 'twilio',
+  TWILIO_ACCOUNT_SID: 'ACtest',
+  TWILIO_API_KEY_SID: 'SKtest',
+  TWILIO_API_KEY_SECRET: 'secret',
+  TWILIO_AUTH_TOKEN: 'token',
 };
 
 function refusal(source: NodeJS.ProcessEnv): string {
@@ -43,6 +49,10 @@ describe('production and staging refuse unsafe settings', () => {
     ['storage outside Australia', { S3_REGION: 'us-east-1' }, 'Australian region'],
     ['no client address secret', { FORWARDED_IP_SECRET: undefined }, 'FORWARDED_IP_SECRET'],
     ['an unknown release', { RELEASE_SHA: undefined }, 'release commit is unknown'],
+    ['fake telephony', { TELEPHONY: 'fake' }, 'TELEPHONY must be twilio'],
+    ["Twilio outside Australia", { TWILIO_REGION: 'us1' }, 'TWILIO_REGION must be au1'],
+    ['callbacks over plain http', { PUBLIC_API_URL: 'http://api.example.com.au' }, 'PUBLIC_API_URL must be https'],
+    ['Twilio without its signing token', { TWILIO_AUTH_TOKEN: undefined }, 'TWILIO_AUTH_TOKEN is required'],
   ])('refuses %s', (_name, change, message) => {
     expect(refusal({ ...production, ...change })).toContain(message);
   });
