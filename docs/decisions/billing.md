@@ -26,7 +26,7 @@ Why: the ledger shows the mistake and its fix (ADR 0016). A partial refund is no
 
 ### BIL5. Columns that will point at another feature's table wait for it, and a test says so
 
-Decision: `patient_id` and `partner_pharmacy_id` on ledger accounts, and `company_id` on payment accounts, are uuids without a foreign key until those tables merge (patients from intake, partner pharmacies from orders, companies from tenant settings). `payment_account_id` got its foreign key, through the tenant, when payment accounts arrived. `FOREIGN_KEYS_OWED` in `test/integration/schema-rules.test.ts` lists each with the table it will reference; the test fails as soon as that table exists, so the foreign key is added in the next migration and the column leaves the list.
+Decision: `patient_id` and `partner_pharmacy_id` on ledger accounts, `company_id` on payment accounts, `program_id` on prices and `product_id` on price fees are uuids without a foreign key until those tables merge (patients and programs from intake, partner pharmacies from orders, companies and products from tenant settings and the catalogue). `payment_account_id` got its foreign key, through the tenant, when payment accounts arrived. `FOREIGN_KEYS_OWED` in `test/integration/schema-rules.test.ts` lists each with the table it will reference; the test fails as soon as that table exists, so the foreign key is added in the next migration and the column leaves the list.
 Why: billing is built alongside those features; waiting for them would stall it, and a forgotten foreign key is exactly what ADR 0028 forbids. The tenant id's foreign key and row-level security are real from the start.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 
@@ -68,3 +68,32 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 
 Decision: every payment account route needs `payment_accounts:manage`, held by finance and the owner. No agent tool adds, connects, closes or changes one. Each change writes an audit entry and an event (`payment_account.created`, `.connected`, `.processor_state_changed`, `.activated`, `.made_default`, `.renamed`, `.closed`, `.reopened`); asking for an onboarding link is audited too (`payment_account.onboarding_started`), because the link opens the tenant's bank details. Events carry ids and facts only.
 Why: where a tenant's money goes is a person's decision (ADR 0012), and the PRD gives money to finance.
+
+### BIL13. A price belongs to one program and lists its fees
+
+Decision: a price names its program, its billing model (bundled or pharmacy-billed, ADR 0021), how often it charges, optionally a payment account (BIL11), and its fees: at most one each of consult, program and shipping, and, when bundled, one medicine fee per catalogue product with the pharmacy's share of it. A pharmacy-billed price has no medicine fees (the database refuses one). The medicine fee charged in a period is the one for the product on the patient's current script; when the script's product has no medicine fee on the price, no invoice is made and staff are told, and billing never falls back to another fee. A consult fee is charged once, as its own invoice at checkout, not every period.
+Why: the smallest shape that covers both billing models, and a wrong medicine charge is worse than a late one.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### BIL14. A live price never changes; a change is a new version
+
+Decision: a price is a draft until published, and only a draft can be edited. Revising a live price makes a draft copy one version on (`replaces_price_id`); publishing it makes it live and retires the version it replaces, in one transaction. A price is revised at most once, so versions form a single line. The database refuses any change to a published price or its fees other than retiring it, and prices are never deleted. A subscription keeps the version it started on; moving existing subscribers to a new version will be an explicit staff action taking effect from the first billing period at least 30 days after a notice the system sent and recorded, and a decrease can apply from the next period.
+Why: past invoices stay explainable, and consumer law notice of a price rise must be provable.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### BIL15. A price charges every 1 to 52 weeks, or every 1 to 12 months
+
+Decision: the interval is whole weeks (1 to 52) or whole months (1 to 12). Billing period dates are worked out in the patient's time zone (ADR 0017); a monthly subscription keeps its anchor day, so one started on the 31st renews on 28 February and then 31 March. Retiring a price stops new subscriptions on it; the ones it has carry on.
+Why: patients get a predictable date that doesn't drift earlier month by month.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### BIL16. Each fee has a GST treatment, defaulted and then confirmed
+
+Decision: every fee is `taxable` or `gst_free`. Left out, consults and medicine default to GST-free, program fees to taxable, and shipping follows the medicine it carries (GST-free on a price with a medicine fee, taxable otherwise). Publishing needs `gstTreatmentsConfirmed: true`, the tenant's word that it checked each one. Invoice lines will copy the treatment and the GST, so a later change applies to new invoices only. The defaults are for the tenant's accountant to confirm before the first patient.
+Why: GST depends on the tenant's services, so Medora suggests and the tenant decides; replies show the GST in each fee (`gstCents`, BIL7) so the decision is visible.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### BIL17. Finance and the owner manage prices; no agent does
+
+Decision: every price route needs `prices:manage`, held by finance and the owner. No agent tool creates, publishes or retires a price. Creating, publishing and retiring write an audit entry and an event (`price.created`, `price.published`, `price.retired`); editing a draft is audited but emits nothing, as nobody outside the staff editing it sees a draft.
+Why: what patients are charged is a person's decision (ADR 0012), and the PRD gives money to finance.
