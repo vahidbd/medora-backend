@@ -32,8 +32,8 @@ Prefixes are unique across both repos, so this table lists both.
 | CAT | `catalogue.md` | both | Product catalogue and blocked items |
 | GOV | `governance.md` | both | Clinical governance: incidents, complaints, deadlines, retention, masking |
 | ENC | `field-encryption.md` | `medora-backend` | Sealing sensitive fields with each tenant's own key |
-| IDN | `patients.md` | `medora-backend` | Patients, patient sign-in, identity and consent |
-| INT | `intake.md` | `medora-backend` | Protocols, sign-off, programs and intakes |
+| IDN | `patients.md` | both | Patients, patient sign-in, identity and consent |
+| INT | `intake.md` | both | Protocols, sign-off, programs and intakes |
 | APP | `patient-app.md` | `medora-front` | The patient app: brand hosts, patient sign-in screens, the signed-in frame, Home, Progress, check-ins and Account |
 | TRK | `tracking.md` | `medora-backend` | Measurements, side effects and check-ins a patient records |
 | ADH | `adherence.md` | both | The adherence activity stream and adherence flags |

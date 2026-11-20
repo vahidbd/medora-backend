@@ -43,16 +43,26 @@ CREATE TABLE "clinical"."side_effects" (
 	CONSTRAINT "side_effects_description_check" CHECK (length(trim("clinical"."side_effects"."description")) between 1 and 2000)
 );
 --> statement-breakpoint
+CREATE TABLE "operational"."notification_preferences" (
+	"tenant_id" uuid NOT NULL,
+	"patient_id" uuid NOT NULL,
+	"sms" boolean DEFAULT true NOT NULL,
+	"reminders" boolean DEFAULT true NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "notification_preferences_pkey" PRIMARY KEY("tenant_id","patient_id")
+);
+--> statement-breakpoint
 ALTER TABLE "clinical"."check_ins" ADD CONSTRAINT "check_ins_patient_fk" FOREIGN KEY ("tenant_id","patient_id") REFERENCES "clinical"."patients"("tenant_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clinical"."measurements" ADD CONSTRAINT "measurements_patient_fk" FOREIGN KEY ("tenant_id","patient_id") REFERENCES "clinical"."patients"("tenant_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clinical"."measurements" ADD CONSTRAINT "measurements_check_in_fk" FOREIGN KEY ("tenant_id","check_in_id") REFERENCES "clinical"."check_ins"("tenant_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clinical"."side_effects" ADD CONSTRAINT "side_effects_patient_fk" FOREIGN KEY ("tenant_id","patient_id") REFERENCES "clinical"."patients"("tenant_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clinical"."side_effects" ADD CONSTRAINT "side_effects_check_in_fk" FOREIGN KEY ("tenant_id","check_in_id") REFERENCES "clinical"."check_ins"("tenant_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "operational"."notification_preferences" ADD CONSTRAINT "notification_preferences_patient_fk" FOREIGN KEY ("tenant_id","patient_id") REFERENCES "clinical"."patients"("tenant_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "check_ins_patient_idx" ON "clinical"."check_ins" USING btree ("tenant_id","patient_id","submitted_at");--> statement-breakpoint
 CREATE INDEX "measurements_patient_kind_idx" ON "clinical"."measurements" USING btree ("tenant_id","patient_id","kind","measured_at");--> statement-breakpoint
 CREATE INDEX "measurements_check_in_idx" ON "clinical"."measurements" USING btree ("tenant_id","check_in_id");--> statement-breakpoint
 CREATE INDEX "side_effects_patient_idx" ON "clinical"."side_effects" USING btree ("tenant_id","patient_id","reported_at");--> statement-breakpoint
-CREATE INDEX "side_effects_check_in_idx" ON "clinical"."side_effects" USING btree ("tenant_id","check_in_id");
+CREATE INDEX "side_effects_check_in_idx" ON "clinical"."side_effects" USING btree ("tenant_id","check_in_id");--> statement-breakpoint
 -- Measurements, side effects and check-ins (docs/decisions/tracking.md).
 -- Each table is the tenant's alone (ADR 0006), and its composite keys keep a
 -- row on one tenant's patient. Clinical records are never changed or
@@ -74,5 +84,18 @@ CREATE POLICY tenant_isolation ON clinical.measurements
 ALTER TABLE clinical.side_effects ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
 CREATE POLICY tenant_isolation ON clinical.side_effects
+  USING (tenant_id = medora.current_tenant())
+  WITH CHECK (tenant_id = medora.current_tenant());
+--> statement-breakpoint
+-- How a patient wants to hear from their care (docs/decisions/notifications.md).
+-- The tenant's alone (ADR 0006). The patient changes their own choices, so
+-- the API may read, add and change the two choices, and never delete a row.
+GRANT SELECT, INSERT ON operational.notification_preferences TO medora_app;
+--> statement-breakpoint
+GRANT UPDATE (sms, reminders, updated_at) ON operational.notification_preferences TO medora_app;
+--> statement-breakpoint
+ALTER TABLE operational.notification_preferences ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+CREATE POLICY tenant_isolation ON operational.notification_preferences
   USING (tenant_id = medora.current_tenant())
   WITH CHECK (tenant_id = medora.current_tenant());

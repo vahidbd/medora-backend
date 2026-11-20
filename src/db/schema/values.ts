@@ -152,6 +152,26 @@ export const TIME_ZONES = [
 ] as const;
 export type TimeZone = (typeof TIME_ZONES)[number];
 
+/** What a product is (docs/decisions/catalogue.md CAT1). */
+export const PRODUCT_KINDS = ['medicine', 'device', 'service'] as const;
+export type ProductKind = (typeof PRODUCT_KINDS)[number];
+
+/** The Poisons Standard schedules a medicine Medora sells can carry; null means unscheduled (CAT1). */
+export const SCHEDULES = ['S2', 'S3', 'S4', 'S8'] as const;
+export type Schedule = (typeof SCHEDULES)[number];
+
+/** How a product is kept: it decides how the pharmacy ships it. */
+export const STORAGE = ['room', 'refrigerated'] as const;
+export type Storage = (typeof STORAGE)[number];
+
+/** A product is archived when the tenant stops selling it, never deleted (CAT1). */
+export const PRODUCT_STATUSES = ['active', 'archived'] as const;
+export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
+
+/** What a block rule matches on a product (CAT2). Ingredient classes wait for Medora's own ingredient list. */
+export const BLOCK_RULE_MATCHES = ['schedule', 'artg_number', 'compounded'] as const;
+export type BlockRuleMatch = (typeof BLOCK_RULE_MATCHES)[number];
+
 /** Who wrote a measurement or reported a side effect: the patient, or a staff member for them. */
 export const RECORDED_BY_TYPES = ['patient', 'person'] as const;
 export type RecordedByType = (typeof RECORDED_BY_TYPES)[number];
@@ -226,6 +246,11 @@ export const CHECKED_VALUES = [
   { table: 'platform.tenants', column: 'time_zone', values: TIME_ZONES },
   { table: 'platform.companies', column: 'state', values: AU_STATES },
   { table: 'platform.brands', column: 'status', values: BRAND_STATUSES },
+  { table: 'operational.products', column: 'kind', values: PRODUCT_KINDS },
+  { table: 'operational.products', column: 'schedule', values: SCHEDULES },
+  { table: 'operational.products', column: 'storage', values: STORAGE },
+  { table: 'operational.products', column: 'status', values: PRODUCT_STATUSES },
+  { table: 'platform.block_rules', column: 'match', values: BLOCK_RULE_MATCHES },
   { table: 'clinical.measurements', column: 'kind', values: MEASUREMENT_KINDS },
   { table: 'clinical.measurements', column: 'recorded_by_type', values: RECORDED_BY_TYPES },
   { table: 'clinical.side_effects', column: 'severity', values: SIDE_EFFECT_SEVERITIES },

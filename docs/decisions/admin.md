@@ -1,6 +1,6 @@
 # Admin and staff access
 
-Rulings for staff access, roles, invitations, two-step sign-in, sign-in history and break-glass (ADM1 to ADM8; PRD ADM-03, ADM-06, ADM-07; ADRs 0011, 0012, 0030 and 0220 set the rules), and for a tenant's set-up: platform staff, companies, brands, domains, settings and the onboarding checklist (ADM14 to ADM20; PRD ADM-01, ADM-02, TEN-03, TEN-08; ADRs 0006, 0017 and 0023). The web app's rulings for the same screens are ADM9 to ADM13 and ADM21 onward in its own copy of this file.
+Rulings for staff access, roles, invitations, two-step sign-in, sign-in history and break-glass (ADM1 to ADM8; PRD ADM-03, ADM-06, ADM-07; ADRs 0011, 0012, 0030 and 0220 set the rules), for a tenant's set-up: platform staff, companies, brands, domains, settings and the onboarding checklist (ADM14 to ADM20; PRD ADM-01, ADM-02, TEN-03, TEN-08; ADRs 0006, 0017 and 0023), and for reading and exporting the audit log (ADM25, ADM26; ADR 0008). The web app's rulings for the same screens are ADM9 to ADM13, ADM21 to ADM24 and ADM27 onward in its own copy of this file.
 
 Rulings marked "Decided by: stand-in" were made while the product owner was away, by the model the product owner named to stand in, and are to be confirmed with them.
 
@@ -91,4 +91,16 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid. The owner should confir
 
 Decision: a tenant sets its display name and its time zone, one of Australia's (`TIME_ZONES` in `src/db/schema/values.ts`, checked by the database), with `tenant:manage` (owner and admin). Everyone in the tenant reads them (`GET /v1/tenant`). A change writes `tenant.changed`, with the old and new time zone.
 Why: the time zone decides whose "today" a tenant's dates use (ADR 0017); everything else a tenant configures belongs to the module it configures.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### ADM25. Who reads the audit log, and what it shows
+
+Decision: `audit:read` reads the tenant's audit log (`GET /v1/audit`). The owner, admin, medical director and compliance roles hold it. Entries come newest first, 50 to a page (at most 100), and filter by time, person, action (a prefix: `brand.` finds every brand action), record and data zone. Row-level security keeps it to the tenant's own entries, so Medora's platform-level entries (block rules, tenants created) never show. An entry names the person who acted when they are on the tenant's staff. Its details hold only ids and facts (ADR 0008), so reading the log shows no patient's details and writes no entry of its own. No agent reads it.
+Why: the people answerable for a tenant must be able to check who did what without asking Medora, and the log holds no patient details to protect from them.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid.
+
+### ADM26. Exporting the audit log is recorded and limited
+
+Decision: `POST /v1/audit/exports` returns every entry a filter matches, up to 5,000, and says when more matched. It writes `audit.exported`, with the filter and the count, in the same transaction. Each person may export ten times an hour in each tenant. The web app builds the CSV file in the browser from the reply; no file is stored.
+Why: an export leaves the platform, so who took what must be on record, and the limit stops the log being copied out wholesale.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.
