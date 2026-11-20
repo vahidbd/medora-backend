@@ -43,4 +43,8 @@ await build({
   define: { __MEDORA_RELEASE_SHA__: JSON.stringify(sha) },
 });
 cpSync(`${src}/db/migrations`, `${root}dist/db/migrations`, { recursive: true });
+// Data files beside the code that reads them, such as protocol templates (docs/decisions/intake.md INT10).
+for (const file of readdirSync(src, { recursive: true }).filter((name) => name.endsWith('.json') && !name.startsWith('db/migrations'))) {
+  cpSync(`${src}/${file}`, `${root}dist/${file}`);
+}
 console.log(`Built dist/ for ${sha || 'an unknown commit'}.`);

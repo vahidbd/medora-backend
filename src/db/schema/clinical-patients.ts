@@ -1,8 +1,8 @@
 import { sql } from 'drizzle-orm';
-import { check, date, foreignKey, index, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { check, date, foreignKey, index, smallint, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { oneOf } from './checks.js';
 import { tenants } from './platform.js';
-import { ADDRESS_KINDS, AU_STATES, CONTACT_KINDS, IDENTITY_STATUSES, SEXES } from './values.js';
+import { ADDRESS_KINDS, AU_STATES, CONTACT_KINDS, IDENTITY_STATUSES, IHI_RECORD_STATUSES, IHI_STATUSES, SEXES } from './values.js';
 import { clinical } from './zones.js';
 
 /**
@@ -32,8 +32,16 @@ export const patients = clinical.table(
     /** IANA zone for patient-facing dates; null means the tenant's (ADR 0017). */
     timeZone: text('time_zone'),
     identityStatus: text('identity_status').notNull().default('unverified'),
+    /** Online checks that didn't match since the last success or reopening; three set the status to failed (IDN16). */
+    identityFailures: smallint('identity_failures').notNull().default(0),
     /** Medicare number, IRN and valid-to, sealed together with field encryption (ADR 0010, IDN5). */
     medicare: text('medicare'),
+    /** The Individual Healthcare Identifier, sealed (IDN19); never in events, logs or prompts. */
+    ihi: text('ihi'),
+    ihiStatus: text('ihi_status'),
+    ihiRecordStatus: text('ihi_record_status'),
+    /** When the HI Service last answered for this patient; null with no IHI means never looked up. */
+    ihiCheckedAt: timestamp('ihi_checked_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -43,6 +51,10 @@ export const patients = clinical.table(
     index('patients_tenant_family_name_idx').on(table.tenantId, sql`lower(${table.familyName})`),
     check('patients_sex_check', oneOf(table.sex, SEXES)),
     check('patients_identity_status_check', oneOf(table.identityStatus, IDENTITY_STATUSES)),
+    check('patients_identity_failures_check', sql`${table.identityFailures} between 0 and 3`),
+    check('patients_ihi_status_check', oneOf(table.ihiStatus, IHI_STATUSES)),
+    check('patients_ihi_record_status_check', oneOf(table.ihiRecordStatus, IHI_RECORD_STATUSES)),
+    check('patients_ihi_check', sql`(${table.ihi} is null) = (${table.ihiStatus} is null) and (${table.ihi} is null) = (${table.ihiRecordStatus} is null)`),
     check('patients_names_check', sql`length(trim(${table.givenName})) > 0 and length(trim(${table.familyName})) > 0`),
   ],
 );
