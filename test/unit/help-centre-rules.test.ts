@@ -39,7 +39,7 @@ describe('help centre wording', () => {
     expect(wordingProblems(text)).toEqual(['Links must start with https:// or point to one of your own pages, like /help']);
   });
 
-  it('checks the title and summary as well as the body, once per problem', () => {
-    expect(publishProblems({ title: 'Hi <i>there</i>', summary: 'A <b>summary</b>', body: 'Fine.' })).toEqual(['Remove the HTML: write headings, lists and links in Markdown']);
+  it('checks every public text, naming each problem once', () => {
+    expect(publishProblems(['Hi <i>there</i>', 'A <b>summary</b>', 'Fine.'])).toEqual(['Remove the HTML: write headings, lists and links in Markdown']);
   });
 });

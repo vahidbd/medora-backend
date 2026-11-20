@@ -10349,7 +10349,7 @@
     },
     "/v1/help-centre/articles": {
       "get": {
-        "summary": "Help centre articles, drafts too",
+        "summary": "Published help centre articles; drafts too for support:manage",
         "tags": [
           "help centre"
         ],
@@ -11032,7 +11032,7 @@
         }
       },
       "patch": {
-        "summary": "Move an article, or change its address before it's first published",
+        "summary": "Move an article, or change its slug before it's first published",
         "tags": [
           "help centre"
         ],
@@ -11632,6 +11632,11 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "versionId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
                   "confirm": {
                     "type": "string",
                     "enum": [
@@ -11640,6 +11645,7 @@
                   }
                 },
                 "required": [
+                  "versionId",
                   "confirm"
                 ],
                 "additionalProperties": false
@@ -12668,7 +12674,7 @@
                     "body": {
                       "type": "string"
                     },
-                    "updatedAt": {
+                    "approvedAt": {
                       "type": "string"
                     }
                   },
@@ -12678,7 +12684,7 @@
                     "summary",
                     "section",
                     "body",
-                    "updatedAt"
+                    "approvedAt"
                   ],
                   "additionalProperties": false
                 }

@@ -13,6 +13,7 @@ CREATE TABLE "operational"."help_centre_article_versions" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "help_centre_article_versions_article_id_key" UNIQUE("tenant_id","article_id","id"),
+	CONSTRAINT "help_centre_article_versions_checked_with_check" CHECK ("operational"."help_centre_article_versions"."checked_with" in ('format-1')),
 	CONSTRAINT "help_centre_article_versions_approved_check" CHECK (("operational"."help_centre_article_versions"."approved_at" is null) = ("operational"."help_centre_article_versions"."approved_by_user_id" is null) and ("operational"."help_centre_article_versions"."approved_at" is null) = ("operational"."help_centre_article_versions"."checked_with" is null) and ("operational"."help_centre_article_versions"."approved_at" is null) = ("operational"."help_centre_article_versions"."confirmation" is null))
 );
 --> statement-breakpoint
@@ -146,8 +147,9 @@ CREATE TRIGGER help_centre_article_versions_keep BEFORE UPDATE OR DELETE ON oper
 CREATE TRIGGER help_centre_article_versions_no_truncate BEFORE TRUNCATE ON operational.help_centre_article_versions
   FOR EACH STATEMENT EXECUTE FUNCTION operational.keep_approved_article_versions();
 --> statement-breakpoint
--- Only approved wording goes live (SUP15), whatever code sets the live version.
-CREATE FUNCTION operational.live_version_is_approved() RETURNS trigger
+-- Only approved wording goes live (SUP15), and a published article's slug
+-- stays put (SUP17), whatever code asks.
+CREATE FUNCTION operational.help_centre_article_rules() RETURNS trigger
   LANGUAGE plpgsql
   AS $$
 BEGIN
@@ -158,11 +160,15 @@ BEGIN
     RAISE EXCEPTION 'a help centre article goes live only with approved wording'
       USING ERRCODE = 'check_violation';
   END IF;
+  IF TG_OP = 'UPDATE' AND OLD.live_version_id IS NOT NULL AND NEW.slug <> OLD.slug THEN
+    RAISE EXCEPTION 'a published help centre article keeps its slug'
+      USING ERRCODE = 'check_violation';
+  END IF;
   RETURN NEW;
 END
 $$;
 --> statement-breakpoint
-REVOKE ALL ON FUNCTION operational.live_version_is_approved() FROM PUBLIC;
+REVOKE ALL ON FUNCTION operational.help_centre_article_rules() FROM PUBLIC;
 --> statement-breakpoint
-CREATE TRIGGER help_centre_articles_live_approved BEFORE INSERT OR UPDATE OF live_version_id ON operational.help_centre_articles
-  FOR EACH ROW EXECUTE FUNCTION operational.live_version_is_approved();
+CREATE TRIGGER help_centre_articles_rules BEFORE INSERT OR UPDATE OF live_version_id, slug ON operational.help_centre_articles
+  FOR EACH ROW EXECUTE FUNCTION operational.help_centre_article_rules();

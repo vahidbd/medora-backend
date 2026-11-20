@@ -31,7 +31,7 @@ export const PERMISSIONS = [
   'support:clinical',
   // Write and approve macros (SUP10) and help centre articles (SUP16).
   'support:manage',
-  // Read the help centre's articles, drafts too; agents search the published ones (SUP19).
+  // Read and search the help centre's published articles; drafts need support:manage too (SUP19).
   'help_centre:read',
   // A brand's email addresses and numbers (docs/decisions/messaging.md CRM5).
   'messaging:manage',
@@ -106,7 +106,7 @@ export const AGENT_FORBIDDEN_PERMISSIONS: ReadonlySet<Permission> = new Set<Perm
   'staff:manage',
   'roles:manage',
   'break_glass:review',
-  // Agents never work the clinical queue or edit macros (SUP12), or change where a brand sends from (CRM5).
+  // Agents never work the clinical queue, write macros or help centre articles (SUP12, SUP16), or change where a brand sends from (CRM5).
   'support:clinical',
   'support:manage',
   'messaging:manage',

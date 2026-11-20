@@ -3,6 +3,8 @@ import { afterAll, describe, expect, it } from 'vitest';
 import type { App } from '../../src/app.js';
 import { closeDatabase } from '../../src/db/health.js';
 import { type TenantContext, withTenant } from '../../src/db/tenant.js';
+import { approveDraft } from '../../src/modules/help-centre/articles.service.js';
+import { HELP_CENTRE_LIMIT } from '../../src/modules/help-centre/public.routes.js';
 import { SERVICE_ONLY_CONFIRMATION } from '../../src/modules/help-centre/rules.js';
 import { headers, signIn, testApp } from '../support/app.js';
 import { admin, createBrand, tenantWith } from '../support/db.js';
@@ -44,8 +46,11 @@ async function write(t: Setup, slug: string, body = 'Orders leave within two bus
   return reply.json().articleId as string;
 }
 
-const approve = (t: Setup, articleId: string) =>
-  app.inject({ method: 'POST', url: `/v1/help-centre/articles/${articleId}/draft/approve`, headers: t.mine, payload: { confirm: SERVICE_ONLY_CONFIRMATION } });
+const draftOf = async (t: Setup, articleId: string): Promise<string> =>
+  (await app.inject({ method: 'GET', url: `/v1/help-centre/articles/${articleId}`, headers: t.mine })).json().draft.versionId;
+const approveVersion = (t: Setup, articleId: string, versionId: string) =>
+  app.inject({ method: 'POST', url: `/v1/help-centre/articles/${articleId}/draft/approve`, headers: t.mine, payload: { versionId, confirm: SERVICE_ONLY_CONFIRMATION } });
+const approve = async (t: Setup, articleId: string) => approveVersion(t, articleId, await draftOf(t, articleId));
 const publicPage = (host: string, path = '') => app.inject({ method: 'GET', url: `/v1/public/help-centre/${host}${path}` });
 
 describe('writing and approving (SUP15, SUP16, SUP18)', async () => {
@@ -56,7 +61,12 @@ describe('writing and approving (SUP15, SUP16, SUP18)', async () => {
     expect((await publicPage(t.host)).json().sections).toEqual([]);
     expect((await publicPage(t.host, '/articles/how-delivery-works')).statusCode).toBe(404);
 
-    const unconfirmed = await app.inject({ method: 'POST', url: `/v1/help-centre/articles/${articleId}/draft/approve`, headers: t.mine, payload: {} });
+    const unconfirmed = await app.inject({
+      method: 'POST',
+      url: `/v1/help-centre/articles/${articleId}/draft/approve`,
+      headers: t.mine,
+      payload: { versionId: await draftOf(t, articleId) },
+    });
     expect(unconfirmed.statusCode).toBe(400);
     const approved = await approve(t, articleId);
     expect(approved.statusCode).toBe(200);
@@ -105,9 +115,39 @@ describe('writing and approving (SUP15, SUP16, SUP18)', async () => {
     await expect(run(`update operational.help_centre_article_versions set body = 'changed' where id = '${live.versionId}'`)).rejects.toThrow();
     await expect(run(`delete from operational.help_centre_article_versions where id = '${live.versionId}'`)).rejects.toThrow();
     await expect(run(`update operational.help_centre_articles set live_version_id = '${draftId}' where id = '${articleId}'`)).rejects.toThrow();
+    await expect(run(`update operational.help_centre_articles set slug = 'moved' where id = '${articleId}'`)).rejects.toThrow();
   });
 
-  it("refuses HTML in the wording, and fixes the article's address once published", async () => {
+  it('refuses to approve a draft saved since the approver read it', async () => {
+    const articleId = await write(t, 'read-first');
+    const read = await draftOf(t, articleId);
+    await app.inject({
+      method: 'PUT',
+      url: `/v1/help-centre/articles/${articleId}/draft`,
+      headers: t.mine,
+      payload: { title: 'Read first', summary: 'Changed', body: 'Newer words.' },
+    });
+    const stale = await approveVersion(t, articleId, read);
+    expect(stale.json().error.code).toBe('draft_changed');
+    expect((await approve(t, articleId)).json().live.summary).toBe('Changed');
+    const audit = await admin.query("select action from platform.audit_log where record_id = $1 and action like 'help_centre_article.%' order by id", [articleId]);
+    expect(audit.rows.map((row) => row.action)).toEqual([
+      'help_centre_article.created',
+      'help_centre_article.draft_saved',
+      'help_centre_article.approved',
+      'help_centre_article.published',
+    ]);
+  });
+
+  it('refuses a non-person approving, and a section name the publish check refuses', async () => {
+    const articleId = await write(t, 'people-only');
+    const versionId = await draftOf(t, articleId);
+    await expect(withTenant(system(t.tenantId), (tx) => approveDraft(tx, articleId, versionId))).rejects.toMatchObject({ code: 'person_only' });
+    const section = await app.inject({ method: 'POST', url: '/v1/help-centre/sections', headers: t.mine, payload: { brandId: t.brand.brandId, name: '<b>Orders</b>' } });
+    expect(section.json().error.code).toBe('publish_check_failed');
+  });
+
+  it("refuses HTML in the wording, and fixes the article's slug once published", async () => {
     const html = await app.inject({
       method: 'POST',
       url: '/v1/help-centre/articles',
@@ -162,9 +202,17 @@ describe('the way back out', async () => {
 describe('who does what (SUP16, SUP19)', async () => {
   const t = await setUp();
 
-  it('lets support read and search the help centre, not write it', async () => {
+  it('lets support read and search published articles, never drafts, and not write them', async () => {
     const theirs = await t.as(t.support);
-    expect((await app.inject({ method: 'GET', url: '/v1/help-centre/articles', headers: theirs })).statusCode).toBe(200);
+    const live = await write(t, 'support-live');
+    await approve(t, live);
+    await app.inject({ method: 'PUT', url: `/v1/help-centre/articles/${live}/draft`, headers: t.mine, payload: { title: 'Next', summary: 'Next', body: 'Unapproved words.' } });
+    const draftOnly = await write(t, 'support-draft');
+    const list = (await app.inject({ method: 'GET', url: '/v1/help-centre/articles', headers: theirs })).json().articles;
+    expect(list.map((article: { slug: string }) => article.slug)).toEqual(['support-live']);
+    expect(list[0].draft).toBeNull();
+    expect((await app.inject({ method: 'GET', url: `/v1/help-centre/articles/${live}`, headers: theirs })).json().draft).toBeNull();
+    expect((await app.inject({ method: 'GET', url: `/v1/help-centre/articles/${draftOnly}`, headers: theirs })).statusCode).toBe(404);
     const refused = await app.inject({ method: 'POST', url: '/v1/help-centre/sections', headers: theirs, payload: { brandId: t.brand.brandId, name: 'Account' } });
     expect(refused.statusCode).toBe(403);
   });
@@ -176,6 +224,26 @@ describe('who does what (SUP16, SUP19)', async () => {
     const reply = await app.inject({ method: 'GET', url: `/v1/help-centre/search?q=dispatch&brandId=${t.brand.brandId}`, headers: t.mine });
     expect(reply.json().articles).toEqual([expect.objectContaining({ articleId: live, slug: 'dispatch', brandName: t.brand.slug, versionId: expect.any(String) })]);
   });
+
+  it("leaves out a brand that isn't public yet", async () => {
+    const hidden = await createBrand(t.tenantId, { status: 'draft' });
+    const section = await app.inject({ method: 'POST', url: '/v1/help-centre/sections', headers: t.mine, payload: { brandId: hidden.brandId, name: 'Soon' } });
+    const created = await app.inject({
+      method: 'POST',
+      url: '/v1/help-centre/articles',
+      headers: t.mine,
+      payload: {
+        brandId: hidden.brandId,
+        sectionId: section.json().sectionId,
+        slug: 'coming-soon',
+        title: 'Coming soon',
+        summary: 'Soon',
+        body: 'Our hamper service starts soon.',
+      },
+    });
+    await approve(t, created.json().articleId);
+    expect((await app.inject({ method: 'GET', url: '/v1/help-centre/search?q=hamper', headers: t.mine })).json().articles).toEqual([]);
+  });
 });
 
 describe('the public pages (SUP17)', async () => {
@@ -183,8 +251,21 @@ describe('the public pages (SUP17)', async () => {
     const paused = await setUp('paused');
     expect((await publicPage(paused.host)).json()).toEqual({ brandName: paused.brand.slug, sections: [] });
     expect((await publicPage(newHost())).statusCode).toBe(404);
-    const unverified = await createBrand(paused.tenantId, { status: 'draft', host: newHost() });
+    const unverified = await createBrand(paused.tenantId, { status: 'live', host: newHost() });
     expect((await publicPage(unverified.host!)).statusCode).toBe(404);
+  });
+
+  it('limits each client address, with a time to try again', async () => {
+    const t = await setUp();
+    const key = `${HELP_CENTRE_LIMIT.name}:127.0.0.1`;
+    await admin.query(
+      'insert into platform.rate_limit_counters (key, window_started_at, count) values ($1, now(), $2) on conflict (key) do update set window_started_at = now(), count = $2',
+      [key, HELP_CENTRE_LIMIT.max],
+    );
+    const reply = await publicPage(t.host);
+    await admin.query('delete from platform.rate_limit_counters where key = $1', [key]);
+    expect(reply.statusCode).toBe(429);
+    expect(Number(reply.headers['retry-after'])).toBeGreaterThan(0);
   });
 
   it('searches one brand only, and never caches a search', async () => {

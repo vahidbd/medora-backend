@@ -1,5 +1,5 @@
 {
-  "id": "f1508be2-eddd-417e-9ad0-49ecec075d84",
+  "id": "b58a319f-2ff2-490b-9366-5f8c395f1492",
   "prevId": "5765ac9b-38c0-411a-9efc-604b1e97305a",
   "version": "7",
   "dialect": "postgresql",
@@ -4814,6 +4814,10 @@
       },
       "policies": {},
       "checkConstraints": {
+        "help_centre_article_versions_checked_with_check": {
+          "name": "help_centre_article_versions_checked_with_check",
+          "value": "\"operational\".\"help_centre_article_versions\".\"checked_with\" in ('format-1')"
+        },
         "help_centre_article_versions_approved_check": {
           "name": "help_centre_article_versions_approved_check",
           "value": "(\"operational\".\"help_centre_article_versions\".\"approved_at\" is null) = (\"operational\".\"help_centre_article_versions\".\"approved_by_user_id\" is null) and (\"operational\".\"help_centre_article_versions\".\"approved_at\" is null) = (\"operational\".\"help_centre_article_versions\".\"checked_with\" is null) and (\"operational\".\"help_centre_article_versions\".\"approved_at\" is null) = (\"operational\".\"help_centre_article_versions\".\"confirmation\" is null)"

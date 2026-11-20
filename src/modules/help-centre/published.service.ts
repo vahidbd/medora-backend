@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNotNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { helpCentreArticles, helpCentreArticleVersions, helpCentreSections } from '../../db/schema/index.js';
 import type { TenantTx } from '../../db/tenant.js';
 import { NotFoundError } from '../../lib/errors.js';
@@ -59,37 +59,46 @@ export async function publicHelpCentre(tx: TenantTx, brandId: string) {
   return { brandName: brand.name, sections };
 }
 
-export async function publicSearch(tx: TenantTx, brandId: string, words: string) {
-  const rows = await published(tx)
-    .where(and(isPublished(tx), eq(helpCentreArticles.brandId, brandId), sql`${document} @@ ${query(words)}`))
+/** The best published matches for the words among these brands, best first. */
+function matching(tx: TenantTx, brandIds: readonly string[], words: string, limit: number) {
+  return published(tx)
+    .where(and(isPublished(tx), inArray(helpCentreArticles.brandId, [...brandIds]), sql`${document} @@ ${query(words)}`))
     .orderBy(desc(sql`ts_rank(${document}, ${query(words)})`), asc(helpCentreArticles.position))
-    .limit(10);
+    .limit(limit);
+}
+
+export async function publicSearch(tx: TenantTx, brandId: string, words: string) {
+  const rows = await matching(tx, [brandId], words, 10);
   return { articles: rows.map((row) => ({ slug: row.slug, title: row.title, summary: row.summary, section: row.section })) };
 }
 
 export async function publicArticle(tx: TenantTx, brandId: string, slug: string) {
   const [row] = await published(tx).where(and(isPublished(tx), eq(helpCentreArticles.brandId, brandId), eq(helpCentreArticles.slug, slug)));
   if (!row?.approvedAt) throw new NotFoundError('Article');
-  return { slug: row.slug, title: row.title, summary: row.summary, body: row.body, section: row.section, updatedAt: row.approvedAt.toISOString() };
+  return { slug: row.slug, title: row.title, summary: row.summary, body: row.body, section: row.section, approvedAt: row.approvedAt.toISOString() };
 }
 
 /**
- * The support agent's search (SUP19): the five best published articles, with
- * the version id so an answer names the exact wording it used. Each result
- * names its brand, since conversations don't carry one yet.
+ * The support agent's search (SUP19): the five best published articles of
+ * the tenant's live or paused brands (the ones whose help centres are
+ * public), with the version id so an answer names the exact wording it used.
+ * Each result names its brand, since conversations don't carry one yet. A
+ * body is cut to 4,000 characters so five fit in one tool reply.
  */
 export async function searchPublished(tx: TenantTx, input: { q: string; brandId?: string | undefined }) {
-  const rows = await published(tx)
-    .where(and(isPublished(tx), input.brandId ? eq(helpCentreArticles.brandId, input.brandId) : undefined, sql`${document} @@ ${query(input.q)}`))
-    .orderBy(desc(sql`ts_rank(${document}, ${query(input.q)})`), asc(helpCentreArticles.position))
-    .limit(5);
-  const names = new Map((await listBrands(tx)).map((brand) => [brand.brandId, brand.name]));
+  const names = new Map(
+    (await listBrands(tx))
+      .filter((brand) => (brand.status === 'live' || brand.status === 'paused') && (!input.brandId || brand.brandId === input.brandId))
+      .map((brand) => [brand.brandId, brand.name]),
+  );
+  if (names.size === 0) return { articles: [] };
+  const rows = await matching(tx, [...names.keys()], input.q, 5);
   return {
     articles: rows.map((row) => ({
       articleId: row.articleId,
       versionId: row.versionId,
       brandId: row.brandId,
-      brandName: names.get(row.brandId) ?? '',
+      brandName: names.get(row.brandId)!,
       slug: row.slug,
       title: row.title,
       summary: row.summary,

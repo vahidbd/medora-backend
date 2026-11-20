@@ -1,7 +1,9 @@
 import { sql } from 'drizzle-orm';
 import { check, foreignKey, index, integer, type PgTableExtraConfigValue, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { brands } from './brands.js';
+import { oneOf } from './checks.js';
 import { tenants, users } from './platform.js';
+import { HELP_CENTRE_CHECKS } from './values.js';
 import { operational } from './zones.js';
 
 /**
@@ -46,7 +48,7 @@ export const helpCentreArticles = operational.table(
       .references(() => tenants.id),
     brandId: uuid('brand_id').notNull(),
     sectionId: uuid('section_id').notNull(),
-    /** The public address's last part, fixed once first published (SUP17). */
+    /** The last part of the article's public address, fixed once first published (SUP17). */
     slug: text('slug').notNull(),
     position: integer('position').notNull().default(0),
     liveVersionId: uuid('live_version_id'),
@@ -124,6 +126,7 @@ export const helpCentreArticleVersions = operational.table(
       .where(sql`${table.approvedAt} is not null`),
     index('help_centre_article_versions_written_by_idx').on(table.writtenByUserId),
     index('help_centre_article_versions_approved_by_idx').on(table.approvedByUserId),
+    check('help_centre_article_versions_checked_with_check', oneOf(table.checkedWith, HELP_CENTRE_CHECKS)),
     check(
       'help_centre_article_versions_approved_check',
       sql`(${table.approvedAt} is null) = (${table.approvedByUserId} is null) and (${table.approvedAt} is null) = (${table.checkedWith} is null) and (${table.approvedAt} is null) = (${table.confirmation} is null)`,

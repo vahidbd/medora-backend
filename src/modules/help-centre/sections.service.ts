@@ -5,11 +5,13 @@ import { audit } from '../../lib/audit.js';
 import { postgresError } from '../../lib/database-errors.js';
 import { BusinessRuleError, NotFoundError } from '../../lib/errors.js';
 import { getBrand } from '../brands/index.js';
+import { assertPublishable } from './rules.js';
 
 /**
  * A brand's help centre sections (docs/decisions/support.md SUP17): the
  * headings articles sit under, in the brand's own order. Navigation, not
- * wording, so they change without approval; every change is audited.
+ * wording, so they change without approval, but a name is public, so it
+ * passes the publish check whenever it is set (SUP16). Every change is audited.
  */
 
 const RECORD = 'operational.help_centre_sections' as const;
@@ -60,6 +62,7 @@ async function sectionView(tx: TenantTx, sectionId: string): Promise<SectionView
 export async function createSection(tx: TenantTx, input: { brandId: string; name: string; position?: number | undefined }): Promise<SectionView> {
   // The brand must be this tenant's: getBrand reads it under the tenant's policy.
   await getBrand(tx, input.brandId);
+  assertPublishable([input.name]);
   const [row] = await nameTaken(() =>
     tx.db
       .insert(helpCentreSections)
@@ -72,6 +75,7 @@ export async function createSection(tx: TenantTx, input: { brandId: string; name
 }
 
 export async function changeSection(tx: TenantTx, sectionId: string, input: { name?: string | undefined; position?: number | undefined }): Promise<SectionView> {
+  if (input.name !== undefined) assertPublishable([input.name]);
   const [row] = await nameTaken(() =>
     tx.db
       .update(helpCentreSections)

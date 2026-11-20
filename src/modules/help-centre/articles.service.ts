@@ -6,20 +6,26 @@ import { postgresError } from '../../lib/database-errors.js';
 import { BadRequestError, BusinessRuleError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import { emitEvent } from '../../lib/events.js';
 import { getBrand } from '../brands/index.js';
-import { PUBLISH_CHECKS, publishProblems, SERVICE_ONLY_CONFIRMATION, type Wording } from './rules.js';
+import { type ArticleStatus, assertPublishable, PUBLISH_CHECKS, SERVICE_ONLY_CONFIRMATION, type Wording } from './rules.js';
 
 /**
  * Help centre articles (docs/decisions/support.md SUP14 to SUP18). An
  * article belongs to one brand; its wording is in versions. A draft is
  * written, then approved by a support:manage holder (their own too), which
  * publishes it in the same transaction. Approved versions are never changed,
- * and the live one stays up while the next draft waits.
+ * and the live one stays up while the next draft waits. Drafts and taken-down
+ * articles are seen only by support:manage holders, so help_centre:read
+ * (which agents may hold) reaches published wording only (SUP19).
  */
 
 const RECORD = 'operational.help_centre_articles' as const;
 type ArticleRow = typeof helpCentreArticles.$inferSelect;
 type VersionRow = typeof helpCentreArticleVersions.$inferSelect;
-export type ArticleStatus = 'draft' | 'published' | 'unpublished';
+/** Whether the viewer may see drafts and taken-down articles: support:manage holders only. */
+export interface Viewing {
+  includeDrafts: boolean;
+}
+const MANAGER: Viewing = { includeDrafts: true };
 
 function personOf(tx: TenantTx): string {
   const { actor } = tx.context;
@@ -62,12 +68,18 @@ function itemOf(row: ArticleRow) {
   };
 }
 
-export async function listArticles(tx: TenantTx, brandId?: string) {
+export async function listArticles(tx: TenantTx, viewing: Viewing, brandId?: string) {
   const { tenantId } = tx.context;
   const rows = await tx.db
     .select()
     .from(helpCentreArticles)
-    .where(and(eq(helpCentreArticles.tenantId, tenantId), brandId ? eq(helpCentreArticles.brandId, brandId) : undefined))
+    .where(
+      and(
+        eq(helpCentreArticles.tenantId, tenantId),
+        brandId ? eq(helpCentreArticles.brandId, brandId) : undefined,
+        viewing.includeDrafts ? undefined : isNotNull(helpCentreArticles.publishedAt),
+      ),
+    )
     .orderBy(asc(helpCentreArticles.brandId), asc(helpCentreArticles.position), asc(helpCentreArticles.slug));
   if (rows.length === 0) return [];
   const live = rows.flatMap((row) => (row.liveVersionId ? [row.liveVersionId] : []));
@@ -86,7 +98,7 @@ export async function listArticles(tx: TenantTx, brandId?: string) {
     );
   return rows.map((row) => {
     const liveVersion = versions.find((version) => version.id === row.liveVersionId);
-    const draft = versions.find((version) => version.articleId === row.id && !version.approvedAt);
+    const draft = viewing.includeDrafts ? versions.find((version) => version.articleId === row.id && !version.approvedAt) : undefined;
     return { ...itemOf(row), live: liveVersion ? approvedOf(liveVersion) : null, draft: draft ? summaryOf(draft) : null };
   });
 }
@@ -109,11 +121,12 @@ async function versionsOf(tx: TenantTx, articleId: string): Promise<VersionRow[]
     .orderBy(desc(helpCentreArticleVersions.approvedAt));
 }
 
-export async function getArticle(tx: TenantTx, articleId: string) {
+export async function getArticle(tx: TenantTx, articleId: string, viewing: Viewing) {
   const row = await findArticle(tx, articleId, false);
+  if (!viewing.includeDrafts && !row.publishedAt) throw new NotFoundError('Article');
   const versions = await versionsOf(tx, articleId);
   const live = versions.find((version) => version.id === row.liveVersionId);
-  const draft = versions.find((version) => !version.approvedAt);
+  const draft = viewing.includeDrafts ? versions.find((version) => !version.approvedAt) : undefined;
   return {
     ...itemOf(row),
     live: live ? fullOf(live) : null,
@@ -122,13 +135,13 @@ export async function getArticle(tx: TenantTx, articleId: string) {
   };
 }
 
-/** The database's refusals, in the writer's words. */
-async function placed<T>(work: () => Promise<T>): Promise<T> {
+/** The database's refusals of a slug or a section, in the writer's words. */
+async function explainRefusal<T>(work: () => Promise<T>): Promise<T> {
   try {
     return await work();
   } catch (error) {
     const pg = postgresError(error);
-    if (pg?.code === '23505' && pg.message.includes('help_centre_articles_slug_key')) throw new BusinessRuleError('Another article of this brand has that address', 'slug_taken');
+    if (pg?.code === '23505' && pg.message.includes('help_centre_articles_slug_key')) throw new BusinessRuleError('Another article of this brand has that slug', 'slug_taken');
     if (pg?.code === '23503' && pg.message.includes('help_centre_articles_section_fk')) throw new BadRequestError("Choose one of this brand's sections", 'section_not_found');
     throw error;
   }
@@ -138,7 +151,7 @@ export async function createArticle(tx: TenantTx, input: Wording & { brandId: st
   const userId = personOf(tx);
   await getBrand(tx, input.brandId);
   const { tenantId } = tx.context;
-  const [row] = await placed(() =>
+  const [row] = await explainRefusal(() =>
     tx.db
       .insert(helpCentreArticles)
       .values({ tenantId, brandId: input.brandId, sectionId: input.sectionId, slug: input.slug, position: input.position ?? 0, createdByUserId: userId })
@@ -147,16 +160,16 @@ export async function createArticle(tx: TenantTx, input: Wording & { brandId: st
   if (!row) throw new Error('article insert returned nothing');
   await tx.db.insert(helpCentreArticleVersions).values({ tenantId, articleId: row.id, title: input.title, summary: input.summary, body: input.body, writtenByUserId: userId });
   await audit(tx, { action: 'help_centre_article.created', zone: 'operational', recordTable: RECORD, recordId: row.id, details: { brandId: row.brandId } });
-  return getArticle(tx, row.id);
+  return getArticle(tx, row.id, MANAGER);
 }
 
-/** Where the article sits. Its address is fixed once first approved, so links and citations keep working (SUP17). */
+/** Where the article sits. Its slug is fixed once first approved, so links and citations keep working (SUP17). */
 export async function changeArticle(tx: TenantTx, articleId: string, input: { sectionId?: string | undefined; slug?: string | undefined; position?: number | undefined }) {
   personOf(tx);
   const current = await findArticle(tx, articleId, true);
   if (input.slug !== undefined && input.slug !== current.slug && current.liveVersionId)
-    throw new BusinessRuleError("An article's address can't change once it has been published", 'slug_fixed');
-  await placed(() =>
+    throw new BusinessRuleError("An article's slug can't change once it has been published", 'slug_fixed');
+  await explainRefusal(() =>
     tx.db
       .update(helpCentreArticles)
       .set({
@@ -169,7 +182,7 @@ export async function changeArticle(tx: TenantTx, articleId: string, input: { se
   );
   const changed = Object.keys(input).filter((key) => input[key as keyof typeof input] !== undefined);
   await audit(tx, { action: 'help_centre_article.updated', zone: 'operational', recordTable: RECORD, recordId: articleId, details: { changed: changed.join(',') } });
-  return getArticle(tx, articleId);
+  return getArticle(tx, articleId, MANAGER);
 }
 
 async function openDraft(tx: TenantTx, articleId: string): Promise<VersionRow | undefined> {
@@ -180,22 +193,20 @@ async function openDraft(tx: TenantTx, articleId: string): Promise<VersionRow | 
   return draft;
 }
 
-/** Write the article's one open draft, starting it if there is none. The live version stays up meanwhile. */
+/**
+ * Write the article's one open draft. Each save replaces the draft with a new
+ * version, so an approval names exactly the wording its approver read (SUP16).
+ * The live version stays up meanwhile.
+ */
 export async function saveDraft(tx: TenantTx, articleId: string, wording: Wording) {
   const userId = personOf(tx);
   await findArticle(tx, articleId, true);
   const draft = await openDraft(tx, articleId);
-  const values = { title: wording.title, summary: wording.summary, body: wording.body, writtenByUserId: userId };
-  if (draft) {
-    await tx.db
-      .update(helpCentreArticleVersions)
-      .set({ ...values, updatedAt: sql`now()` })
-      .where(and(eq(helpCentreArticleVersions.tenantId, tx.context.tenantId), eq(helpCentreArticleVersions.id, draft.id)));
-  } else {
-    await tx.db.insert(helpCentreArticleVersions).values({ tenantId: tx.context.tenantId, articleId, ...values });
-  }
+  const { tenantId } = tx.context;
+  if (draft) await tx.db.delete(helpCentreArticleVersions).where(and(eq(helpCentreArticleVersions.tenantId, tenantId), eq(helpCentreArticleVersions.id, draft.id)));
+  await tx.db.insert(helpCentreArticleVersions).values({ tenantId, articleId, title: wording.title, summary: wording.summary, body: wording.body, writtenByUserId: userId });
   await audit(tx, { action: 'help_centre_article.draft_saved', zone: 'operational', recordTable: RECORD, recordId: articleId, details: { newDraft: !draft } });
-  return getArticle(tx, articleId);
+  return getArticle(tx, articleId, MANAGER);
 }
 
 /** Drop the open draft. An article that was never published goes with it, since nothing of it was ever public. */
@@ -212,10 +223,8 @@ export async function discardDraft(tx: TenantTx, articleId: string): Promise<{ a
   return { articleRemoved };
 }
 
-function assertPublishable(wording: Wording): void {
-  const problems = publishProblems(wording);
-  if (problems.length > 0) throw new BusinessRuleError(`This wording can't go public: ${problems.join('; ')}`, 'publish_check_failed');
-}
+/** What the check reads: the wording and the slug, which is part of the public address. */
+const publicTexts = (version: Wording, article: ArticleRow) => [version.title, version.summary, version.body, article.slug.replace(/-/g, ' ')];
 
 async function setPublished(tx: TenantTx, article: ArticleRow, versionId: string, details: Record<string, string | boolean | null>) {
   await tx.db
@@ -227,22 +236,31 @@ async function setPublished(tx: TenantTx, article: ArticleRow, versionId: string
 }
 
 /**
- * Approve the open draft and put it up in place of the live version (SUP15,
- * SUP16, SUP18). Whoever wrote it may approve it; the checks run first, and
- * the approver's confirmation is stored on the version with its checks.
+ * Approve the draft the approver read and put it up in place of the live
+ * version (SUP15, SUP16, SUP18). Whoever wrote it may approve it; the checks
+ * run first, and the approver's confirmation is stored on the version with
+ * the checks it passed. A draft saved since they read it is refused.
  */
-export async function approveDraft(tx: TenantTx, articleId: string) {
+export async function approveDraft(tx: TenantTx, articleId: string, versionId: string) {
   const userId = personOf(tx);
   const article = await findArticle(tx, articleId, true);
   const draft = await openDraft(tx, articleId);
   if (!draft) throw new BusinessRuleError('There is no draft to approve', 'no_draft');
-  assertPublishable(draft);
+  if (draft.id !== versionId) throw new BusinessRuleError('The draft has changed since you read it: read it again before approving', 'draft_changed');
+  assertPublishable(publicTexts(draft, article));
   await tx.db
     .update(helpCentreArticleVersions)
     .set({ approvedByUserId: userId, approvedAt: sql`now()`, checkedWith: PUBLISH_CHECKS, confirmation: SERVICE_ONLY_CONFIRMATION, updatedAt: sql`now()` })
     .where(and(eq(helpCentreArticleVersions.tenantId, tx.context.tenantId), eq(helpCentreArticleVersions.id, draft.id)));
-  await setPublished(tx, article, draft.id, { replaced: article.liveVersionId, checkedWith: PUBLISH_CHECKS });
-  return getArticle(tx, articleId);
+  await audit(tx, {
+    action: 'help_centre_article.approved',
+    zone: 'operational',
+    recordTable: RECORD,
+    recordId: articleId,
+    details: { versionId: draft.id, writtenByUserId: draft.writtenByUserId, checkedWith: PUBLISH_CHECKS },
+  });
+  await setPublished(tx, article, draft.id, { replaced: article.liveVersionId });
+  return getArticle(tx, articleId, MANAGER);
 }
 
 /** Take the article off the public pages and away from agents. Its approved wording stays, ready to go back up. */
@@ -257,10 +275,14 @@ export async function unpublishArticle(tx: TenantTx, articleId: string) {
     await audit(tx, { action: 'help_centre_article.unpublished', zone: 'operational', recordTable: RECORD, recordId: articleId, details: { versionId: article.liveVersionId } });
     await emitEvent(tx, { type: 'help_centre_article.unpublished', recordTable: RECORD, recordId: articleId, payload: { brandId: article.brandId } });
   }
-  return getArticle(tx, articleId);
+  return getArticle(tx, articleId, MANAGER);
 }
 
-/** Put the last approved wording back up. It must pass today's checks, not only the ones it passed when approved (SUP16). */
+/**
+ * Put the last approved wording back up. It must pass today's checks, not
+ * only the ones it passed when approved; the version can't change, so the
+ * checks it passed now go in the audit entry (SUP16).
+ */
 export async function republishArticle(tx: TenantTx, articleId: string) {
   personOf(tx);
   const article = await findArticle(tx, articleId, true);
@@ -273,8 +295,8 @@ export async function republishArticle(tx: TenantTx, articleId: string) {
         and(eq(helpCentreArticleVersions.tenantId, tx.context.tenantId), eq(helpCentreArticleVersions.id, article.liveVersionId), isNotNull(helpCentreArticleVersions.approvedAt)),
       );
     if (!live) throw new Error('live version missing');
-    assertPublishable(live);
+    assertPublishable(publicTexts(live, article));
     await setPublished(tx, article, live.id, { republished: true, checkedWith: PUBLISH_CHECKS });
   }
-  return getArticle(tx, articleId);
+  return getArticle(tx, articleId, MANAGER);
 }

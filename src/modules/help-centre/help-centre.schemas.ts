@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { SERVICE_ONLY_CONFIRMATION, wordingProblems } from './rules.js';
+import { ARTICLE_STATUSES, SERVICE_ONLY_CONFIRMATION, wordingProblems } from './rules.js';
 
 const instant = z.string();
 const text = (max: number) => z.string().trim().min(1).max(max);
@@ -14,8 +14,6 @@ const slug = z
   .max(80)
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Use lower-case letters, numbers and hyphens, like how-delivery-works');
 const position = z.number().int().min(0).max(10_000);
-
-export const ARTICLE_STATUSES = ['draft', 'published', 'unpublished'] as const;
 
 export const sectionParams = z.object({ sectionId: z.uuid() });
 export const articleParams = z.object({ articleId: z.uuid() });
@@ -40,6 +38,8 @@ export const articleChangeBody = z
   .refine((body) => Object.values(body).some((value) => value !== undefined), 'Change the section, the address or the position');
 export const approveBody = z
   .object({
+    /** The draft the approver read: every save makes a new one, so newer wording is never approved unseen. */
+    versionId: z.uuid(),
     /** The approver confirms the article is service only (SUP18). */
     confirm: z.literal(SERVICE_ONLY_CONFIRMATION),
   })
@@ -103,4 +103,5 @@ export const publicHelpCentreReply = z.object({
   sections: z.array(z.object({ name: z.string(), articles: z.array(publicArticleSummary) })),
 });
 export const publicSearchReply = z.object({ articles: z.array(publicArticleSummary.extend({ section: z.string() })) });
-export const publicArticleReply = publicArticleSummary.extend({ section: z.string(), body: z.string(), updatedAt: instant });
+/** `approvedAt`: when this wording was approved, the page's last change. */
+export const publicArticleReply = publicArticleSummary.extend({ section: z.string(), body: z.string(), approvedAt: instant });

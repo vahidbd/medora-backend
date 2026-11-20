@@ -1,7 +1,19 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { withTenant } from '../../db/tenant.js';
-import { tenantContextOf } from '../../plugins/auth.js';
-import { approveDraft, changeArticle, createArticle, discardDraft, getArticle, listArticles, republishArticle, saveDraft, unpublishArticle } from './articles.service.js';
+import type { FastifyRequest } from 'fastify';
+import { requireTenant, tenantContextOf } from '../../plugins/auth.js';
+import {
+  approveDraft,
+  changeArticle,
+  createArticle,
+  discardDraft,
+  getArticle,
+  listArticles,
+  republishArticle,
+  saveDraft,
+  unpublishArticle,
+  type Viewing,
+} from './articles.service.js';
 import {
   approveBody,
   articleBody,
@@ -27,14 +39,18 @@ import { changeSection, createSection, deleteSection, listSections } from './sec
 /** The help centre's staff routes (PRD SUP-04, SUP-06, docs/decisions/support.md SUP14 to SUP19). */
 
 const tags = ['help centre'];
-const byPeople = { none: 'Help centre wording is written and approved by people; agents never hold support:manage (SUP16)' };
-const noEvents = { none: 'Nothing reacts to a draft or to where an article sits; only publishing emits' };
-const published = ['help_centre_article.published'];
+const byPeople = { none: 'Help centre wording is written and approved by people; agents never hold support:manage (SUP12, SUP16)' };
+const noArticleEvents = { none: 'Nothing reacts to a draft or to where an article sits; only publishing emits' };
+const noSectionEvents = { none: "Nothing reacts to a section's name or order; the pages read it when served" };
+const publishes = ['help_centre_article.published'];
+
+/** Drafts and taken-down articles only for support:manage holders, which agents never are (SUP19). */
+const viewingOf = (request: FastifyRequest): Viewing => ({ includeDrafts: requireTenant(request).tenant.permissions.has('support:manage') });
 
 export const helpCentreRoutes: FastifyPluginAsyncZod = async (app) => {
   const read = { access: { permission: 'help_centre:read' } } as const;
   const manage = { permission: 'support:manage' } as const;
-  const changes = (audit: string[], events: string[] | { none: string } = noEvents) => ({ access: manage, audit, events, agentTool: byPeople });
+  const changes = (audit: string[], events: string[] | { none: string } = noArticleEvents) => ({ access: manage, audit, events, agentTool: byPeople });
 
   app.get(
     '/help-centre/sections',
@@ -44,14 +60,17 @@ export const helpCentreRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.post(
     '/help-centre/sections',
-    { config: changes(['help_centre_section.created']), schema: { tags, summary: "Add a section to a brand's help centre", body: sectionBody, response: { 201: sectionView } } },
+    {
+      config: changes(['help_centre_section.created'], noSectionEvents),
+      schema: { tags, summary: "Add a section to a brand's help centre", body: sectionBody, response: { 201: sectionView } },
+    },
     async (request, reply) => reply.code(201).send(await withTenant(tenantContextOf(request), (tx) => createSection(tx, request.body))),
   );
 
   app.patch(
     '/help-centre/sections/:sectionId',
     {
-      config: changes(['help_centre_section.updated']),
+      config: changes(['help_centre_section.updated'], noSectionEvents),
       schema: { tags, summary: 'Rename or move a section', params: sectionParams, body: sectionChangeBody, response: { 200: sectionView } },
     },
     async (request) => withTenant(tenantContextOf(request), (tx) => changeSection(tx, request.params.sectionId, request.body)),
@@ -60,7 +79,7 @@ export const helpCentreRoutes: FastifyPluginAsyncZod = async (app) => {
   app.delete(
     '/help-centre/sections/:sectionId',
     {
-      config: changes(['help_centre_section.deleted']),
+      config: changes(['help_centre_section.deleted'], noSectionEvents),
       schema: { tags, summary: 'Remove an empty section', params: sectionParams, response: { 200: deletedReply } },
     },
     async (request) => {
@@ -71,8 +90,8 @@ export const helpCentreRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.get(
     '/help-centre/articles',
-    { config: read, schema: { tags, summary: 'Help centre articles, drafts too', querystring: brandQuery, response: { 200: articleListReply } } },
-    async (request) => ({ articles: await withTenant(tenantContextOf(request), (tx) => listArticles(tx, request.query.brandId)) }),
+    { config: read, schema: { tags, summary: 'Published help centre articles; drafts too for support:manage', querystring: brandQuery, response: { 200: articleListReply } } },
+    async (request) => ({ articles: await withTenant(tenantContextOf(request), (tx) => listArticles(tx, viewingOf(request), request.query.brandId)) }),
   );
 
   app.get(
@@ -81,7 +100,7 @@ export const helpCentreRoutes: FastifyPluginAsyncZod = async (app) => {
       config: read,
       schema: { tags, summary: 'An article: its live wording, its draft and every approved version', params: articleParams, response: { 200: articleReply } },
     },
-    async (request) => withTenant(tenantContextOf(request), (tx) => getArticle(tx, request.params.articleId)),
+    async (request) => withTenant(tenantContextOf(request), (tx) => getArticle(tx, request.params.articleId, viewingOf(request))),
   );
 
   app.post(
@@ -99,7 +118,7 @@ export const helpCentreRoutes: FastifyPluginAsyncZod = async (app) => {
       config: changes(['help_centre_article.updated']),
       schema: {
         tags,
-        summary: "Move an article, or change its address before it's first published",
+        summary: "Move an article, or change its slug before it's first published",
         params: articleParams,
         body: articleChangeBody,
         response: { 200: articleReply },
@@ -129,7 +148,7 @@ export const helpCentreRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/help-centre/articles/:articleId/draft/approve',
     {
-      config: changes(published, published),
+      config: changes(['help_centre_article.approved', ...publishes], publishes),
       schema: {
         tags,
         summary: 'Approve the draft and publish it in place of the live wording',
@@ -138,7 +157,7 @@ export const helpCentreRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: articleReply },
       },
     },
-    async (request) => withTenant(tenantContextOf(request), (tx) => approveDraft(tx, request.params.articleId)),
+    async (request) => withTenant(tenantContextOf(request), (tx) => approveDraft(tx, request.params.articleId, request.body.versionId)),
   );
 
   app.post(
@@ -153,7 +172,7 @@ export const helpCentreRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/help-centre/articles/:articleId/publish',
     {
-      config: changes(published, published),
+      config: changes(publishes, publishes),
       schema: { tags, summary: 'Put the last approved wording back up, after the checks', params: articleParams, response: { 200: articleReply } },
     },
     async (request) => withTenant(tenantContextOf(request), (tx) => republishArticle(tx, request.params.articleId)),
