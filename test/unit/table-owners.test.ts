@@ -15,7 +15,9 @@ const OWNERS: Record<string, string[]> = {
   'platform.users': [],
   'platform.memberships': ['src/modules/staff/'],
   'platform.audit_log': ['src/lib/audit.ts'],
-  'platform.outbox': ['src/lib/events.ts'],
+  'platform.outbox': ['src/lib/events.ts', 'src/lib/outbox-delivery.ts'],
+  'platform.outbox_deliveries': ['src/lib/outbox-delivery.ts'],
+  'platform.job_leases': ['src/lib/leases.ts'],
   'platform.rate_limit_counters': ['src/lib/rate-limit.ts'],
 };
 
