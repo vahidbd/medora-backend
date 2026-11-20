@@ -91,7 +91,7 @@ describe('changing a role (FND6)', () => {
     expect(reply.statusCode).toBe(200);
     expect(reply.json()).toMatchObject({ membershipId: clinician.membershipId, role: 'support' });
     const audit = await admin.query('select actor_id, details from platform.audit_log where tenant_id = $1 and action = $2', [tenantId, 'membership.role_changed']);
-    expect(audit.rows).toEqual([{ actor_id: owner.id, details: { from: 'clinician', to: 'support' } }]);
+    expect(audit.rows).toEqual([{ actor_id: owner.id, details: { from: 'clinician', to: 'support', fromCustomRoleId: null, toCustomRoleId: null } }]);
     const events = await admin.query('select type from platform.outbox where tenant_id = $1', [tenantId]);
     expect(events.rows).toEqual([{ type: 'membership.role_changed' }]);
   });

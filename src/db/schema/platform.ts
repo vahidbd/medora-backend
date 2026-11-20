@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
-import { bigint, check, index, integer, jsonb, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, check, foreignKey, index, integer, jsonb, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { oneOf } from './checks.js';
-import { ACTOR_TYPES, DATA_ZONES, MEMBERSHIP_STATUSES, ROLES } from './values.js';
+import { ACTOR_TYPES, DATA_ZONES, MEMBERSHIP_ROLES, MEMBERSHIP_STATUSES, ROLES } from './values.js';
 import { platform } from './zones.js';
 
 /**
@@ -30,11 +30,42 @@ export const users = platform.table(
     id: uuid('id').primaryKey().defaultRandom(),
     clerkUserId: text('clerk_user_id').unique(),
     email: text('email').notNull(),
+    /** How screens name the person. Set when they are first invited; never written to audit details (ADM5). */
+    displayName: text('display_name'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex('users_email_key').on(sql`lower(${table.email})`),
     check('users_email_lower', sql`${table.email} = lower(${table.email})`),
+  ],
+);
+
+/**
+ * A role a tenant made by copying a starting role and editing it (ADM1).
+ * Starting roles are not rows: their permissions live in code.
+ */
+export const roles = platform.table(
+  'roles',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    name: text('name').notNull(),
+    description: text('description').notNull().default(''),
+    /** Permission keys from src/lib/permissions.ts. A snapshot: it never gains new keys on its own. */
+    permissions: text('permissions').array().notNull().default(sql`'{}'::text[]`),
+    /** The starting role it was copied from, which also decides whether it is clinical (ADM3). */
+    basedOn: text('based_on').notNull(),
+    clinical: boolean('clinical').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('roles_tenant_id_key').on(table.tenantId, table.id),
+    uniqueIndex('roles_tenant_name_key').on(table.tenantId, sql`lower(${table.name})`),
+    check('roles_based_on_check', oneOf(table.basedOn, ROLES)),
+    check('roles_name_check', sql`length(btrim(${table.name})) between 1 and 60`),
   ],
 );
 
@@ -49,16 +80,91 @@ export const memberships = platform.table(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id),
+    /** A starting role's key, or `custom` with custom_role_id (ADM1). */
     role: text('role').notNull(),
+    customRoleId: uuid('custom_role_id'),
     status: text('status').notNull().default('active'),
+    /** When the last invitation went out; it can be accepted for 14 days (ADM5). */
+    invitedAt: timestamp('invited_at', { withTimezone: true }),
+    invitedBy: uuid('invited_by').references(() => users.id),
+    /** Access ends at this instant, if set: time-limited access (ADM7). */
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex('memberships_tenant_user_key').on(table.tenantId, table.userId),
     index('memberships_user_idx').on(table.userId),
-    check('memberships_role_check', oneOf(table.role, ROLES)),
+    index('memberships_custom_role_idx').on(table.tenantId, table.customRoleId),
+    index('memberships_invited_by_idx').on(table.invitedBy),
+    foreignKey({
+      name: 'memberships_custom_role_fk',
+      columns: [table.tenantId, table.customRoleId],
+      foreignColumns: [roles.tenantId, roles.id],
+    }),
+    check('memberships_role_check', oneOf(table.role, MEMBERSHIP_ROLES)),
+    check('memberships_custom_role_check', sql`(${table.role} = 'custom') = (${table.customRoleId} is not null)`),
     check('memberships_status_check', oneOf(table.status, MEMBERSHIP_STATUSES)),
+    check('memberships_invited_check', sql`${table.status} <> 'invited' or ${table.invitedAt} is not null`),
+  ],
+);
+
+/**
+ * One row per new sign-in session (ADM6): when, from where, and whether a
+ * second factor was verified. Belongs to the person, not a tenant.
+ */
+export const signIns = platform.table(
+  'sign_ins',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    /** SHA-256 of the sign-in provider's session id: enough to spot a new session, useless to anyone holding it. */
+    sessionHash: text('session_hash').notNull().unique(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+    clientIp: text('client_ip'),
+    /** A short description of the browser and device, never the raw header. */
+    device: text('device'),
+    secondFactor: boolean('second_factor').notNull(),
+  },
+  (table) => [index('sign_ins_user_at_idx').on(table.userId, table.at)],
+);
+
+/**
+ * Break-glass (ADM3): a non-clinical role that holds clinical permissions
+ * (the owner) may use them for 60 minutes after giving a reason. Each one is
+ * reviewed by someone holding `break_glass:review`.
+ */
+export const breakGlass = platform.table(
+  'break_glass',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    membershipId: uuid('membership_id')
+      .notNull()
+      .references(() => memberships.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    /** Why, in the person's words. The screen asks them not to name a patient. */
+    reason: text('reason').notNull(),
+    openedAt: timestamp('opened_at', { withTimezone: true }).notNull().defaultNow(),
+    endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    reviewedBy: uuid('reviewed_by').references(() => users.id),
+    reviewNote: text('review_note'),
+  },
+  (table) => [
+    index('break_glass_tenant_opened_idx').on(table.tenantId, table.openedAt),
+    index('break_glass_membership_idx').on(table.membershipId, table.endsAt),
+    index('break_glass_user_idx').on(table.userId),
+    index('break_glass_reviewed_by_idx').on(table.reviewedBy),
+    check('break_glass_reason_check', sql`length(btrim(${table.reason})) between 10 and 500`),
+    check('break_glass_ends_check', sql`${table.endsAt} > ${table.openedAt}`),
+    check('break_glass_review_check', sql`(${table.reviewedAt} is null) = (${table.reviewedBy} is null)`),
   ],
 );
 
