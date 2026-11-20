@@ -82,7 +82,7 @@ const sessionIdOf = (payload: Record<string, unknown>): string | null =>
 
 async function verifyDevToken(token: string): Promise<Identity> {
   const { payload } = await jwtVerify(token, new TextEncoder().encode(env.DEV_JWT_SECRET ?? ''), { algorithms: ['HS256'] });
-  // A patient token never opens a staff route (ADR 0035).
+  // A patient token never opens a staff route (ADR 0100).
   if (isPatientToken(payload)) throw new UnauthorizedError();
   if (typeof payload.sub !== 'string' || !payload.sub) throw new UnauthorizedError();
   return {

@@ -38,7 +38,7 @@ const envSchema = z.object({
   CONSOLE_URL: z.preprocess((value) => (value === '' ? undefined : value), z.url().optional()),
 
   /**
-   * Patients sign in on their own Clerk instance (ADR 0035): open sign-up,
+   * Patients sign in on their own Clerk instance (ADR 0100): open sign-up,
    * one-time codes, passkeys. Patient routes accept only its tokens, and staff
    * routes never do.
    */
@@ -120,7 +120,7 @@ function authProblems(config: Env): string[] {
     if (!resolveClerkIssuer(config)) problems.push('CLERK_PUBLISHABLE_KEY or CLERK_ISSUER is required when AUTH_MODE=clerk');
     const patientIssuer = resolveClerkIssuer({ CLERK_ISSUER: config.CLERK_PATIENT_ISSUER, CLERK_PUBLISHABLE_KEY: config.CLERK_PATIENT_PUBLISHABLE_KEY });
     if (patientIssuer && patientIssuer === resolveClerkIssuer(config)) {
-      problems.push('The patient Clerk instance must not be the staff instance (ADR 0035)');
+      problems.push('The patient Clerk instance must not be the staff instance (ADR 0100)');
     }
   } catch (error) {
     problems.push(error instanceof Error ? error.message : String(error));
@@ -155,7 +155,7 @@ export function deployedProblems(config: Env): string[] {
   if (parseAuthorizedParties(config.CLERK_AUTHORIZED_PARTIES).length === 0) {
     problems.push('CLERK_AUTHORIZED_PARTIES is required (the web app origins, e.g. https://console.example.com.au)');
   }
-  if (!config.CLERK_PATIENT_PUBLISHABLE_KEY) problems.push('CLERK_PATIENT_PUBLISHABLE_KEY is required (the patient sign-in instance, ADR 0035)');
+  if (!config.CLERK_PATIENT_PUBLISHABLE_KEY) problems.push('CLERK_PATIENT_PUBLISHABLE_KEY is required (the patient sign-in instance, ADR 0100)');
   if (config.MEDORA_ENV === 'production' && config.CLERK_PATIENT_PUBLISHABLE_KEY && !config.CLERK_PATIENT_PUBLISHABLE_KEY.startsWith('pk_live_')) {
     problems.push('CLERK_PATIENT_PUBLISHABLE_KEY must be a production instance key (pk_live_) in production');
   }
