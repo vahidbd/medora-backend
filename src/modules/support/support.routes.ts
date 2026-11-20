@@ -5,15 +5,22 @@ import { ForbiddenError } from '../../lib/errors.js';
 import { requireTenant, tenantContextOf } from '../../plugins/auth.js';
 import type { Viewer } from './access.js';
 import { clearFlag, flagTicket } from './flags.service.js';
+import { approveMacro, archiveMacro, createMacro, listMacros, updateMacro } from './macros.service.js';
 import { linkPatient, verifyPatient } from './patient-link.js';
 import { addComment, logCall, replyToTicket } from './replies.service.js';
 import {
+  archivedReply,
   callBody,
   commentBody,
   commentReply,
   flagBody,
   flagParams,
   flagsReply,
+  macroBody,
+  macroChangeBody,
+  macroListReply,
+  macroParams,
+  macroView,
   patientLinkBody,
   replyBody,
   ticketChangeBody,
@@ -45,6 +52,7 @@ const noEvents = (why: string) => ({ none: why });
 export const supportRoutes: FastifyPluginAsyncZod = async (app) => {
   const read = { access: { permission: 'support:read' } } as const;
   const reply = { permission: 'support:reply' } as const;
+  const manage = { permission: 'support:manage' } as const;
 
   app.get(
     '/tickets',
@@ -267,5 +275,106 @@ export const supportRoutes: FastifyPluginAsyncZod = async (app) => {
         await verifyPatient(tx, viewer, request.params.ticketId, request.body.method);
         return getTicket(tx, viewer, request.params.ticketId);
       }),
+  );
+
+  const macroEvents = noEvents('Replies read the macro when they are written; nothing reacts to a change');
+  const macroTool = personOnly('Macro wording is written and approved by people');
+
+  app.get(
+    '/macros',
+    {
+      config: { access: reply },
+      schema: {
+        tags: ['support'],
+        summary: 'Approved macros, and drafts for support:manage',
+        response: { 200: macroListReply },
+      },
+    },
+    async (request) => {
+      const includeDrafts = requireTenant(request).tenant.permissions.has('support:manage');
+      return {
+        macros: await withTenant(tenantContextOf(request), (tx) => listMacros(tx, { includeDrafts })),
+      };
+    },
+  );
+
+  app.post(
+    '/macros',
+    {
+      config: {
+        access: manage,
+        audit: ['macro.created'],
+        events: macroEvents,
+        agentTool: macroTool,
+      },
+      schema: {
+        tags: ['support'],
+        summary: 'Write a macro (a draft)',
+        body: macroBody,
+        response: { 201: macroView },
+      },
+    },
+    async (request, res) => res.code(201).send(await withTenant(tenantContextOf(request), (tx) => createMacro(tx, request.body))),
+  );
+
+  app.patch(
+    '/macros/:macroId',
+    {
+      config: {
+        access: manage,
+        audit: ['macro.updated'],
+        events: macroEvents,
+        agentTool: macroTool,
+      },
+      schema: {
+        tags: ['support'],
+        summary: 'Change a macro; new wording goes back to draft',
+        params: macroParams,
+        body: macroChangeBody,
+        response: { 200: macroView },
+      },
+    },
+    async (request) => withTenant(tenantContextOf(request), (tx) => updateMacro(tx, request.params.macroId, request.body)),
+  );
+
+  app.post(
+    '/macros/:macroId/approve',
+    {
+      config: {
+        access: manage,
+        audit: ['macro.approved'],
+        events: macroEvents,
+        agentTool: macroTool,
+      },
+      schema: {
+        tags: ['support'],
+        summary: 'Approve a macro so it can be used in replies',
+        params: macroParams,
+        response: { 200: macroView },
+      },
+    },
+    async (request) => withTenant(tenantContextOf(request), (tx) => approveMacro(tx, request.params.macroId)),
+  );
+
+  app.delete(
+    '/macros/:macroId',
+    {
+      config: {
+        access: manage,
+        audit: ['macro.archived'],
+        events: macroEvents,
+        agentTool: macroTool,
+      },
+      schema: {
+        tags: ['support'],
+        summary: 'Archive a macro',
+        params: macroParams,
+        response: { 200: archivedReply },
+      },
+    },
+    async (request) => {
+      await withTenant(tenantContextOf(request), (tx) => archiveMacro(tx, request.params.macroId));
+      return { archived: true as const };
+    },
   );
 };

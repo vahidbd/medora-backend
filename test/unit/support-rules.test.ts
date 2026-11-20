@@ -95,7 +95,7 @@ describe('helpdesk permissions (SUP11)', () => {
     expect(ROLE_PERMISSIONS.admin).not.toContain('support:clinical');
   });
 
-  it.each(['support:clinical', 'messaging:manage'] as const)('never lets an agent use %s', (key) => {
+  it.each(['support:clinical', 'support:manage', 'messaging:manage'] as const)('never lets an agent use %s', (key) => {
     expect(AGENT_FORBIDDEN_PERMISSIONS.has(key)).toBe(true);
   });
 });

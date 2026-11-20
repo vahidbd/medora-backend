@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   ACTOR_TYPES,
   CHANNELS,
+  MACRO_STATUSES,
   MESSAGE_DIRECTIONS,
   MESSAGE_STATUSES,
   TICKET_FLAGS,
@@ -20,6 +21,7 @@ export const flagParams = z.object({
   ticketId: z.uuid(),
   flag: z.enum(TICKET_FLAGS),
 });
+export const macroParams = z.object({ macroId: z.uuid() });
 
 export const ticketListQuery = z
   .object({
@@ -143,6 +145,7 @@ export const ticketChangeBody = z
 export const replyBody = z
   .object({
     body: text(10_000),
+    macroId: z.uuid().optional(),
     status: z.enum(['waiting', 'solved']).optional(),
   })
   .strict();
@@ -165,3 +168,56 @@ export const flagsReply = z.object({ flags: z.array(z.enum(TICKET_FLAGS)) });
 
 export const patientLinkBody = z.object({ patientId: z.uuid().nullable() }).strict();
 export const verifyBody = z.object({ method: z.enum(['date_of_birth', 'call_back']) }).strict();
+
+export const macroView = z.object({
+  macroId: z.uuid(),
+  name: z.string(),
+  body: z.string(),
+  status: z.enum(MACRO_STATUSES),
+  approvedAt: instant.nullable(),
+  updatedAt: instant,
+});
+export const macroListReply = z.object({ macros: z.array(macroView) });
+export const macroBody = z.object({ name: text(120), body: text(10_000) }).strict();
+export const macroChangeBody = z
+  .object({ name: text(120).optional(), body: text(10_000).optional() })
+  .strict()
+  .refine((body) => body.name !== undefined || body.body !== undefined, 'Change the name or the wording');
+export const archivedReply = z.object({ archived: z.literal(true) });
+
+// The patient app (APP-04).
+const patientTopic = z.enum(['care_team', 'orders', 'billing', 'account']);
+const patientMessage = z.object({
+  messageId: z.uuid(),
+  from: z.enum(['you', 'team', 'automatic']),
+  body: z.string(),
+  createdAt: instant,
+});
+const patientStatus = z.enum(['open', 'answered', 'closed']);
+
+export const patientTicketListReply = z.object({
+  tickets: z.array(
+    z.object({
+      ticketId: z.uuid(),
+      topic: patientTopic,
+      status: patientStatus,
+      lastMessageAt: instant,
+      lastMessage: patientMessage.nullable(),
+    }),
+  ),
+});
+export const patientTicketReply = z.object({
+  ticketId: z.uuid(),
+  topic: patientTopic,
+  status: patientStatus,
+  createdAt: instant,
+  messages: z.array(patientMessage),
+});
+export const patientTicketBody = z
+  .object({
+    topic: patientTopic,
+    subject: text(200).nullable().optional(),
+    body: text(5_000),
+  })
+  .strict();
+export const patientMessageBody = z.object({ body: text(5_000) }).strict();

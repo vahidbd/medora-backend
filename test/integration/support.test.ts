@@ -5,7 +5,7 @@ import { closeDatabase } from '../../src/db/health.js';
 import { type TenantContext, withTenant } from '../../src/db/tenant.js';
 import { fakeEmail, queueMessage } from '../../src/modules/messaging/index.js';
 import { logCall, markOverdue, receiveMessage, replyToTicket, type InboundMessage } from '../../src/modules/support/index.js';
-import { headers, signIn, testApp } from '../support/app.js';
+import { headers, patientSignIn, signIn, testApp } from '../support/app.js';
 import { admin, createBrand, tenantWith } from '../support/db.js';
 import { postTwilioWebhook } from '../support/twilio.js';
 
@@ -244,6 +244,42 @@ describe('flags (SUP6)', async () => {
   });
 });
 
+describe('macros (SUP10)', async () => {
+  const t = await setUp();
+
+  it('can be used only once approved, and go back to draft when the wording changes', async () => {
+    const adminUser = (
+      await admin.query("select u.email from platform.memberships m join platform.users u on u.id = m.user_id where m.tenant_id = $1 and m.role = 'admin'", [t.tenantId])
+    ).rows[0];
+    const manage = await t.as(adminUser);
+    const created = await app.inject({ method: 'POST', url: '/v1/macros', headers: manage, payload: { name: 'Shipping times', body: 'Orders arrive in 2 to 5 business days.' } });
+    const macroId = created.json().macroId as string;
+    const { ticket } = await receive(t.tenantId, email(t.brandId, 'macro@example.test', 'When will it arrive?'));
+    const early = await app.inject({
+      method: 'POST',
+      url: `/v1/tickets/${ticket.id}/replies`,
+      headers: await t.as(t.support),
+      payload: { body: 'Orders arrive in 2 to 5 business days.', macroId },
+    });
+    expect(early.json().error.code).toBe('macro_not_approved');
+    expect((await app.inject({ method: 'GET', url: '/v1/macros', headers: await t.as(t.support) })).json().macros).toEqual([]);
+    await app.inject({ method: 'POST', url: `/v1/macros/${macroId}/approve`, headers: manage });
+    expect((await app.inject({ method: 'GET', url: '/v1/macros', headers: await t.as(t.support) })).json().macros).toHaveLength(1);
+    const approved = await app.inject({
+      method: 'POST',
+      url: `/v1/tickets/${ticket.id}/replies`,
+      headers: await t.as(t.support),
+      payload: { body: 'Orders arrive in 2 to 5 business days.', macroId },
+    });
+    expect(approved.statusCode).toBe(201);
+    const sent = await admin.query("select template_key from clinical.messages where ticket_id = $1 and direction = 'outbound'", [ticket.id]);
+    expect(sent.rows).toEqual([{ template_key: `macro:${macroId}` }]);
+    const edited = await app.inject({ method: 'PATCH', url: `/v1/macros/${macroId}`, headers: manage, payload: { body: 'Orders arrive in 3 to 5 business days.' } });
+    expect(edited.json().status).toBe('draft');
+    expect((await app.inject({ method: 'POST', url: '/v1/macros', headers: await t.as(t.support), payload: { name: 'Mine', body: 'x' } })).statusCode).toBe(403);
+  });
+});
+
 describe('the first-response clock (SUP5)', async () => {
   const t = await setUp();
 
@@ -255,6 +291,59 @@ describe('the first-response clock (SUP5)', async () => {
     const events = await admin.query("select payload from platform.outbox where type = 'ticket.overdue' and record_id = $1", [ticket.id]);
     expect(events.rows).toHaveLength(1);
     expect(Object.keys(events.rows[0].payload).sort()).toEqual(['dueAt', 'patientId', 'priority', 'queue']);
+  });
+});
+
+describe("the patient app's Messages (SUP13)", async () => {
+  const t = await setUp();
+
+  async function patient() {
+    const subject = `user_${randomUUID()}`;
+    const token = await patientSignIn(subject, { email: `${subject}@example.test` });
+    const account = await app.inject({
+      method: 'POST',
+      url: '/v1/patient/account',
+      headers: headers(token, t.tenantId),
+      payload: { givenName: 'Sam', familyName: 'Sample', dateOfBirth: '1988-09-30', sex: 'not_stated' },
+    });
+    expect(account.statusCode).toBe(201);
+    return headers(token, t.tenantId);
+  }
+
+  it('keeps a care-team ticket in the clinical queue, shows the patient only their side, and hides it from everyone else', async () => {
+    const mine = await patient();
+    const opened = await app.inject({ method: 'POST', url: '/v1/patient/tickets', headers: mine, payload: { topic: 'care_team', body: 'Is it fine to take this with food?' } });
+    expect(opened.statusCode).toBe(201);
+    const { ticketId } = opened.json();
+    const row = await admin.query('select queue, patient_verified_method from operational.tickets where id = $1', [ticketId]);
+    expect(row.rows[0]).toEqual({ queue: 'clinical', patient_verified_method: 'patient_app' });
+    await app.inject({ method: 'POST', url: `/v1/tickets/${ticketId}/comments`, headers: await t.as(t.clinician), payload: { body: 'Staff only' } });
+    await app.inject({ method: 'POST', url: `/v1/tickets/${ticketId}/replies`, headers: await t.as(t.clinician), payload: { body: 'Yes, with food is fine.' } });
+    const seen = await app.inject({ method: 'GET', url: `/v1/patient/tickets/${ticketId}`, headers: mine });
+    expect(seen.json()).toMatchObject({ topic: 'care_team', status: 'answered' });
+    expect(seen.json().messages.map((message: { from: string; body: string }) => [message.from, message.body])).toEqual([
+      ['you', 'Is it fine to take this with food?'],
+      ['team', 'Yes, with food is fine.'],
+    ]);
+    const moved = await app.inject({ method: 'PATCH', url: `/v1/tickets/${ticketId}`, headers: await t.as(t.clinician), payload: { queue: 'support' } });
+    expect(moved.json().error.code).toBe('care_team_stays_clinical');
+    const someoneElse = await patient();
+    expect((await app.inject({ method: 'GET', url: `/v1/patient/tickets/${ticketId}`, headers: someoneElse })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'POST', url: `/v1/patient/tickets/${ticketId}/messages`, headers: someoneElse, payload: { body: 'Hi' } })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'GET', url: '/v1/patient/tickets', headers: someoneElse })).json().tickets).toEqual([]);
+  });
+
+  it("records the brand whose verified domain the app was opened on, and none for another tenant's", async () => {
+    const mine = await patient();
+    const own = await createBrand(t.tenantId, { status: 'live', host: `help-${randomUUID().slice(0, 8)}.example.test`, verifiedBy: t.owner.id });
+    const other = await setUp();
+    const theirs = await createBrand(other.tenantId, { status: 'live', host: `help-${randomUUID().slice(0, 8)}.example.test`, verifiedBy: other.owner.id });
+    const open = (host: string) =>
+      app.inject({ method: 'POST', url: '/v1/patient/tickets', headers: { ...mine, 'x-medora-brand-host': host }, payload: { topic: 'orders', body: 'Where is my parcel?' } });
+    const branded = (await open(own.host!)).json().ticketId;
+    const unbranded = (await open(theirs.host!)).json().ticketId;
+    const rows = await admin.query('select id, brand_id from operational.tickets where id = any($1)', [[branded, unbranded]]);
+    expect(Object.fromEntries(rows.rows.map((row) => [row.id, row.brand_id]))).toEqual({ [branded]: own.brandId, [unbranded]: null });
   });
 });
 
@@ -291,10 +380,14 @@ describe('tenancy of tickets (ADR 0006)', async () => {
     expect(changed.rowCount).toBe(0);
   });
 
-  it("never shows, changes or deletes another tenant's tickets, flags, comments or sender addresses", async () => {
+  it("never shows, changes or deletes another tenant's tickets, flags, comments, macros or sender addresses", async () => {
     const { ticket } = await receive(b.tenantId, email(b.brandId, 'b2@example.test', 'I want to make a complaint'));
     await app.inject({ method: 'POST', url: `/v1/tickets/${ticket.id}/comments`, headers: await b.as(b.support), payload: { body: 'Called back, no answer' } });
-    for (const table of ['operational.tickets', 'operational.ticket_flags', 'clinical.ticket_comments', 'operational.senders']) {
+    await admin.query(
+      `insert into operational.macros (tenant_id, name, body, status, created_by_user_id, updated_by_user_id) values ($1, 'Hours', 'We answer within a day.', 'draft', $2, $2)`,
+      [b.tenantId, b.owner.id],
+    );
+    for (const table of ['operational.tickets', 'operational.ticket_flags', 'clinical.ticket_comments', 'operational.macros', 'operational.senders']) {
       const owned = await admin.query(`select count(*)::int as n from ${table} where tenant_id = $1`, [b.tenantId]);
       expect(owned.rows[0].n, table).toBeGreaterThan(0);
       const seen = await withTenant(system(a.tenantId), (tx) => tx.db.execute(`select 1 from ${table} where tenant_id = '${b.tenantId}'`));

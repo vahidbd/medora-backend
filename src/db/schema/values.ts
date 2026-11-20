@@ -171,6 +171,9 @@ export type VerificationMethod = (typeof VERIFICATION_METHODS)[number];
 export const SENDER_PURPOSES = ['service', 'marketing'] as const;
 export type SenderPurpose = (typeof SENDER_PURPOSES)[number];
 
+export const MACRO_STATUSES = ['draft', 'approved'] as const;
+export type MacroStatus = (typeof MACRO_STATUSES)[number];
+
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
   { table: 'platform.memberships', column: 'role', values: MEMBERSHIP_ROLES },
@@ -203,6 +206,7 @@ export const CHECKED_VALUES = [
   { table: 'operational.tickets', column: 'patient_verified_method', values: VERIFICATION_METHODS },
   { table: 'operational.ticket_flags', column: 'flag', values: TICKET_FLAGS },
   { table: 'operational.ticket_flags', column: 'set_by_type', values: ACTOR_TYPES },
+  { table: 'operational.macros', column: 'status', values: MACRO_STATUSES },
   { table: 'operational.senders', column: 'channel', values: SENDER_CHANNELS },
   { table: 'operational.senders', column: 'purpose', values: SENDER_PURPOSES },
   { table: 'platform.tenants', column: 'time_zone', values: TIME_ZONES },
