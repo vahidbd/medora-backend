@@ -56,6 +56,20 @@ The start command applies pending migrations as the owner, then serves as the AP
 - `STORAGE_MODE=s3` with `S3_BUCKET`, `S3_REGION` (`ap-southeast-2` or `ap-southeast-4`), `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, and `S3_ENDPOINT` when not AWS.
 - `SENTRY_DSN`: an error tracker that keeps data in Australia (ADR 0026). Optional; unset turns error tracking off.
 
+### AI agents
+
+Agents run in their own service from the same image (`railway.agents.json`, start command `node dist/agents.js`), never in the API (docs/decisions/agents.md AGT8). Give it the same database and environment as the API, plus:
+
+- `AGENTS_ENABLED=true` to let tenants switch agents on. Anything else keeps every agent off (the platform kill switch, AGT5).
+- `AGENT_MODEL_CLIENT=bedrock` and `AGENT_BEDROCK_REGION` (`ap-southeast-2` or `ap-southeast-4`). AWS credentials come from the service's standard AWS variables or role, allowed to invoke only the Claude models the agents pin (`src/modules/agents/definitions.ts`). Leave Bedrock's model invocation logging off.
+
+An agent runs only with a passing eval result for its current version in `evals/results/`. Record results against staging, never production:
+
+```bash
+AGENT_MODEL_CLIENT=bedrock npm run evals -- --record          # every agent
+AGENT_MODEL_CLIENT=bedrock npm run evals -- --agent support    # one agent, without recording
+```
+
 ## Deploys
 
 Deploys are off until the repository variable `DEPLOYS` is `on`. With it on, a green CI run on `main` deploys staging; production is deployed by hand (Actions, "Deploy", with the commit already live on staging). Each deploy waits until `/health` reports the new commit, watches it, and rolls back if it fails (ADR 0024).
