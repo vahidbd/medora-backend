@@ -116,7 +116,7 @@ const runRenewals = () => renewalsJob(fake).run({ name: 'billing-renewals', log 
 /** Release what is due, then charge it, as the worker would. */
 const runQuietly = async () => {
   await runRenewals().catch(() => undefined);
-  await deliverDueEvents(chargingHandlers(paid), log, { perTenant: 1000 });
+  await deliverDueEvents(chargingHandlers({ clearances: fake, orders: paid }), log, { perTenant: 1000 });
 };
 const at = (instant: string) => vi.setSystemTime(new Date(instant));
 

@@ -12,6 +12,11 @@ export function localDate(instant: Date, timeZone: string): string {
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
+/** The hour (0 to 23) an instant falls in, in an IANA time zone. */
+export function localHour(instant: Date, timeZone: string): number {
+  return Number(new Intl.DateTimeFormat('en-AU', { timeZone, hour: 'numeric', hourCycle: 'h23' }).format(instant));
+}
+
 export function isTimeZone(value: string): boolean {
   try {
     new Intl.DateTimeFormat('en-AU', { timeZone: value });

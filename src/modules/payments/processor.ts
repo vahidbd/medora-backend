@@ -40,6 +40,12 @@ export interface ChargeResult {
   processorPaymentId: string | null;
   /** The processor's own reason for a failure, kept for support; never shown to the patient as is. */
   failureCode: string | null;
+  /**
+   * A hard decline: the card can't be charged again without the patient,
+   * because the issuer refused it for good (lost, stolen, expired, closed) or
+   * it needs them to authenticate. Trying it again would only be declined.
+   */
+  hardDecline: boolean;
 }
 
 export interface SavedMethodCharge {
@@ -64,6 +70,8 @@ export interface SavedMethodCharges {
   chargeSavedMethod(input: SavedMethodCharge, idempotencyKey: string): Promise<ChargeResult>;
   /** What became of a charge that was still pending. */
   checkCharge(charge: ChargeRef): Promise<ChargeResult>;
+  /** How long the processor remembers an idempotency key: after that, asking again could charge twice. */
+  readonly keyLifetimeHours: number;
 }
 
 export interface RefundResult {

@@ -79,6 +79,8 @@ export const paymentMethods = operational.table(
     isDefault: boolean('is_default').notNull().default(false),
     /** When the patient agreed to later charges without them present. */
     consentedAt: timestamp('consented_at', { withTimezone: true }).notNull(),
+    /** A hard decline: never charged without the patient again until they save it again (BIL31). */
+    declinedAt: timestamp('declined_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

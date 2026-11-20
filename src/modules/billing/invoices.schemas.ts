@@ -25,6 +25,10 @@ export const invoice = z.object({
   paidAt: z.iso.datetime().nullable(),
   /** A void invoice keeps its number; nothing is owed on it. */
   voidedAt: z.iso.datetime().nullable(),
+  /** The patient's date it went past due; kept once paid or void. */
+  pastDueOn: z.iso.date().nullable(),
+  /** The patient's date of its next retry, at 10:00 their time; null once the last has started. */
+  retryDueOn: z.iso.date().nullable(),
   lines: z.array(
     z.object({
       feeKind: z.enum(FEE_KINDS),
@@ -40,6 +44,8 @@ export const invoice = z.object({
     z.object({
       paymentId: z.uuid(),
       attempt: z.number().int(),
+      /** Which scheduled retry it was, 1 to 4; null for the first try and a new card's. */
+      retry: z.number().int().nullable(),
       status: z.enum(PAYMENT_STATUSES),
       amountCents: z.number().int(),
       card: z.object({ brand: z.string(), last4: z.string() }).nullable(),

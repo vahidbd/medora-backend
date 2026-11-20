@@ -100,7 +100,7 @@ describe('the Stripe adapter', () => {
 
     it('confirms an off-session payment intent on the tenant account, with ids only', async () => {
       const { sent, stripe } = stub(200, { id: 'pi_123', status: 'succeeded' });
-      expect(await stripe.savedMethodCharges!.chargeSavedMethod(charge, 'payment:pay-1')).toEqual({ status: 'succeeded', processorPaymentId: 'pi_123', failureCode: null });
+      expect(await stripe.savedMethodCharges!.chargeSavedMethod(charge, 'payment:pay-1')).toEqual({ status: 'succeeded', processorPaymentId: 'pi_123', failureCode: null, hardDecline: false });
       expect(sent[0]).toMatchObject({ url: 'https://api.stripe.com/v1/payment_intents', method: 'POST' });
       expect(sent[0]!.headers).toMatchObject({ 'stripe-account': 'acct_123', 'idempotency-key': 'payment:pay-1' });
       expect(Object.fromEntries(new URLSearchParams(sent[0]!.body!))).toEqual({
@@ -127,15 +127,32 @@ describe('the Stripe adapter', () => {
 
     it("reads a declined card as failed, keeping the card's reason", async () => {
       const { stripe } = stub(402, { error: { type: 'card_error', code: 'card_declined', decline_code: 'insufficient_funds', payment_intent: { id: 'pi_123' } } });
-      expect(await stripe.savedMethodCharges!.chargeSavedMethod(charge, 'payment:pay-1')).toEqual({ status: 'failed', processorPaymentId: 'pi_123', failureCode: 'insufficient_funds' });
+      expect(await stripe.savedMethodCharges!.chargeSavedMethod(charge, 'payment:pay-1')).toEqual({
+        status: 'failed',
+        processorPaymentId: 'pi_123',
+        failureCode: 'insufficient_funds',
+        hardDecline: false,
+      });
     });
 
-    it('reads a card that wants the patient to authenticate as needing action', async () => {
+    it.each([
+      ['card_declined', 'lost_card'],
+      ['card_declined', 'stolen_card'],
+      ['card_declined', 'do_not_try_again'],
+      ['expired_card', undefined],
+      ['incorrect_number', undefined],
+    ])('reads a %s (%s) decline as hard, so the card is not tried again', async (code, declineCode) => {
+      const { stripe } = stub(402, { error: { type: 'card_error', code, ...(declineCode ? { decline_code: declineCode } : {}), payment_intent: { id: 'pi_123' } } });
+      expect(await stripe.savedMethodCharges!.chargeSavedMethod(charge, 'payment:pay-1')).toMatchObject({ status: 'failed', hardDecline: true });
+    });
+
+    it('reads a card that wants the patient to authenticate as needing action, and as a hard decline off-session', async () => {
       const { stripe } = stub(402, { error: { type: 'card_error', code: 'authentication_required', payment_intent: { id: 'pi_123' } } });
       expect(await stripe.savedMethodCharges!.chargeSavedMethod(charge, 'payment:pay-1')).toEqual({
         status: 'requires_action',
         processorPaymentId: 'pi_123',
         failureCode: 'authentication_required',
+        hardDecline: true,
       });
     });
 
@@ -150,6 +167,7 @@ describe('the Stripe adapter', () => {
         status: 'failed',
         processorPaymentId: 'pi_123',
         failureCode: 'do_not_honor',
+        hardDecline: false,
       });
       expect(sent[0]).toMatchObject({ url: 'https://api.stripe.com/v1/payment_intents/pi_123', method: 'GET', body: null });
       expect(sent[0]!.headers['stripe-account']).toBe('acct_123');

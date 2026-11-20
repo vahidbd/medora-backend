@@ -5,7 +5,7 @@ import type { App } from '../../src/app.js';
 import { closeDatabase } from '../../src/db/health.js';
 import { type TenantContext, withTenant } from '../../src/db/tenant.js';
 import { chargeInvoice } from '../../src/modules/billing/charges.js';
-import { type Clearance, type PaidOrders, chargingHandlers, renewalsJob, startSubscription } from '../../src/modules/billing/index.js';
+import { type Clearance, type ClearanceSource, type PaidOrders, chargingHandlers, renewalsJob, startSubscription } from '../../src/modules/billing/index.js';
 import { deliverDueEvents } from '../../src/lib/outbox-delivery.js';
 import { FAKE_METHODS } from '../../src/modules/payments/fake-processor.js';
 import { savePaymentMethod } from '../../src/modules/payments/index.js';
@@ -80,16 +80,16 @@ const clearances = new Map<string, Clearance>();
 const ordersAnswer = new Map<string, 'paid' | 'refused'>();
 const orders: PaidOrders = { markOrderPaid: async (_tx, { orderId }) => ordersAnswer.get(orderId) ?? 'paid' };
 const log = recordingLog();
+const source: ClearanceSource = { clearanceForPeriod: async (_tx, r) => clearances.get(r.subscriptionId) ?? { status: 'held', reason: 'other' } };
+const deps = { clearances: source, orders };
 const release = (subscriptionId: string, clearance: Clearance = { status: 'cleared', orderId: null, medicineProductId: null, partnerPharmacyId: null }) => {
   clearances.set(subscriptionId, clearance);
-  return renewalsJob({ clearanceForPeriod: async (_tx, r) => clearances.get(r.subscriptionId) ?? { status: 'held', reason: 'other' } })
-    .run({ name: 'billing-renewals', log })
-    .catch(() => undefined);
+  return renewalsJob(source).run({ name: 'billing-renewals', log }).catch(() => undefined);
 };
 /** One pass of the outbox, with everything waiting made due first, as if its backoff had passed. */
 const deliver = async () => {
   await admin.query('update platform.outbox set next_attempt_at = now() where delivered_at is null and failed_at is null');
-  return deliverDueEvents(chargingHandlers(orders), log, { perTenant: 1000 });
+  return deliverDueEvents(chargingHandlers(deps), log, { perTenant: 1000 });
 };
 
 const invoicesOf = async (subscriptionId: string) => (await call('GET', `/invoices?subscriptionId=${subscriptionId}`)).body.invoices;
@@ -126,7 +126,7 @@ describe('charging a period invoice (BIL28, BIL29)', () => {
     expect(await events(invoice.invoiceId)).toEqual(['invoice.issued', 'invoice.paid']);
     expect(await events(started.subscriptionId)).toContain('subscription.activated');
 
-    await chargeInvoice({ tenantId: clinic.tenantId, actor: { type: 'system' }, requestId: 'test' }, invoice.invoiceId, orders);
+    await chargeInvoice({ tenantId: clinic.tenantId, actor: { type: 'system' }, requestId: 'test' }, invoice.invoiceId, 'issued', deps);
     expect(stripe.charges.length).toBe(before + 1);
   });
 
@@ -157,7 +157,7 @@ describe('charging a period invoice (BIL28, BIL29)', () => {
     const noCard = await subscribe(null);
     for (const s of [declined, needsPatient, noCard]) await release(s.subscriptionId);
     await deliver();
-    expect((await invoicesOf(declined.subscriptionId))[0]).toMatchObject({ status: 'past_due', payments: [{ status: 'failed', failureCode: 'card_declined' }] });
+    expect((await invoicesOf(declined.subscriptionId))[0]).toMatchObject({ status: 'past_due', payments: [{ status: 'failed', failureCode: 'insufficient_funds' }] });
     expect((await invoicesOf(needsPatient.subscriptionId))[0]).toMatchObject({ status: 'past_due', payments: [{ status: 'failed', failureCode: 'authentication_required' }] });
     const [unpaid] = await invoicesOf(noCard.subscriptionId);
     expect(unpaid).toMatchObject({ status: 'past_due', payments: [] });

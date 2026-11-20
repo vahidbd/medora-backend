@@ -13,7 +13,10 @@ import {
 
 /** How saved method ids start to make the fake answer a charge a particular way. Any other id is charged. */
 export const FAKE_METHODS = {
+  /** A soft decline, such as insufficient funds: a later day may pass. */
   declined: 'pm_fake_declined',
+  /** A hard decline: the card was reported lost. */
+  lost: 'pm_fake_lost',
   needsAuthentication: 'pm_fake_needs_authentication',
   pending: 'pm_fake_pending',
 } as const;
@@ -26,7 +29,8 @@ export const FAKE_METHODS = {
  * Onboarding is instant: making a link finishes it, and the link goes
  * straight back to the console. Tests change what the processor says with
  * `setChargesEnabled`, decide a charge by its saved method id (FAKE_METHODS)
- * and `settle`, and lose a reply with `loseNextReply`.
+ * or `setOutcome`, finish a pending one with `settle`, and lose a reply with
+ * `loseNextReply`.
  */
 export class FakeProcessor implements PaymentProcessor {
   readonly processor: Processor;
@@ -40,6 +44,7 @@ export class FakeProcessor implements PaymentProcessor {
   private readonly chargesByKey = new Map<string, ChargeResult>();
   private readonly refundsByKey = new Map<string, RefundResult>();
   private replyLost = false;
+  private readonly outcomes = new Map<string, keyof typeof FAKE_METHODS | 'charged'>();
 
   constructor(processor: Processor) {
     this.processor = processor;
@@ -67,6 +72,8 @@ export class FakeProcessor implements PaymentProcessor {
   };
 
   readonly savedMethodCharges = {
+    keyLifetimeHours: 24,
+
     chargeSavedMethod: async (input: SavedMethodCharge, idempotencyKey: string): Promise<ChargeResult> => {
       let result = this.chargesByKey.get(idempotencyKey);
       if (!result) {
@@ -107,6 +114,11 @@ export class FakeProcessor implements PaymentProcessor {
     found.result.failureCode = status === 'failed' ? 'card_declined' : null;
   }
 
+  /** From now on, charges to this saved method are answered as one of FAKE_METHODS would be, or charged. */
+  setOutcome(processorMethodId: string, outcome: keyof typeof FAKE_METHODS | 'charged'): void {
+    this.outcomes.set(processorMethodId, outcome);
+  }
+
   /** The next charge or refund is made, but its reply never arrives, as on a timeout. */
   loseNextReply(): void {
     this.replyLost = true;
@@ -119,10 +131,13 @@ export class FakeProcessor implements PaymentProcessor {
   }
 
   private decide(methodId: string, processorPaymentId: string): ChargeResult {
-    if (methodId.startsWith(FAKE_METHODS.declined)) return { status: 'failed', processorPaymentId, failureCode: 'card_declined' };
-    if (methodId.startsWith(FAKE_METHODS.needsAuthentication)) return { status: 'requires_action', processorPaymentId, failureCode: 'authentication_required' };
-    if (methodId.startsWith(FAKE_METHODS.pending)) return { status: 'pending', processorPaymentId, failureCode: null };
-    return { status: 'succeeded', processorPaymentId, failureCode: null };
+    const outcome = this.outcomes.get(methodId) ?? (Object.keys(FAKE_METHODS) as (keyof typeof FAKE_METHODS)[]).find((kind) => methodId.startsWith(FAKE_METHODS[kind]));
+    const answer = (status: ChargeResult['status'], failureCode: string | null = null, hardDecline = false) => ({ status, processorPaymentId, failureCode, hardDecline });
+    if (outcome === 'declined') return answer('failed', 'insufficient_funds');
+    if (outcome === 'lost') return answer('failed', 'lost_card', true);
+    if (outcome === 'needsAuthentication') return answer('requires_action', 'authentication_required', true);
+    if (outcome === 'pending') return answer('pending');
+    return answer('succeeded');
   }
 
   setChargesEnabled(processorAccountId: string, chargesEnabled: boolean): void {

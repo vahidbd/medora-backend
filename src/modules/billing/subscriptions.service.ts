@@ -1,11 +1,11 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { paymentAccounts, prices, subscriptions } from '../../db/schema/index.js';
-import type { CancelReason, HeldReason, IntervalUnit, SubscriptionStatus } from '../../db/schema/values.js';
+import type { BillingModel, CancelReason, HeldReason, IntervalUnit, SubscriptionStatus } from '../../db/schema/values.js';
 import type { TenantTx } from '../../db/tenant.js';
 import { audit } from '../../lib/audit.js';
 import { BadRequestError, BusinessRuleError, NotFoundError } from '../../lib/errors.js';
 import { emitEvent } from '../../lib/events.js';
-import { isTimeZone, localDate } from '../../lib/time.js';
+import { isTimeZone, localDate, localHour } from '../../lib/time.js';
 import { type VoidReason, feesOf, issueInvoice, unpaidPeriodInvoice, voidInvoice } from './invoices.service.js';
 import { type Interval, addDays, dayOfMonth, latestDeferredStart, nextStart } from './periods.js';
 
@@ -91,11 +91,14 @@ export async function getSubscription(tx: TenantTx, id: string): Promise<Subscri
 
 export type SubscriptionRow = Row;
 
-export async function lockSubscription(tx: TenantTx, id: string): Promise<{ row: Row; interval: Interval }> {
+export async function lockSubscription(tx: TenantTx, id: string): Promise<{ row: Row; interval: Interval; billingModel: BillingModel }> {
   const [row] = await tx.db.select().from(subscriptions).where(eq(subscriptions.id, id)).for('update');
   if (!row) throw new NotFoundError('Subscription');
-  const [price] = await tx.db.select({ unit: prices.intervalUnit, count: prices.intervalCount }).from(prices).where(eq(prices.id, row.priceId));
-  return { row, interval: { unit: price!.unit as IntervalUnit, count: price!.count } };
+  const [price] = await tx.db
+    .select({ unit: prices.intervalUnit, count: prices.intervalCount, billingModel: prices.billingModel })
+    .from(prices)
+    .where(eq(prices.id, row.priceId));
+  return { row, interval: { unit: price!.unit as IntervalUnit, count: price!.count }, billingModel: price!.billingModel as BillingModel };
 }
 
 type Changes = { [K in keyof typeof subscriptions.$inferInsert]?: (typeof subscriptions.$inferInsert)[K] | ReturnType<typeof sql> };
@@ -105,6 +108,13 @@ async function update(tx: TenantTx, id: string, values: Changes): Promise<void> 
 }
 
 export const today = (row: Pick<Row, 'timeZone'>) => localDate(new Date(), row.timeZone);
+
+/** The patient's date as the jobs see it: a day's renewals and retries happen from 10:00 their time (BIL24, BIL31). */
+export function releaseDay(row: Pick<Row, 'timeZone'>): string {
+  const now = new Date();
+  const day = localDate(now, row.timeZone);
+  return localHour(now, row.timeZone) >= 10 ? day : addDays(day, -1);
+}
 /** Calendar dates in YYYY-MM-DD compare as strings. */
 const later = (a: string, b: string) => (a > b ? a : b);
 
