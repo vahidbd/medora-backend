@@ -1,6 +1,6 @@
 # Patients, patient sign-in and identity
 
-Rulings for the identity part of the patient record, patient accounts and patient sign-in (PRD section 3). ADR 0100 sets the system-level rule; ADRs 0006, 0007, 0008, 0010 and 0028 apply throughout. Rulings marked "Decided by: stand-in" were decided by the product owner's stand-in while the product owner was away, and are listed in the pull request to confirm.
+Rulings for the identity part of the patient record, patient accounts and patient sign-in (PRD section 3). ADR 0100 sets the system-level rule; ADRs 0006, 0007, 0008, 0010 and 0028 apply throughout. Rulings marked "Decided by: stand-in" were decided by the product owner's stand-in while the product owner was away, and are listed in the pull request to confirm. The web app's rulings for the same screens are IDN21 onward in its own copy of this file.
 
 ### IDN1. One patient record per person per tenant
 
