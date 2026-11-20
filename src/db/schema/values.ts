@@ -50,6 +50,20 @@ export type AddressKind = (typeof ADDRESS_KINDS)[number];
 export const AU_STATES = ['ACT', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'] as const;
 export type AuState = (typeof AU_STATES)[number];
 
+/**
+ * What a patient consents to (IDN-05, docs/decisions/patients.md IDN12).
+ * Marketing consent is the messaging module's, in the marketing zone.
+ */
+export const CONSENT_KINDS = ['privacy', 'telehealth_terms', 'identity_check', 'pharmacy_sharing'] as const;
+export type ConsentKind = (typeof CONSENT_KINDS)[number];
+
+export const CONSENT_DECISIONS = ['given', 'withdrawn'] as const;
+export type ConsentDecision = (typeof CONSENT_DECISIONS)[number];
+
+/** How a consent decision reached us. */
+export const CONSENT_CHANNELS = ['web', 'phone', 'in_person'] as const;
+export type ConsentChannel = (typeof CONSENT_CHANNELS)[number];
+
 /** Every CHECK constraint built from a constant above, for the schema-rules test. */
 export const CHECKED_VALUES = [
   { table: 'platform.memberships', column: 'role', values: ROLES },
@@ -62,4 +76,8 @@ export const CHECKED_VALUES = [
   { table: 'clinical.patient_contacts', column: 'kind', values: CONTACT_KINDS },
   { table: 'clinical.patient_addresses', column: 'kind', values: ADDRESS_KINDS },
   { table: 'clinical.patient_addresses', column: 'state', values: AU_STATES },
+  { table: 'clinical.consent_documents', column: 'kind', values: CONSENT_KINDS },
+  { table: 'clinical.patient_consents', column: 'kind', values: CONSENT_KINDS },
+  { table: 'clinical.patient_consents', column: 'decision', values: CONSENT_DECISIONS },
+  { table: 'clinical.patient_consents', column: 'channel', values: CONSENT_CHANNELS },
 ] as const;

@@ -6,6 +6,7 @@ import { patientContextOf, requirePatient, signInContextOf } from '../../plugins
 import { changeProfile, confirmDateOfBirth, createAccount, DATE_OF_BIRTH_LIMIT } from './patient-account.service.js';
 import { accountBody, confirmDateOfBirthBody, confirmedReply, patientMeReply, profileChangeBody } from './patients.schemas.js';
 import { getPatientProfile } from './patients.service.js';
+import { consentsNeeded } from './consents.service.js';
 import type { TenantTx } from '../../db/tenant.js';
 
 /** What a patient does with their own account, under /v1/patient (ADR 0035, docs/decisions/patients.md). */
@@ -15,7 +16,7 @@ const NO_AGENT = { none: 'A patient creates and changes their own account; an ag
 async function meOf(tx: TenantTx, patientId: string) {
   const profile = await getPatientProfile(tx, patientId);
   if (!profile) throw new NotFoundError('Patient');
-  return { ...profile, consentsNeeded: [], programs: [] };
+  return { ...profile, consentsNeeded: await consentsNeeded(tx, patientId, 'care'), programs: [] };
 }
 
 export const patientAccountRoutes: FastifyPluginAsyncZod = async (app) => {

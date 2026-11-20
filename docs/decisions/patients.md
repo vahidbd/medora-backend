@@ -50,7 +50,7 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid
 
 ### IDN9. Staff see identity with `patients:read`, and every patient shown is audited
 
-Decision: `GET /v1/patients` and `GET /v1/patients/:patientId` need `patients:read`, held by owner, clinician and support; finance doesn't hold it. It shows identity and contact details, never intake answers or notes, which need their own permissions. A list writes one `patient.listed` entry per patient shown; opening a record writes `patient.read`. Searching by contact writes one `patient.searched` entry with the count only.
+Decision: `GET /v1/patients`, `GET /v1/patients/:patientId` and a patient's consents need `patients:read`; recording a consent for a patient needs `patients:manage`. `patients:read` is held by owner, medical director, prescriber, clinician and support, and `patients:manage` by owner and support; finance, operations and marketing hold neither. They show identity and contact details (Medicare masked) and consent decisions, never intake answers or notes, which need their own clinical-zone permissions. A list writes one `patient.listed` entry per patient shown; opening a record writes `patient.read`. Searching by contact writes one `patient.searched` entry with the count only.
 Why: support needs to know who they are helping without seeing clinical content; a name in a list is still a read of that patient's record (ADR 0008).
 Decided by: stand-in (Fable 5.2), to confirm with Vahid
 
@@ -64,3 +64,27 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid
 
 Decision: contact details are rows in `clinical.patient_contacts`, one per kind for now: the email lowercased and the mobile as an Australian E.164 number (`+614…`). The contact the sign-in proved is stored with `verified_at`; one typed in has none. They are stored plain, so staff can find a patient by them.
 Why: ADR 0028 keeps repeated things in rows; exact, normalised values make "find by contact" reliable for inbound messages.
+
+### IDN12. Each consent is asked when it is needed, against an exact version
+
+Decision: a tenant publishes the text of each kind of consent as numbered versions (`clinical.consent_documents`): `privacy` (privacy and the collection of health information), `telehealth_terms`, `identity_check` and `pharmacy_sharing`. A patient's decision is a row against one exact version (`clinical.patient_consents`): the kind, given or withdrawn, when, and how (`web`, or `phone` and `in_person` when staff record it, with who and why). Each is asked where it is needed, not bundled: privacy at the start of an intake, telehealth terms when the account is created, identity check at the check, pharmacy sharing before the first order. Marketing consent is per brand and is the messaging module's (`recordMarketingConsent`), not a kind here.
+Why: a record of consent is only worth something if it says exactly which words the patient agreed to; consent asked at the moment it matters is consent the patient understood.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN13. A new version asks again, and blocks new care until it is given
+
+Decision: a kind is needed unless the patient's latest decision on it is "given" on the tenant's current version, so publishing a new version asks every patient again. A kind the tenant hasn't published is needed too, so care can't start until the tenant has published its privacy text and terms. Other modules call `assertConsents(tx, patientId, purpose)` from the front door before starting an intake or booking a consult (`care`: privacy and telehealth terms) and before an order (`order`: those plus pharmacy sharing); it refuses with 409 `consent_needed` and the kinds still needed. It never blocks the patient reading their own record, messaging or cancelling. A patient gives consent in the patient app; withdrawing a required consent goes through support in v1 (`POST /v1/patients/:patientId/consents`, with a reason), keeps the record, and emits `consent.withdrawn` so other modules can pause care. Only the current version can be given; a decision the same as the latest one adds no row.
+Why: an outstanding new version of a required consent must stop new care, but a patient must never be locked out of their own information or of stopping.
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN14. Published consent text and consent decisions never change
+
+Decision: both tables are insert-only. The API's role has SELECT and INSERT only, and a trigger refuses any update, delete or truncate from every role, the owner role included. A correction to the text is a new version; a withdrawal is a new decision. A decision's kind is checked against its document's by the foreign key. Publishing needs `consents:manage` (owner and tenant admin); reading the documents needs `patients:read`. The consent text is plain text with blank lines between paragraphs, never drawn as HTML.
+Why: consent records are evidence; evidence that can be edited isn't evidence (ADR 0008).
+Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN15. A permission's zone is what it shows, not where its rows live
+
+Decision: `patients:read` and `patients:manage` are `operational`-zone permissions, although the rows they show are in the `clinical` schema: they show who the patient is, how to reach them and their consent decisions, which support, orders and billing need without break-glass. Every key that shows clinical content (intake answers, protocols' patient results, notes, scripts, care plans) is a separate key in the `clinical` zone, so it works only for a clinical role or under break-glass. `consents:manage` is `platform`: it publishes the tenant's own text and shows no patient.
+Why: the data zone of a permission decides who may use it without break-glass (admin rulings); marking identity clinical would put every support call behind break-glass, while the rows staying in the clinical schema still keeps marketing code from reaching them (ADR 0007, IDN10).
+Decided by: stand-in (Fable 5.2), to confirm with Vahid

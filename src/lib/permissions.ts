@@ -11,13 +11,17 @@ export const PERMISSIONS = [
   'staff:manage',
   // A patient's identity and contact details, not their clinical notes (docs/decisions/patients.md IDN9).
   'patients:read',
+  // Correct a patient's details and record consent decisions made by phone or in person.
+  'patients:manage',
+  // Publish the tenant's consent documents (IDN14).
+  'consents:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
-  owner: ['staff:read', 'staff:manage', 'patients:read'],
+  owner: ['staff:read', 'staff:manage', 'patients:read', 'patients:manage', 'consents:manage'],
   clinician: ['staff:read', 'patients:read'],
-  support: ['staff:read', 'patients:read'],
+  support: ['staff:read', 'patients:read', 'patients:manage'],
   finance: ['staff:read'],
 };
 

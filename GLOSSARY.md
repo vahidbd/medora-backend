@@ -34,6 +34,8 @@ One word per thing (ADR 0032). Use these words in table names, API fields, route
 | A parcel on its way to a patient | **Shipment** | delivery, consignment |
 | A patient's ongoing goals, check-ins and reviews | **Care plan** | journey, treatment plan |
 | A clinical record of a consult or review | **Note** | encounter, chart entry |
+| A tenant's published text a patient agrees to, in numbered versions | **Consent document** | policy, form, terms (as a record) |
+| A patient's recorded decision on one version of a consent document | **Consent** | agreement, opt-in, acceptance |
 
 ## Platform
 

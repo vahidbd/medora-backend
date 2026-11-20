@@ -4,13 +4,17 @@
  * Every read below writes its own audit entry.
  */
 import type { FastifyPluginAsync } from 'fastify';
+import { consentsRoutes } from './consents.routes.js';
 import { patientAccountRoutes } from './patient-account.routes.js';
 import { patientsRoutes } from './patients.routes.js';
 
 export const patientRoutes: FastifyPluginAsync = async (app) => {
   await app.register(patientAccountRoutes);
   await app.register(patientsRoutes);
+  await app.register(consentsRoutes);
 };
+
+export { assertConsents, consentsNeeded, type ConsentPurpose } from './consents.service.js';
 
 export {
   findPatient,
@@ -23,4 +27,4 @@ export {
   type PatientSummary,
   type PrescribingPatient,
 } from './patients.service.js';
-export { ageOn, MINIMUM_AGE } from './patient-details.js';
+export { ageOn, MINIMUM_AGE, normaliseEmail, normaliseMobile } from './patient-details.js';
