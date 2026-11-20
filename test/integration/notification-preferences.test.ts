@@ -5,7 +5,7 @@ import { closeDatabase } from '../../src/db/health.js';
 import { notificationPreferences } from '../../src/db/schema/index.js';
 import { withTenant } from '../../src/db/tenant.js';
 import { headers, patientSignIn, testApp } from '../support/app.js';
-import { admin, createTenant } from '../support/db.js';
+import { acceptingBrand, admin, createTenant } from '../support/db.js';
 
 /** How a patient wants to hear from their care (docs/decisions/notifications.md). Made-up people only. */
 const app: App = await testApp();
@@ -20,7 +20,7 @@ const adult = { givenName: 'Sam', familyName: 'Example', dateOfBirth: '1985-07-0
 async function patientIn(tenantId: string) {
   const subject = `user_${randomUUID()}`;
   const token = await patientSignIn(subject, { email: `${subject}@example.test` });
-  const created = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: adult });
+  const created = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: { ...adult, brandId: await acceptingBrand(tenantId) } });
   expect(created.statusCode).toBe(201);
   const as = headers(token, tenantId);
   return {

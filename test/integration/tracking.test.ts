@@ -5,7 +5,7 @@ import { closeDatabase } from '../../src/db/health.js';
 import { checkIns, measurements, sideEffects } from '../../src/db/schema/index.js';
 import { withTenant } from '../../src/db/tenant.js';
 import { headers, patientSignIn, testApp } from '../support/app.js';
-import { admin, createTenant } from '../support/db.js';
+import { acceptingBrand, admin, createTenant } from '../support/db.js';
 
 /**
  * Measurements, side effects and check-ins (docs/decisions/tracking.md).
@@ -23,7 +23,7 @@ const adult = { givenName: 'Sam', familyName: 'Example', dateOfBirth: '1985-07-0
 /** A patient with an account, signed in on a session that has confirmed the date of birth. */
 async function patientIn(tenantId: string, subject = `user_${randomUUID()}`) {
   const token = await patientSignIn(subject, { email: `${subject}@example.test` });
-  const reply = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: adult });
+  const reply = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: { ...adult, brandId: await acceptingBrand(tenantId) } });
   expect(reply.statusCode).toBe(201);
   const as = headers(token, tenantId);
   return {

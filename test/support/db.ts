@@ -102,3 +102,23 @@ export async function createBrand(
   );
   return { companyId, brandId, slug, domainId: domain.rows[0]!.id, host: options.host };
 }
+
+const accepting = new Map<string, Promise<string>>();
+
+/**
+ * A brand through which the tenant takes new patients, made once per tenant:
+ * a live brand on a verified domain, a medical director and a prescriber
+ * (the onboarding checklist, ADM18). Patient sign-ups name it (IDN20).
+ */
+export function acceptingBrand(tenantId: string): Promise<string> {
+  let brand = accepting.get(tenantId);
+  if (!brand) {
+    brand = (async () => {
+      for (const role of ['medical_director', 'prescriber'] as const) await addMember(tenantId, (await createUser()).id, role);
+      const verifiedBy = (await createPlatformStaff()).id;
+      return (await createBrand(tenantId, { status: 'live', host: `${randomUUID().slice(0, 8)}.example.test`, verifiedBy })).brandId;
+    })();
+    accepting.set(tenantId, brand);
+  }
+  return brand;
+}

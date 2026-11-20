@@ -7,7 +7,7 @@ import { type TenantContext, withTenant } from '../../src/db/tenant.js';
 import { verifyIdentityManually } from '../../src/modules/patients/identity.service.js';
 import { assertIdentityVerified, getPatientForPrescribing } from '../../src/modules/patients/index.js';
 import { headers, patientSignIn, signIn, testApp } from '../support/app.js';
-import { admin, createTenant, tenantWith } from '../support/db.js';
+import { acceptingBrand, admin, createTenant, tenantWith } from '../support/db.js';
 
 /**
  * Identity checks and the IHI (IDN-02, IDN-04, docs/decisions/patients.md
@@ -44,7 +44,7 @@ async function signUp(tenantId: string, givenName = 'Jo') {
     method: 'POST',
     url: '/v1/patient/account',
     headers: headers(token, tenantId),
-    payload: { givenName, familyName: 'Example', dateOfBirth: '1985-06-15', sex: 'female' },
+    payload: { brandId: await acceptingBrand(tenantId), givenName, familyName: 'Example', dateOfBirth: '1985-06-15', sex: 'female' },
   });
   return { token, patientId: reply.json().patientId as string };
 }
