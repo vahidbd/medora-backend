@@ -105,7 +105,10 @@ describe('resolving and reopening (ADH7)', async () => {
       reopenedFromId: open.adherenceFlagId,
       resolution: null,
       reopenedFrom: { outcome: 'contacted_patient', note: 'Made-up note' },
+      reopenedAsId: null,
     });
+    const earlier = await call('GET', `/v1/adherence/flags/${open.adherenceFlagId}`, clinician.email, tenantId);
+    expect(earlier.json().reopenedAsId).toBe(reopened.json().adherenceFlagId);
     const twice = await call('POST', `/v1/adherence/flags/${open.adherenceFlagId}/reopen`, clinician.email, tenantId);
     expect(twice.json().error.code).toBe('already_reopened');
     const notResolved = await call('POST', `/v1/adherence/flags/${reopened.json().adherenceFlagId}/reopen`, clinician.email, tenantId);

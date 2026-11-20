@@ -41,6 +41,8 @@ export interface AdherenceFlagDetail extends AdherenceFlagSummary {
   resolution: (Resolution & { note: string | null }) | null;
   /** The earlier resolution this flag reopens, so the sheet shows what was done before. */
   reopenedFrom: (Resolution & { note: string | null }) | null;
+  /** The flag that reopened this one, if any: a flag is reopened once at most (ADH7). */
+  reopenedAsId: string | null;
 }
 
 const columns = {
@@ -127,15 +129,24 @@ export async function listAdherenceFlags(tx: TenantTx, query: { status: FlagStat
   return rows.map((row) => summaryOf(row, patients.get(row.patientId)?.displayName ?? ''));
 }
 
-/** One flag, with its note and the resolution it reopens (ADH10). An audited read of the patient's record. */
+/** One flag, with its note, the resolution it reopens and the flag that reopened it (ADH10). An audited read of the patient's record. */
 export async function getAdherenceFlag(tx: TenantTx, adherenceFlagId: string): Promise<AdherenceFlagDetail> {
   requirePerson(tx);
   const row = await oneFlag(tx, adherenceFlagId);
   if (!row) throw new NotFoundError('Adherence flag');
   const earlier = row.reopenedFromId ? await oneFlag(tx, row.reopenedFromId) : null;
+  const [later] = await tx.db
+    .select({ id: adherenceFlags.id })
+    .from(adherenceFlags)
+    .where(and(eq(adherenceFlags.tenantId, tx.context.tenantId), eq(adherenceFlags.reopenedFromId, row.id)));
   await audit(tx, { action: 'adherence_flag.read', zone: 'clinical', recordTable: RECORD, recordId: row.id, details: { patientId: row.patientId } });
   const patient = (await findPatients(tx, [row.patientId])).get(row.patientId);
-  return { ...summaryOf(row, patient?.displayName ?? ''), resolution: resolutionOf(row), reopenedFrom: earlier ? resolutionOf(earlier) : null };
+  return {
+    ...summaryOf(row, patient?.displayName ?? ''),
+    resolution: resolutionOf(row),
+    reopenedFrom: earlier ? resolutionOf(earlier) : null,
+    reopenedAsId: later?.id ?? null,
+  };
 }
 
 /** Resolve an open flag with what was done (ADH7). A resolved flag is never resolved again. */

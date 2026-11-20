@@ -48,6 +48,7 @@ const resolutionWithNote = resolution.extend({ note: z.string().nullable() });
 export const adherenceFlagDetail = adherenceFlagSummary.extend({
   resolution: resolutionWithNote.nullable(),
   reopenedFrom: resolutionWithNote.nullable(),
+  reopenedAsId: z.uuid().nullable(),
 });
 
 export const resolveAdherenceFlagBody = z
