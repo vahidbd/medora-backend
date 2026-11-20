@@ -7,7 +7,7 @@ import { getAdherenceFlag, listAdherenceFlags, reopenAdherenceFlag, resolveAdher
 /**
  * The care team's adherence flags (docs/decisions/adherence.md ADH7 to
  * ADH10). Clinical-zone permissions, so only a clinical role, or someone
- * under break-glass, gets here (ADR 0036).
+ * under break-glass, gets here (ADR 0220).
  */
 
 const PEOPLE_ONLY = { none: 'Resolving or reopening an adherence flag is a clinical escalation, which only people do (ADR 0260, ADH8)' };

@@ -19,11 +19,10 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid
 Decision: a patient route answers 403 `date_of_birth_needed` until the current sign-in session has confirmed the patient's date of birth (`POST /v1/patient/confirm-date-of-birth`), stored in `clinical.patient_sign_ins` against the session id. Creating the account confirms the session it was made in. Five wrong dates per patient in 15 minutes answer 429 until the window passes. Each wrong date writes `patient.date_of_birth_refused`, committed before the refusal.
 Why: IDN-07 asks for the date of birth on first use, as a second thing only the patient knows on top of the one-time code. Checking it per session in the backend means no screen can skip it.
 
-### IDN4. Until brands exist, a patient request names its tenant
+### IDN4. A patient request names its tenant
 
-Decision: a patient request names its tenant in `x-medora-tenant`, set by the patient app's server, not typed by the patient. A tenant that doesn't exist answers 403 `tenant_unavailable`. When brands land, the brand's host (`x-medora-brand-host`, resolved to a live or paused brand) replaces it, and new sign-ups stop on a paused brand.
-Why: brands are being built in parallel. The tenant id is not a secret worth guarding here: anyone may sign up with any tenant's service, so naming one reveals nothing.
-Replaced by: a later ruling when the brand host is wired in.
+Decision: a patient request names its tenant in `x-medora-tenant`, set by the patient app's server from the brand it found for its host (`GET /v1/public/brands/by-host/:host`), not typed by the patient. A tenant that doesn't exist answers 403 `tenant_unavailable`. Creating an account also names the brand (IDN20).
+Why: the patient app already knows its brand and tenant before the first API call, so the API doesn't need to resolve a host on every request. The tenant id is not a secret worth guarding here: anyone may sign up with any tenant's service, so naming one reveals nothing.
 
 ### IDN5. Medicare is optional, checked and sealed
 
@@ -112,3 +111,9 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid
 Decision: once a patient is verified, Medora looks up their Individual Healthcare Identifier through the HI Service, behind an interface (`src/modules/patients/hi-service.ts`) that takes the tenant: the tenant is the healthcare provider, so a real lookup runs under the tenant's HPI-O and certificate, with Medora as its contracted service provider. It sends the legal name, date of birth, sex (stored with the HI Service's values) and the Medicare number if given. The IHI is sealed (ADR 0010), stays in the clinical zone, is opened only for prescribing (`getPatientForPrescribing`, audited) and never appears in an event, log, prompt or staff screen; staff see whether one was found and its status. Not finding one never blocks care in v1; prescribers see it. Staff with `patients:manage` can look again. It is not a launch gate from this side: the fake ships (`HI_SERVICE=fake`, refused in production), and the real client needs a NASH certificate and conformance first.
 Why: IDN-04 asks for the IHI; it is the national identifier, so it is protected like Medicare. Vahid should confirm the launch position, because IDN-04 is P0 in the PRD; the prescribing thread decides whether Parchment needs an IHI.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid
+
+### IDN20. Creating an account names the brand, and a paused brand takes no new sign-ups
+
+Decision: creating a patient account names the brand the person is signing up through (`brandId`). The API refuses it when the brand isn't the tenant's (404), isn't live (409 `brand_not_accepting`), or the tenant isn't ready to take patients (409 `tenant_not_ready`), as an anonymous intake's start already does through its program's brand. A patient who already has an account keeps full service on a paused brand, including starting a new intake (ADM16).
+Why: pausing a brand must stop new sign-ups in the API, not only on the brand site. The brand is named in the body because only account creation needs it.
+Decided by: us, on the admin thread's suggestion, to confirm with Vahid

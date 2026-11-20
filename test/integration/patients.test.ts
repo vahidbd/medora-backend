@@ -7,7 +7,7 @@ import { patientContacts, patients } from '../../src/db/schema/index.js';
 import { type TenantContext, withTenant } from '../../src/db/tenant.js';
 import { findPatients, findPatientsByContact, getPatientForPrescribing } from '../../src/modules/patients/index.js';
 import { headers, patientSignIn, signIn, testApp } from '../support/app.js';
-import { admin, createTenant, tenantWith } from '../support/db.js';
+import { acceptingBrand, admin, createBrand, createPlatformStaff, createTenant, tenantWith } from '../support/db.js';
 
 /**
  * Patients and patient sign-in (ADR 0100, docs/decisions/patients.md).
@@ -25,7 +25,7 @@ const adult = { givenName: 'Alex', familyName: 'Example', dateOfBirth: '1990-04-
 
 async function signUp(tenantId: string, subject = `user_${randomUUID()}`, email = `${subject}@example.test`) {
   const token = await patientSignIn(subject, { email });
-  const reply = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: adult });
+  const reply = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: { ...adult, brandId: await acceptingBrand(tenantId) } });
   return { token, subject, reply, patientId: reply.json().patientId as string };
 }
 
@@ -58,10 +58,10 @@ describe('creating an account (IDN-01, IDN-03, IDN-07)', async () => {
 
   it('refuses anyone under 18, and dates that are not real', async () => {
     const token = await patientSignIn('user_young');
-    const young = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: { ...adult, dateOfBirth: '2015-01-01' } });
+    const young = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: { ...adult, brandId: await acceptingBrand(tenantId), dateOfBirth: '2015-01-01' } });
     expect(young.statusCode).toBe(400);
     expect(young.json().error.code).toBe('under_age');
-    const unreal = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: { ...adult, dateOfBirth: '1990-02-31' } });
+    const unreal = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: { ...adult, brandId: await acceptingBrand(tenantId), dateOfBirth: '1990-02-31' } });
     expect(unreal.json().error.code).toBe('date_of_birth');
     expect((await admin.query('select 1 from clinical.patients where clerk_user_id = $1', ['user_young'])).rowCount).toBe(0);
   });
@@ -81,14 +81,35 @@ describe('creating an account (IDN-01, IDN-03, IDN-07)', async () => {
 
   it('refuses a second account for the same sign-in', async () => {
     const { token } = await signUp(tenantId, 'user_twice');
-    const again = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: adult });
+    const again = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: { ...adult, brandId: await acceptingBrand(tenantId) } });
     expect(again.json().error.code).toBe('already_registered');
   });
 
   it('needs an email or a mobile', async () => {
     const token = await patientSignIn('user_unreachable');
-    const reply = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: adult });
+    const reply = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: { ...adult, brandId: await acceptingBrand(tenantId) } });
     expect(reply.json().error.code).toBe('contact_needed');
+  });
+
+  it('takes a new sign-up only through a live brand of a tenant that is ready (IDN20)', async () => {
+    const token = await patientSignIn('user_no_brand', { email: 'no-brand@example.test' });
+    const create = (brandId: string, tenant = tenantId) => app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenant), payload: { ...adult, brandId } });
+    const verifiedBy = (await createPlatformStaff()).id;
+    const paused = await createBrand(tenantId, { status: 'paused', host: `${randomUUID().slice(0, 8)}.example.test`, verifiedBy });
+    expect((await create(paused.brandId)).json().error.code).toBe('brand_not_accepting');
+    const elsewhere = await acceptingBrand(await createTenant());
+    expect((await create(elsewhere)).statusCode).toBe(404);
+    const unready = await createTenant();
+    const lonely = await createBrand(unready, { status: 'live', host: `${randomUUID().slice(0, 8)}.example.test`, verifiedBy });
+    expect((await create(lonely.brandId, unready)).json().error.code).toBe('tenant_not_ready');
+    expect((await admin.query('select 1 from clinical.patients where clerk_user_id = $1', ['user_no_brand'])).rowCount).toBe(0);
+  });
+
+  it('keeps full service for a patient whose brand pauses (ADM16)', async () => {
+    const own = await createTenant();
+    const { token } = await signUp(own);
+    await admin.query("update platform.brands set status = 'paused' where id = $1", [await acceptingBrand(own)]);
+    expect((await app.inject({ method: 'GET', url: '/v1/patient/me', headers: headers(token, own) })).statusCode).toBe(200);
   });
 
   it('gives the same sign-in a separate record in another tenant (IDN1)', async () => {

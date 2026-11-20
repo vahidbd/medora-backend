@@ -52,7 +52,7 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid
 
 ### ADH9. Two clinical permissions, for clinical roles
 
-Decision: `adherence:read` lists adherence flags, shows one and the report behind it, and will show a patient's activity; `adherence:resolve` resolves and reopens them. Both are clinical-zone permissions held by clinicians, prescribers and medical directors, so an owner or anyone else uses them only under break-glass (ADR 0036). `adherence:resolve` is one no agent may hold, and the services refuse any actor that isn't a person.
+Decision: `adherence:read` lists adherence flags, shows one and the report behind it, and will show a patient's activity; `adherence:resolve` resolves and reopens them. Both are clinical-zone permissions held by clinicians, prescribers and medical directors, so an owner or anyone else uses them only under break-glass (ADR 0220). `adherence:resolve` is one no agent may hold, and the services refuse any actor that isn't a person.
 Why: who is struggling with their treatment, and why, is clinical; acting on it is a clinical escalation, which the PRD keeps for people.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid
 

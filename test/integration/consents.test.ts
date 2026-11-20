@@ -7,7 +7,7 @@ import { consentDocuments, patientConsents } from '../../src/db/schema/index.js'
 import { type TenantContext, withTenant } from '../../src/db/tenant.js';
 import { assertConsents } from '../../src/modules/patients/index.js';
 import { headers, patientSignIn, signIn, testApp } from '../support/app.js';
-import { admin, createTenant, tenantWith } from '../support/db.js';
+import { acceptingBrand, admin, createTenant, tenantWith } from '../support/db.js';
 
 /** Consents (IDN-05, docs/decisions/patients.md IDN12 to IDN14). Made-up people and text only. */
 const app: App = await testApp();
@@ -22,7 +22,7 @@ const adult = { givenName: 'Sam', familyName: 'Sample', dateOfBirth: '1988-09-30
 async function signUp(tenantId: string) {
   const subject = `user_${randomUUID()}`;
   const token = await patientSignIn(subject, { email: `${subject}@example.test` });
-  const reply = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: adult });
+  const reply = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: headers(token, tenantId), payload: { ...adult, brandId: await acceptingBrand(tenantId) } });
   return { token, patientId: reply.json().patientId as string, me: reply.json() };
 }
 

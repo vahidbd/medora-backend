@@ -5,7 +5,7 @@ import { closeDatabase } from '../../src/db/health.js';
 import { withTenant } from '../../src/db/tenant.js';
 import { resolveAdherenceFlag } from '../../src/modules/adherence/review.service.js';
 import { headers, patientSignIn, signIn, testApp } from '../support/app.js';
-import { admin, tenantWith } from '../support/db.js';
+import { acceptingBrand, admin, tenantWith } from '../support/db.js';
 
 /**
  * The care team's adherence flags: the list, one flag, resolving and
@@ -26,7 +26,7 @@ async function patientWith(tenantId: string, givenName: string, severities: ('se
   const subject = `user_${randomUUID()}`;
   const token = await patientSignIn(subject, { email: `${subject}@example.test` });
   const as = headers(token, tenantId);
-  const created = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: as, payload: { givenName, familyName: 'Example', dateOfBirth: '1985-07-01', sex: 'not_stated' } });
+  const created = await app.inject({ method: 'POST', url: '/v1/patient/account', headers: as, payload: { givenName, familyName: 'Example', dateOfBirth: '1985-07-01', sex: 'not_stated', brandId: await acceptingBrand(tenantId) } });
   expect(created.statusCode).toBe(201);
   const sideEffectIds: string[] = [];
   for (const severity of severities) {
@@ -63,7 +63,7 @@ describe('the list and one adherence flag (ADH9, ADH10)', async () => {
     expect(audited.rows).toEqual([{ details: { patientId: alex.patientId } }]);
   });
 
-  it('is for a clinical role: support is refused, and the owner needs break-glass (ADR 0036)', async () => {
+  it('is for a clinical role: support is refused, and the owner needs break-glass (ADR 0220)', async () => {
     expect((await call('GET', '/v1/adherence/flags', support.email, tenantId)).statusCode).toBe(403);
     expect((await call('GET', `/v1/side-effects/${sam.sideEffectIds[0]}`, support.email, tenantId)).statusCode).toBe(403);
     expect((await call('GET', '/v1/adherence/flags', owner.email, tenantId)).json().error.code).toBe('break_glass_required');

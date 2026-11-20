@@ -182,3 +182,46 @@ export async function recordConsent(tx: TenantTx, patientId: string, input: Cons
   }
   return consentStates(tx, patientId);
 }
+
+/** The tenant's current published version of one kind, or null when it has none. */
+export async function currentConsentDocument(tx: TenantTx, kind: ConsentKind): Promise<ConsentDocument | null> {
+  return (await currentDocuments(tx)).get(kind) ?? null;
+}
+
+/**
+ * The consent a person gave on an intake's first screen, recorded as theirs
+ * when they claim the intake (docs/decisions/intake.md INT6): that exact
+ * version, at the time they gave it, so they aren't asked twice. A decision
+ * already recorded on that version adds nothing; a later withdrawal stays
+ * the latest decision.
+ */
+export async function recordIntakeConsent(tx: TenantTx, patientId: string, input: { documentId: string; at: Date }): Promise<void> {
+  const tenantId = tx.context.tenantId;
+  const [document] = await tx.db.select(documentColumns).from(consentDocuments).where(and(eq(consentDocuments.tenantId, tenantId), eq(consentDocuments.id, input.documentId)));
+  if (!document) throw new NotFoundError('Consent document');
+  const [already] = await tx.db
+    .select({ id: patientConsents.id })
+    .from(patientConsents)
+    .where(and(eq(patientConsents.tenantId, tenantId), eq(patientConsents.patientId, patientId), eq(patientConsents.documentId, document.documentId), eq(patientConsents.decision, 'given')))
+    .limit(1);
+  if (already) return;
+  const kind = document.kind as ConsentKind;
+  const [row] = await tx.db
+    .insert(patientConsents)
+    .values({ tenantId, patientId, documentId: document.documentId, kind, decision: 'given', channel: 'web', at: input.at })
+    .returning({ id: patientConsents.id });
+  const facts = { kind, version: document.version, channel: 'web', patientId };
+  await audit(tx, { action: 'consent.given', zone: 'clinical', recordTable: CONSENT_TABLE, recordId: row!.id, details: { ...facts, from: 'intake' } });
+  await emitEvent(tx, { type: 'consent.given', recordTable: CONSENT_TABLE, recordId: row!.id, payload: facts });
+}
+
+/** The patient's latest "given" decision on one kind, with its document and time, or null. */
+export async function givenConsentOf(tx: TenantTx, patientId: string, kind: ConsentKind): Promise<{ documentId: string; at: Date } | null> {
+  const [latest] = await tx.db
+    .select({ documentId: patientConsents.documentId, decision: patientConsents.decision, at: patientConsents.at })
+    .from(patientConsents)
+    .where(and(eq(patientConsents.tenantId, tx.context.tenantId), eq(patientConsents.patientId, patientId), eq(patientConsents.kind, kind)))
+    .orderBy(desc(patientConsents.at), desc(patientConsents.id))
+    .limit(1);
+  return latest?.decision === 'given' ? { documentId: latest.documentId, at: latest.at } : null;
+}

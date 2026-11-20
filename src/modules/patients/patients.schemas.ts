@@ -31,6 +31,8 @@ export type MedicareInput = z.infer<typeof medicareSchema>;
 
 export const accountBody = z
   .object({
+    /** The brand the person is signing up through; a paused brand takes no new sign-ups (IDN20). */
+    brandId: z.uuid(),
     givenName: name,
     familyName: name,
     preferredName: name.nullable().optional(),
