@@ -6,7 +6,7 @@ import { audit } from '../../lib/audit.js';
 import { BadRequestError, NotFoundError } from '../../lib/errors.js';
 import { emitEvent } from '../../lib/events.js';
 import type { HoursBlock, TimeOffReply } from './clinicians.schemas.js';
-import { type Acting, assertSelfOrManager, clinicianById } from './clinicians.store.js';
+import { type Acting, assertSelfOrManager, clinicianById, clinicianByUserId } from './clinicians.store.js';
 
 /** Working hours and time off (docs/decisions/workforce.md WRK6, WRK7). Booking cuts slots from these. */
 
@@ -93,4 +93,31 @@ export async function removeTimeOff(tx: TenantTx, clinicianId: string, timeOffId
   if (removed.length === 0) throw new NotFoundError('Time off');
   await audit(tx, { action: 'clinician.time_off_removed', zone: 'operational', ...record(clinicianId), details: { timeOffId } });
   await emitEvent(tx, { type: 'clinician.time_off_removed', ...record(clinicianId), payload: { timeOffId } });
+}
+
+export interface ClinicianCalendar {
+  clinicianId: string;
+  timeZone: string;
+  hours: HoursBlock[];
+  /** Time off that hasn't ended by `now`. */
+  timeOff: { startsAt: Date; endsAt: Date }[];
+}
+
+/**
+ * What booking needs to cut a person's slots (docs/decisions/consults.md
+ * CNS12): their zone, weekly hours and time off. Null if they aren't a
+ * clinician here. `lock` holds the clinician row, so two bookings for one
+ * clinician queue behind each other.
+ */
+export async function clinicianCalendar(tx: TenantTx, userId: string, now: Date, options: { lock?: boolean } = {}): Promise<ClinicianCalendar | null> {
+  const row = await clinicianByUserId(tx, userId);
+  if (!row) return null;
+  if (options.lock) await clinicianById(tx, row.clinicianId, { lock: true });
+  const timeOff = await upcomingTimeOff(tx, row.clinicianId, now);
+  return {
+    clinicianId: row.clinicianId,
+    timeZone: row.timeZone,
+    hours: await hoursOf(tx, row.clinicianId),
+    timeOff: timeOff.map((span) => ({ startsAt: new Date(span.startsAt), endsAt: new Date(span.endsAt) })),
+  };
 }

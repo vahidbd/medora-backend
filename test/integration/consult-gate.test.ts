@@ -109,7 +109,7 @@ describe('the consult gate (CNS1 to CNS6)', () => {
     const { tenantId, patientId, doctor } = await clinic();
     const consultId = await heldConsult(app, tenantId, { patientId, clinicianUserId: doctor.userId });
     for (const status of ['cancelled', 'no_show']) {
-      await admin.query('update clinical.consults set status = $2, ended_at = null where id = $1', [consultId, status]);
+      await admin.query("update clinical.consults set status = $2, ended_at = null, cancellation_reason = case when $2 = 'cancelled' then 'other' end where id = $1", [consultId, status]);
       expect(await gate(tenantId, { patientId, clinicianUserId: doctor.userId })).toBeNull();
     }
   });
@@ -225,7 +225,7 @@ describe('consult evidence (CNS2, CNS5, CNS7)', () => {
     const seen = await withTenant(system(b), async (tx) => ({
       consults: (await tx.db.execute(sql`select id from clinical.consults`)).rows,
       evidence: (await tx.db.execute(sql`select id from clinical.consult_evidence`)).rows,
-      changed: (await tx.db.execute(sql`update clinical.consults set status = 'cancelled', ended_at = null where id = ${consultId}`)).rowCount,
+      changed: (await tx.db.execute(sql`update clinical.consults set status = 'cancelled', cancellation_reason = 'other', ended_at = null where id = ${consultId}`)).rowCount,
     }));
     expect(seen).toEqual({ consults: [], evidence: [], changed: 0 });
     await expect(withTenant(system(b), (tx) => tx.db.execute(sql`delete from clinical.consults where id = ${consultId}`))).rejects.toThrow();
