@@ -9,7 +9,7 @@ import { recordConnection, recordFinish } from './evidence.service.js';
 import { participantOf, roomOf, VIDEO_EVIDENCE_KINDS, type VideoEvidenceKind, videoCallback, videoWebhookVerified } from './video-room.js';
 
 /**
- * The video server's webhooks (ADR 0040, docs/decisions/consults.md CNS7).
+ * The video server's webhooks (ADR 0120, docs/decisions/consults.md CNS7).
  * One address for every tenant, because the server has one: the tenant comes
  * from the room's name, which Medora set. Verified, stored in the inbox, then
  * turned into consult evidence by the handler below.

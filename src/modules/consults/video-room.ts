@@ -3,7 +3,7 @@ import { jwtVerify } from 'jose';
 import { z } from 'zod';
 
 /**
- * How Medora names video rooms and the people in them (ADR 0040,
+ * How Medora names video rooms and the people in them (ADR 0120,
  * docs/decisions/consults.md CNS7). Medora sets both when it issues a join
  * token, so a verified callback names the tenant, the consult and the person
  * without a lookup. Ids only: never a name.

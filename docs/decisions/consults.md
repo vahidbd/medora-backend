@@ -1,6 +1,6 @@
 # Consults
 
-Rulings for consults, their evidence and the consult gate (ADRs 0005, 0006, 0008, 0009, 0020, 0029, 0040). `src/modules/consults/`, tables in the `clinical` schema. Booking, the phone flow and the video room service add their rulings here as they land.
+Rulings for consults, their evidence and the consult gate (ADRs 0005, 0006, 0008, 0009, 0020, 0029, 0120). `src/modules/consults/`, tables in the `clinical` schema. Booking, the phone flow and the video room service add their rulings here as they land.
 
 Rulings marked "Decided by: stand-in" were made while the product owner was away and are to be confirmed with him.
 
@@ -44,7 +44,7 @@ Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 
 ### CNS7. Video rooms and people are named by ids that Medora sets
 
-Decision: a video room is named `consult:<tenant id>:<consult id>` and a participant's identity is `patient:<patient id>` or `clinician:<user id>`, set by Medora in the join tokens it signs (ADR 0040). The video server's webhooks come to one address for every tenant, and the tenant comes from the room's name, so no lookup across tenants is needed. Only the consult's own patient and clinician are evidence; an interpreter or a second clinician is not, so nobody qualifies themselves by joining another clinician's consult. Callbacks for other rooms, other events or unknown tenants are answered and dropped. No names go to the video server.
+Decision: a video room is named `consult:<tenant id>:<consult id>` and a participant's identity is `patient:<patient id>` or `clinician:<user id>`, set by Medora in the join tokens it signs (ADR 0120). The video server's webhooks come to one address for every tenant, and the tenant comes from the room's name, so no lookup across tenants is needed. Only the consult's own patient and clinician are evidence; an interpreter or a second clinician is not, so nobody qualifies themselves by joining another clinician's consult. Callbacks for other rooms, other events or unknown tenants are answered and dropped. No names go to the video server.
 Why: "that clinician" must be provable from the evidence, and a server that serves every tenant must not need a privileged lookup to find one.
 Decided by: stand-in (Fable 5.2), to confirm with Vahid.
 

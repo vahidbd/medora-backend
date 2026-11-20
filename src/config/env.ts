@@ -86,7 +86,7 @@ const envSchema = z.object({
   TWILIO_EDGE: z.string().default('sydney'),
 
   /**
-   * The video server's API key and secret (ADR 0037, docs/decisions/consults.md).
+   * The video server's API key and secret (ADR 0120, docs/decisions/consults.md).
    * The secret signs its webhooks, which are the only source of video consult
    * evidence. Unset: every video webhook is refused.
    */
