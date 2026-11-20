@@ -4,7 +4,7 @@ import { CANCEL_REASONS, type CancelReason, HELD_REASONS, INTERVAL_UNITS, SUBSCR
 /** A calendar date in the subscription's time zone. */
 const calendarDate = z.iso.date();
 
-/** The reasons staff give. `clinician_declined` is recorded only by the consult's outcome (BIL21). */
+/** The reasons staff give. `clinician_declined` is recorded only when the clinical record says so (BIL21, BIL24). */
 export const STAFF_CANCEL_REASONS = ['patient_request', 'staff_decision', 'other'] as const satisfies readonly CancelReason[];
 
 export const subscriptionParams = z.object({ subscriptionId: z.uuid() });

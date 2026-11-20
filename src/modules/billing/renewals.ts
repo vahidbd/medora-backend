@@ -5,7 +5,7 @@ import type { TenantTx } from '../../db/tenant.js';
 import { forEachTenant, type Job } from '../../lib/jobs.js';
 import { safeErrorMessage } from '../../lib/redact.js';
 import { feesOf, issueInvoice } from './invoices.service.js';
-import { beginPeriod, endAtPeriodEnd, holdRenewal, lockSubscription, periodStartingOn, today } from './subscriptions.service.js';
+import { beginPeriod, cancelSubscription, endAtPeriodEnd, holdRenewal, lockSubscription, periodStartingOn, today } from './subscriptions.service.js';
 
 /**
  * Releasing billing periods (docs/decisions/billing.md BIL24). A period's
@@ -22,7 +22,9 @@ export type Clearance =
       medicineProductId: string | null;
       partnerPharmacyId: string | null;
     }
-  | { status: 'held'; reason: Exclude<HeldReason, 'no_medicine_fee'> };
+  | { status: 'held'; reason: Exclude<HeldReason, 'no_medicine_fee'> }
+  /** The clinician declined the patient for the program, or stopped the treatment. */
+  | { status: 'declined' };
 
 export interface ClearanceRequest {
   patientId: string;
@@ -43,9 +45,12 @@ export interface ClearanceSource {
 /** Until consults and orders are wired in, nothing is cleared, so nothing is charged by accident. */
 export const nothingClearsYet: ClearanceSource = { clearanceForPeriod: async () => ({ status: 'held', reason: 'other' }) };
 
-type Outcome = 'issued' | 'held' | 'not_due';
+type Outcome = 'issued' | 'held' | 'ended' | 'not_due';
 
-/** Issue a due period's invoice and start the period, or record why it waits (BIL24). */
+/**
+ * Issue a due period's invoice and start the period, or record why it waits
+ * (BIL24). A clinician's decline ends the subscription instead, charging nothing.
+ */
 export async function releaseDuePeriod(tx: TenantTx, subscriptionId: string, source: ClearanceSource): Promise<Outcome> {
   const { row, interval } = await lockSubscription(tx, subscriptionId);
   const startsOn = today(row);
@@ -55,6 +60,10 @@ export async function releaseDuePeriod(tx: TenantTx, subscriptionId: string, sou
   const [price] = await tx.db.select({ billingModel: prices.billingModel }).from(prices).where(eq(prices.id, row.priceId));
   const billingModel = price!.billingModel as BillingModel;
   const clearance = await source.clearanceForPeriod(tx, { patientId: row.patientId, programId: row.programId, subscriptionId, billingModel, periodStartsOn: startsOn, first });
+  if (clearance.status === 'declined') {
+    await cancelSubscription(tx, subscriptionId, { when: 'now', reason: 'clinician_declined' });
+    return 'ended';
+  }
   if (clearance.status === 'held') {
     await holdRenewal(tx, subscriptionId, clearance.reason);
     return 'held';

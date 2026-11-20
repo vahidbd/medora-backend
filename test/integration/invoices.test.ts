@@ -218,6 +218,14 @@ describe('releasing a billing period (BIL24)', () => {
     expect(await invoicesOf(started.subscriptionId)).toHaveLength(1);
   });
 
+  it('ends the subscription when the clinician declines, charging nothing', async () => {
+    const started = await start(await livePrice([consult, program]));
+    answers.set(started.subscriptionId, { status: 'declined' });
+    await runQuietly();
+    expect(await subscription(started.subscriptionId)).toMatchObject({ status: 'cancelled', cancelReason: 'clinician_declined', endedOn: '2027-03-10' });
+    expect((await invoicesOf(started.subscriptionId)).map((invoice: { kind: string }) => invoice.kind)).toEqual(['consult']);
+  });
+
   it('carries on past a subscription that fails, and reports it', async () => {
     const broken = await start(await livePrice());
     const fine = await start(await livePrice());
